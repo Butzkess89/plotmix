@@ -2331,6 +2331,7 @@ function IntroVideoScreen({onDone}) {
       <video
         src="/design-reference/it_s_nearly_perfect_except_th.mp4"
         autoPlay
+        muted
         playsInline
         preload="auto"
         onEnded={finish}
