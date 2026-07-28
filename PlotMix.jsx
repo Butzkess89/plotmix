@@ -1509,20 +1509,30 @@ function guessClassification(guess, card) {
   const normalizedGuess = norm(guess);
   if (!normalizedGuess) return "miss";
 
-  const isCorrect = isFullyCorrectGuess(guess, card) || isGuessPresentInMashedTitle(guess, card);
-  if (!isCorrect) return "miss";
-
-  // Correct guess — green if every guess token appears verbatim in the mashed title,
-  // yellow (partial) if the movie is correctly identified but some words aren't in the
-  // mashed title (e.g. guessing "Brokeback Mountain" when mashed title is
-  // "Brokeback to the Future" — "Mountain" isn't there, so it's yellow).
-  const mashedTokenSet = new Set(
-    normWord(card.mashedTitle || "").split(" ").filter(Boolean).map(normalizeToken)
-  );
+  const mashedTokens = normWord(card.mashedTitle || "").split(" ").filter(Boolean).map(normalizeToken);
+  const mashedTokenSet = new Set(mashedTokens);
   const guessTokens = normWord(guess).split(" ").filter(Boolean).map(normalizeToken);
-  return guessTokens.length > 0 && guessTokens.every(t => mashedTokenSet.has(t))
-    ? "match"
-    : "partial";
+
+  const isCorrect = isFullyCorrectGuess(guess, card) || isGuessPresentInMashedTitle(guess, card);
+
+  if (isCorrect) {
+    // Green if every guess token appears verbatim in the mashed title,
+    // yellow if the movie is correctly identified but some words aren't in the mashed title.
+    return guessTokens.length > 0 && guessTokens.every(t => mashedTokenSet.has(t))
+      ? "match"
+      : "partial";
+  }
+
+  // Near-miss: every guess token is within 1 edit of some mashed-title token
+  // (e.g. "reservoire" instead of "reservoir" → yellow, not red).
+  // Requires both tokens to be ≥4 chars to avoid false positives on short words.
+  if (guessTokens.length > 0 && guessTokens.every(gt =>
+    mashedTokens.some(mt => mt.length >= 4 && gt.length >= 4 && levenshtein(gt, mt) <= 1)
+  )) {
+    return "partial";
+  }
+
+  return "miss";
 }
 
 
