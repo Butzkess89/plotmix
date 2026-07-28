@@ -1438,6 +1438,17 @@ function checkGuesses(guesses, movies, aliases, mashedTitle="") {
       if(fuzzy(g,m,aliases[i])) { found[i]=true; return; }
       if(singleWordMatch(g, m, movies[1-i])) found[i]=true;
     });
+    // Multi-word guess that didn't match as a full phrase: try each word individually.
+    // Handles "drive daisy" correctly identifying both films in a pair.
+    const gWords = normWord(g).split(" ").filter(w => w.length >= 2);
+    if (gWords.length > 1) {
+      gWords.forEach(word => {
+        movies.forEach((m, i) => {
+          if (found[i]) return;
+          if (singleWordMatch(word, m, movies[1-i])) found[i] = true;
+        });
+      });
+    }
   });
   return found;
 }
@@ -1480,11 +1491,18 @@ function isMashedTitleGuess(guess, mashedTitle) {
 function isFullyCorrectGuess(guess, card) {
   const aliases = card.aliases || [[], []];
   if (isMashedTitleGuess(guess, card.mashedTitle || "")) return true;
-
-  return card.movies.some((m, i) => {
+  if (card.movies.some((m, i) => {
     if (fuzzy(guess, m, aliases[i])) return true;
     return singleWordMatch(guess, m, card.movies[1 - i]);
-  });
+  })) return true;
+  // Multi-word guess: any single word identifying a film counts as correct.
+  const gWords = normWord(guess).split(" ").filter(w => w.length >= 2);
+  if (gWords.length > 1) {
+    return gWords.some(word =>
+      card.movies.some((m, i) => singleWordMatch(word, m, card.movies[1-i]))
+    );
+  }
+  return false;
 }
 
 function guessClassification(guess, card) {
@@ -3128,6 +3146,12 @@ function HangmanTitle({card, found, guesses=[]}) {
       .filter(Boolean)
       .map(normalizeToken)
       .forEach((w) => w && typed.add(w));
+  });
+  // When a film is fully identified, add all its title words so tiles reveal
+  // even if the winning guess word doesn't appear verbatim in the mashed title.
+  card.movies.forEach((movie, i) => {
+    if (!found[i]) return;
+    normWord(movie).split(" ").filter(Boolean).map(normalizeToken).forEach((w) => w && typed.add(w));
   });
 
   function shouldReveal(charIdx) {
