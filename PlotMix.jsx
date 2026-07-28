@@ -1508,10 +1508,21 @@ function isFullyCorrectGuess(guess, card) {
 function guessClassification(guess, card) {
   const normalizedGuess = norm(guess);
   if (!normalizedGuess) return "miss";
-  // A guess is not a miss if it fully identifies either film (including aliases)
-  // or matches the mashed title words.
-  if (isFullyCorrectGuess(guess, card)) return "match";
-  return isGuessPresentInMashedTitle(guess, card) ? "match" : "miss";
+
+  const isCorrect = isFullyCorrectGuess(guess, card) || isGuessPresentInMashedTitle(guess, card);
+  if (!isCorrect) return "miss";
+
+  // Correct guess — green if every guess token appears verbatim in the mashed title,
+  // yellow (partial) if the movie is correctly identified but some words aren't in the
+  // mashed title (e.g. guessing "Brokeback Mountain" when mashed title is
+  // "Brokeback to the Future" — "Mountain" isn't there, so it's yellow).
+  const mashedTokenSet = new Set(
+    normWord(card.mashedTitle || "").split(" ").filter(Boolean).map(normalizeToken)
+  );
+  const guessTokens = normWord(guess).split(" ").filter(Boolean).map(normalizeToken);
+  return guessTokens.length > 0 && guessTokens.every(t => mashedTokenSet.has(t))
+    ? "match"
+    : "partial";
 }
 
 
@@ -3697,8 +3708,10 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete}) {
                   {guesses.map((g,i)=>{
                     const state = guessStates[i] || "miss";
                     const chipStyle = state === "match"
-                      ? {background:"#1D9D96", color:"#fff", icon:<IconCheck size={9}/>} 
-                      : {background:"#D45A5A", color:"#fff", icon:<IconXMark size={9}/>};
+                      ? {background:"#1D9D96", color:"#fff", icon:<IconCheck size={9}/>}
+                      : state === "partial"
+                        ? {background:"#E8A838", color:"#fff", icon:<IconCheck size={9}/>}
+                        : {background:"#D45A5A", color:"#fff", icon:<IconXMark size={9}/>};
                     return (
                       <span key={i} style={{display:"inline-flex",alignItems:"center",gap:5,
                         background:chipStyle.background,border:`1px solid ${T.border}`,
