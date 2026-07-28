@@ -1523,11 +1523,12 @@ function guessClassification(guess, card) {
       : "partial";
   }
 
-  // Near-miss: every guess token is within 1 edit of some mashed-title token
-  // (e.g. "reservoire" instead of "reservoir" → yellow, not red).
+  // Near-miss: every guess token is within 2 edits of some mashed-title token
+  // (e.g. "reservoire" or "rezrvoir" → yellow, not red).
   // Requires both tokens to be ≥4 chars to avoid false positives on short words.
+  // ≥3 edits away = red (too far off to be a near-miss).
   if (guessTokens.length > 0 && guessTokens.every(gt =>
-    mashedTokens.some(mt => mt.length >= 4 && gt.length >= 4 && levenshtein(gt, mt) <= 1)
+    mashedTokens.some(mt => mt.length >= 4 && gt.length >= 4 && levenshtein(gt, mt) <= 2)
   )) {
     return "partial";
   }
@@ -3158,6 +3159,7 @@ function HangmanTitle({card, found, guesses=[]}) {
   const title = card.mashedTitle || card.movies.join(" + ");
 
   // Reveal words from any non-miss guess (green or yellow), but never red.
+  // Only words the player actually typed are revealed — never auto-fill from found movies.
   const typed = new Set();
   guesses.forEach((g) => {
     const state = guessClassification(g, card);
@@ -3167,12 +3169,6 @@ function HangmanTitle({card, found, guesses=[]}) {
       .filter(Boolean)
       .map(normalizeToken)
       .forEach((w) => w && typed.add(w));
-  });
-  // When a film is fully identified, add all its title words so tiles reveal
-  // even if the winning guess word doesn't appear verbatim in the mashed title.
-  card.movies.forEach((movie, i) => {
-    if (!found[i]) return;
-    normWord(movie).split(" ").filter(Boolean).map(normalizeToken).forEach((w) => w && typed.add(w));
   });
 
   function shouldReveal(charIdx) {
