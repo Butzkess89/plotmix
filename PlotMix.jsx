@@ -1724,21 +1724,14 @@ function marathonTension(i,n) { return Math.min(1,i/Math.max(1,n*0.75)); }
 function buildShareText(mode, results, totalScore, streak) {
   const correct=results.filter(r=>isRoundSolved(r)).length;
   const skipped=results.filter(r=>r.skipped).length;
-  const failed=results.filter(r=>!r.skipped&&!isRoundSolved(r)&&!(r.found&&r.found[0]!==r.found[1])).length;
-  const rows=results.map(r=>{
-    if(r.skipped) return "⏭️";
-    if(isRoundSolved(r)) return "✅";
-    if(r.found[0]!==r.found[1]) return "❌";
-    return "❌";
-  }).join("");
+  // All non-solved, non-skipped rounds count as ❌ (including partial finds)
+  const failed=results.filter(r=>!r.skipped&&!isRoundSolved(r)).length;
   const dateLine = mode.isDaily ? `📅 ${getTodayLabel()}\n` : "";
   const bestStreak = Math.max(0, streak?.best || 0);
   const summaryLine = `${correct}✅ ${failed}❌ ${skipped}⏭️ ${bestStreak}🔥 ${totalScore.toLocaleString()}⭐`;
   return [
     `🎬 PLOTMIX ${mode.label}`,
     `${dateLine}${summaryLine}`,
-    `${rows}`,
-    `Find the mashed title.`,
   ].join("\n");
 }
 
@@ -3782,7 +3775,8 @@ function EndScreen({mode,results,totalScore,streak,onMenu,onPlayAgain}) {
   const [copied,setCopied]=useState(false);
   const correct=results.filter(r=>isRoundSolved(r)).length;
   const skippedCount=results.filter(r=>r.skipped).length;
-  const missed=results.length-correct-skippedCount-results.filter(r=>!r.skipped&&!isRoundSolved(r)&&r.found[0]!==r.found[1]).length;
+  // All non-solved, non-skipped rounds are ❌ — always sums to total round count
+  const missed=results.filter(r=>!r.skipped&&!isRoundSolved(r)).length;
   const currentStreak=streak||loadStreak();
 
   const shareText=buildShareText(mode,results,totalScore,currentStreak);
@@ -3803,15 +3797,28 @@ function EndScreen({mode,results,totalScore,streak,onMenu,onPlayAgain}) {
     {icon:<IconStar size={13}/>, bg:T.surfaceRaised, value:totalScore.toLocaleString()},
   ];
 
+  // Score percentage for character image selection
+  const correctPct = results.length > 0 ? correct / results.length : 0;
+  // TODO: replace null below with SVG paths once artwork is ready
+  // e.g. correctPct >= 0.7 ? "/images/end-great.svg" : correctPct >= 0.4 ? "/images/end-ok.svg" : "/images/end-poor.svg"
+  const characterImgSrc = null;
+
   return (
     <div style={{position:"absolute",inset:0,zIndex:700,overflowY:"auto",...CHECKER_BG,backgroundColor:T.bg,color:T.textOnDark,animation:"fadeIn 0.5s ease"}}>
       <div aria-hidden="true" style={{position:"absolute",right:6,bottom:6,width:4,height:4,borderRadius:2,background:CAPTURE_MARKER_COLOR,pointerEvents:"none",zIndex:1}} />
       <div style={{width:"min(402px, 100vw)",minHeight:"100vh",margin:"0 auto",padding:"14px 0 24px",boxSizing:"border-box"}}>
-      <div style={{width:"100%",minHeight:"calc(100vh - 38px)",background:"linear-gradient(180deg,#6C57F7 0%,#5D46F0 100%)",border:`2px solid ${T.border}`,borderRadius:20,boxShadow:T.shadowLg,padding:"36px 22px 24px",textAlign:"center",boxSizing:"border-box",display:"flex",flexDirection:"column",position:"relative"}}>
+      <div style={{width:"100%",minHeight:"calc(100vh - 38px)",backgroundColor:"#4A45EF",backgroundImage:"url('/design-reference/result-sunburst-top.svg')",backgroundRepeat:"no-repeat",backgroundPosition:"center top",backgroundSize:"100% 100%",border:`2px solid ${T.border}`,borderRadius:20,boxShadow:T.shadowLg,padding:"36px 22px 24px",textAlign:"center",boxSizing:"border-box",display:"flex",flexDirection:"column",position:"relative"}}>
 
         <div aria-hidden="true" style={{position:"absolute",right:6,bottom:6,width:4,height:4,borderRadius:2,background:CAPTURE_MARKER_COLOR,pointerEvents:"none"}} />
         <div style={{...WHITE_STICKER_TEXT,fontSize:24,marginBottom:6,textTransform:"uppercase"}}>The End</div>
-        <div style={{...YELLOW_STICKER_TEXT,fontSize:13,marginBottom:20,textTransform:"uppercase"}}>Share Your Results</div>
+        <div style={{...YELLOW_STICKER_TEXT,fontSize:13,marginBottom:16,textTransform:"uppercase"}}>Share Your Results</div>
+
+        {/* Character illustration — swap characterImgSrc once SVGs are provided */}
+        {characterImgSrc ? (
+          <div style={{display:"flex",justifyContent:"center",alignItems:"flex-end",marginBottom:16,minHeight:160}}>
+            <img src={characterImgSrc} alt="" draggable="false" style={{maxHeight:180,maxWidth:"80%",userSelect:"none"}} />
+          </div>
+        ) : <div style={{flex:1,minHeight:24}} />}
 
         {/* Stat chip row */}
         <div style={{display:"flex",justifyContent:"center",gap:8,marginBottom:20,flexWrap:"wrap"}}>
