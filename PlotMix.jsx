@@ -308,7 +308,7 @@ const MASTER_DECK = [
   },
   {
     id: 26,
-    mashedTitle: "Independent Day of the Jackal",
+    mashedTitle: "Independence Day of the Jackal",
     mashedPlot: "Aliens invade Earth and a scientist, a fighter pilot, and the U.S. president unite to fight back and save humanity. In the aftermath, a group of resentful veterans hire an assassin to kill the president, sparking a race against time to stop him.",
     movies: ["Independence Day", "The Day of the Jackal"],
     aliases: [["independence day", "id4", "independance day"], ["the day of the jackal", "day of the jackal"]],
@@ -1153,7 +1153,7 @@ const MASTER_DECK = [
 // GAME MODE CONFIG
 // 
 const GAME_MODES = [
-  { id:"daily", label:"Daily Challenge", icon:"📅", roundCount:1, description:"Every player worldwide gets the same cards today. Compare scores on the leaderboard.", tag:"TODAY", accentColor:"#a78bfa", difficultyPacing:"flat", maxGuesses:6, isDaily:true },
+  { id:"daily", label:"Daily Challenge", icon:"📅", roundCount:3, description:"Every player worldwide gets the same 3 cards today. Compare scores on the leaderboard.", tag:"TODAY", accentColor:"#a78bfa", difficultyPacing:"flat", maxGuesses:6, isDaily:true },
   { id:"standard", label:"Standard Mode", icon:"🎬", roundCount:16, description:"The full PlotMix experience with pseudo-random cards every run.", tag:"RECOMMENDED", accentColor:"#f59e0b", difficultyPacing:"flat", maxGuesses:6, isDaily:false },
   { id:"speedrun", label:"Speed Run", icon:"⏱️", timeLimit:60, roundCount:8, description:"A fast, casual session. Great for a coffee break.", tag:null, accentColor:"#60a5fa", difficultyPacing:"flat", maxGuesses:6, isDaily:false },
 ];
@@ -1239,13 +1239,32 @@ function mulberry32(seed) {
 function getDailySeed() { const d=new Date(); return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate(); }
 function shuffleRng(arr,rng) { const a=[...arr]; for(let i=a.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
 
+function moviePairKey(card) {
+  const pair = (card.movies || [])
+    .map((m) => normWord(m || "").trim())
+    .filter(Boolean)
+    .sort();
+  return pair.join("__");
+}
+
+function uniqueCardsByMoviePair(deck) {
+  const seen = new Set();
+  return deck.filter((card) => {
+    const key = moviePairKey(card);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function buildDeck(mode) {
   const { roundCount, isDaily } = mode;
-  const cap = Math.min(roundCount, MASTER_DECK.length);
-  if (isDaily) return shuffleRng(MASTER_DECK, mulberry32(getDailySeed())).slice(0,cap);
+  const sourceDeck = uniqueCardsByMoviePair(MASTER_DECK);
+  const cap = Math.min(roundCount, sourceDeck.length);
+  if (isDaily) return shuffleRng(sourceDeck, mulberry32(getDailySeed())).slice(0,cap);
   // Non-daily runs are intentionally pseudo-random across the full deck.
   const rng = mulberry32((Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0);
-  return shuffleRng(MASTER_DECK, rng).slice(0,cap);
+  return shuffleRng(sourceDeck, rng).slice(0,cap);
 }
 
 // 
@@ -1296,7 +1315,8 @@ function levenshtein(a, b) {
   return dp[b.length];
 }
 
-const STOPWORDS = new Set(["the","a","an","and","of","in","on","at","to","for","with","is","it","or","from","by","there","will"]);
+const STOPWORDS = new Set(["the","a","an","and","of","in","on","at","to","for","with","is","it","or","from","by","there","will","day","being"]);
+const GENERIC_TITLE_WORDS = new Set(["life","man","men","woman","women","world","story","time","night","home","love","boy","girl"]);
 
 function fuzzy(guess, answer, aliases = []) {
   const g = norm(guess);
@@ -1348,8 +1368,9 @@ function fuzzy(guess, answer, aliases = []) {
 function singleWordMatch(guess, thisTitle, otherTitle) {
   const g = norm(guess);
   if (!g || g.includes(" ")) return false;      // only single-word guesses
-  if (g.length < 2) return false;
+  if (g.length < 4) return false;
   if (STOPWORDS.has(g)) return false;
+  if (GENERIC_TITLE_WORDS.has(g)) return false;
 
   const thisWords = norm(thisTitle).split(" ");
   const otherWords = otherTitle ? norm(otherTitle).split(" ") : [];
@@ -1436,19 +1457,9 @@ function checkGuesses(guesses, movies, aliases, mashedTitle="") {
     movies.forEach((m,i)=>{
       if(found[i]) return;
       if(fuzzy(g,m,aliases[i])) { found[i]=true; return; }
+      if(containsEmbeddedMovieGuess(g, m, aliases[i])) { found[i]=true; return; }
       if(singleWordMatch(g, m, movies[1-i])) found[i]=true;
     });
-    // Multi-word guess that didn't match as a full phrase: try each word individually.
-    // Handles "drive daisy" correctly identifying both films in a pair.
-    const gWords = normWord(g).split(" ").filter(w => w.length >= 2);
-    if (gWords.length > 1) {
-      gWords.forEach(word => {
-        movies.forEach((m, i) => {
-          if (found[i]) return;
-          if (singleWordMatch(word, m, movies[1-i])) found[i] = true;
-        });
-      });
-    }
   });
   return found;
 }
@@ -1488,52 +1499,44 @@ function isMashedTitleGuess(guess, mashedTitle) {
   return false;
 }
 
+// Accept a film title guessed inside a longer sentence.
+// Example: "its a beautiful life of pie" should still award "Life of Pi".
+function containsEmbeddedMovieGuess(guess, title, aliases = []) {
+  const guessWords = normWord(guess).split(" ").filter(Boolean);
+  const titleWords = normWord(title).split(" ").filter(Boolean);
+  if (guessWords.length < 2 || titleWords.length < 2) return false;
+
+  const minWindow = Math.max(2, titleWords.length - 1);
+  const maxWindow = Math.min(guessWords.length, titleWords.length + 1);
+
+  for (let windowSize = minWindow; windowSize <= maxWindow; windowSize++) {
+    for (let start = 0; start + windowSize <= guessWords.length; start++) {
+      const chunk = guessWords.slice(start, start + windowSize).join(" ");
+      if (fuzzy(chunk, title, aliases)) return true;
+    }
+  }
+
+  return false;
+}
+
 function isFullyCorrectGuess(guess, card) {
   const aliases = card.aliases || [[], []];
   if (isMashedTitleGuess(guess, card.mashedTitle || "")) return true;
-  if (card.movies.some((m, i) => {
+
+  return card.movies.some((m, i) => {
     if (fuzzy(guess, m, aliases[i])) return true;
+    if (containsEmbeddedMovieGuess(guess, m, aliases[i])) return true;
     return singleWordMatch(guess, m, card.movies[1 - i]);
-  })) return true;
-  // Multi-word guess: any single word identifying a film counts as correct.
-  const gWords = normWord(guess).split(" ").filter(w => w.length >= 2);
-  if (gWords.length > 1) {
-    return gWords.some(word =>
-      card.movies.some((m, i) => singleWordMatch(word, m, card.movies[1-i]))
-    );
-  }
-  return false;
+  });
 }
 
 function guessClassification(guess, card) {
   const normalizedGuess = norm(guess);
   if (!normalizedGuess) return "miss";
-
-  const mashedTokens = normWord(card.mashedTitle || "").split(" ").filter(Boolean).map(normalizeToken);
-  const mashedTokenSet = new Set(mashedTokens);
-  const guessTokens = normWord(guess).split(" ").filter(Boolean).map(normalizeToken);
-
-  const isCorrect = isFullyCorrectGuess(guess, card) || isGuessPresentInMashedTitle(guess, card);
-
-  if (isCorrect) {
-    // Green if every guess token appears verbatim in the mashed title,
-    // yellow if the movie is correctly identified but some words aren't in the mashed title.
-    return guessTokens.length > 0 && guessTokens.every(t => mashedTokenSet.has(t))
-      ? "match"
-      : "partial";
-  }
-
-  // Near-miss: every guess token is within 2 edits of some mashed-title token
-  // (e.g. "reservoire" or "rezrvoir" → yellow, not red).
-  // Requires both tokens to be ≥4 chars to avoid false positives on short words.
-  // ≥3 edits away = red (too far off to be a near-miss).
-  if (guessTokens.length > 0 && guessTokens.every(gt =>
-    mashedTokens.some(mt => mt.length >= 4 && gt.length >= 4 && levenshtein(gt, mt) <= 2)
-  )) {
-    return "partial";
-  }
-
-  return "miss";
+  // A guess is not a miss only if it fully identifies either film (including aliases)
+  // or is one exact, meaningful mashed-title word.
+  if (isFullyCorrectGuess(guess, card)) return "match";
+  return isExactMashedTitleWordGuess(guess, card) ? "match" : "miss";
 }
 
 
@@ -1724,14 +1727,21 @@ function marathonTension(i,n) { return Math.min(1,i/Math.max(1,n*0.75)); }
 function buildShareText(mode, results, totalScore, streak) {
   const correct=results.filter(r=>isRoundSolved(r)).length;
   const skipped=results.filter(r=>r.skipped).length;
-  // All non-solved, non-skipped rounds count as ❌ (including partial finds)
-  const failed=results.filter(r=>!r.skipped&&!isRoundSolved(r)).length;
+  const failed=results.filter(r=>!r.skipped&&!isRoundSolved(r)&&!(r.found&&r.found[0]!==r.found[1])).length;
+  const rows=results.map(r=>{
+    if(r.skipped) return "⏭️";
+    if(isRoundSolved(r)) return "✅";
+    if(r.found[0]!==r.found[1]) return "❌";
+    return "❌";
+  }).join("");
   const dateLine = mode.isDaily ? `📅 ${getTodayLabel()}\n` : "";
   const bestStreak = Math.max(0, streak?.best || 0);
   const summaryLine = `${correct}✅ ${failed}❌ ${skipped}⏭️ ${bestStreak}🔥 ${totalScore.toLocaleString()}⭐`;
   return [
     `🎬 PLOTMIX ${mode.label}`,
     `${dateLine}${summaryLine}`,
+    `${rows}`,
+    `Find the mashed title.`,
   ].join("\n");
 }
 
@@ -1873,12 +1883,12 @@ const POPUP_SCORE_TEXT = {
   whiteSpace: "nowrap",
 };
 
-// Checkered "stage" texture used behind gameplay/menu screens (matches Figma exactly —
-// the flat purple fill from the file inspection was missing this overlay pattern).
 const CHECKER_BG = {
   backgroundColor: "#7462FC",
-  backgroundImage: "conic-gradient(#7462FC 90deg, #5145A7 90deg 180deg, #7462FC 180deg 270deg, #5145A7 270deg)",
-  backgroundSize: "12px 12px",
+  backgroundImage:
+    "linear-gradient(45deg, #5145A7 25%, transparent 25%, transparent 75%, #5145A7 75%, #5145A7), linear-gradient(45deg, #5145A7 25%, transparent 25%, transparent 75%, #5145A7 75%, #5145A7)",
+  backgroundSize: "10px 10px",
+  backgroundPosition: "0 0, 5px 5px",
 };
 
 const HUD_STAT_PILL = {
@@ -1910,17 +1920,17 @@ const HUD_COUNTER_TEXT = {
 const SUNBURST_BG = {
   backgroundColor: "#4A45EF",
   backgroundImage: "url('/design-reference/result-sunburst-top.svg')",
-  backgroundPosition: "center bottom",
+  backgroundPosition: "center top",
   backgroundRepeat: "no-repeat",
-  backgroundSize: "100% 140%",
+  backgroundSize: "100% 100%",
 };
 
 const WIN_RESULT_BG = {
   backgroundColor: "#4A45EF",
   backgroundImage: "url('/design-reference/result-sunburst-top.svg')",
-  backgroundPosition: "center bottom",
+  backgroundPosition: "center top",
   backgroundRepeat: "no-repeat",
-  backgroundSize: "100% 140%",
+  backgroundSize: "100% 100%",
 };
 
 const RESULT_FOOTER_BG = {
@@ -1939,6 +1949,126 @@ const BTN = {
   // Orange chip — skip / dismissive actions
   danger:    {background:T.orange, color:"#fff", border:`2px solid ${T.border}`, borderRadius:T.r, padding:"10px 18px", fontFamily:FONT_BUTTON, fontSize:T.xs, fontWeight:400, letterSpacing:"0.03em", textTransform:"uppercase", cursor:"pointer", boxShadow:T.shadowSm, textShadow:T.textShadowSticker},
 };
+
+const STICKER_ASSETS = {
+  // Timings are tuned to the provided MP4 clips:
+  // clapboard ~1s, popcorn ~2s, hint ~2s.
+  winAnimations: [
+    { src: "/stickers/popcorn.mp4", durationMs: 2100 },
+    { src: "/stickers/clapboard.mp4", durationMs: 1200 },
+  ],
+  hintAnimation: { src: "/stickers/hint.mp4", width: 150, topOffset: -30 },
+  trex: {
+    sad: "/stickers/Sad.png",
+    happy: "/stickers/Happy.png",
+    veryHappy: "/stickers/Very-happy.png",
+  },
+};
+
+// Renders a video through canvas and keys out near-black pixels so exported
+// stickers can sit cleanly over gameplay without a black rectangle.
+function ChromaKeyVideo({
+  src,
+  width,
+  height,
+  onEnded,
+  autoPlay = true,
+  loop = false,
+  threshold = 42,
+  feather = 36,
+  style,
+}) {
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const rafRef = useRef(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas || !src) return;
+
+    let disposed = false;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return;
+
+    const draw = () => {
+      if (disposed) return;
+      if (video.readyState >= 2 && !video.paused && !video.ended) {
+        const w = canvas.width;
+        const h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+        ctx.drawImage(video, 0, 0, w, h);
+        const frame = ctx.getImageData(0, 0, w, h);
+        const data = frame.data;
+
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          const greenExcess = g - Math.max(r, b);
+          if (greenExcess > threshold) {
+            const confidence = Math.max(0, Math.min(1, (greenExcess - threshold) / Math.max(1, feather)));
+
+            // Fade alpha out as pixels are closer to pure key green.
+            data[i + 3] = Math.round(data[i + 3] * (1 - confidence));
+
+            // Basic spill suppression to reduce green halos on edges.
+            const rbAvg = (r + b) * 0.5;
+            const desaturatedGreen = Math.round((g * (1 - confidence)) + (rbAvg * confidence));
+            data[i + 1] = Math.max(0, Math.min(255, desaturatedGreen));
+          }
+        }
+
+        ctx.putImageData(frame, 0, 0);
+      }
+
+      rafRef.current = requestAnimationFrame(draw);
+    };
+
+    const start = () => {
+      canvas.width = Math.max(1, Math.floor(width));
+      canvas.height = Math.max(1, Math.floor(height));
+      if (autoPlay) {
+        const p = video.play();
+        if (p && typeof p.catch === "function") p.catch(() => {});
+      }
+      if (!rafRef.current) rafRef.current = requestAnimationFrame(draw);
+    };
+
+    video.addEventListener("loadedmetadata", start);
+    if (video.readyState >= 1) start();
+
+    return () => {
+      disposed = true;
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      video.removeEventListener("loadedmetadata", start);
+    };
+  }, [src, width, height, autoPlay, threshold, feather]);
+
+  return (
+    <span style={{ display: "inline-block", width, height, ...style }}>
+      <video
+        ref={videoRef}
+        src={src}
+        muted
+        playsInline
+        loop={loop}
+        autoPlay={autoPlay}
+        onEnded={onEnded}
+        style={{ display: "none" }}
+      />
+      <canvas
+        ref={canvasRef}
+        width={Math.max(1, Math.floor(width))}
+        height={Math.max(1, Math.floor(height))}
+        style={{ display: "block", width: "100%", height: "100%" }}
+      />
+    </span>
+  );
+}
 
 
 
@@ -2304,6 +2434,8 @@ const GuessInput = forwardRef(function GuessInput({onSubmit,disabled},fref) {
       <input ref={ref} value={val} onChange={e=>setVal(e.target.value)}
         onKeyDown={e=>e.key==="Enter"&&go()} disabled={disabled}
         placeholder="Type your guess..." aria-label="Movie title guess" className="guess-input"
+        autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false}
+        inputMode="text" enterKeyHint="go"
         style={{position:"absolute",left:0,top:0,width:"100%",height:"100%",boxSizing:"border-box",background:"transparent",border:"none",padding:"10px 16px 8px",color:T.textPrimary,fontSize:14,fontFamily:FONT_DISPLAY,letterSpacing:"0.02em",textTransform:"uppercase",fontWeight:400,lineHeight:"17px",outline:"none"}}/>
     </div>
   );
@@ -2352,21 +2484,40 @@ function SkipLabelSvg() {
 
 function IntroVideoScreen({onDone}) {
   const [didFinish, setDidFinish] = useState(false);
+  const endTimerRef = useRef(null);
 
   const finish = () => {
     if (didFinish) return;
     setDidFinish(true);
+    if (endTimerRef.current) {
+      clearTimeout(endTimerRef.current);
+      endTimerRef.current = null;
+    }
     onDone();
   };
+
+  const handleLoadedMetadata = (e) => {
+    const durationSec = e.currentTarget?.duration;
+    if (!Number.isFinite(durationSec) || durationSec <= 0) return;
+    const cutoffMs = Math.max(250, Math.round((durationSec - 4) * 1000));
+    if (endTimerRef.current) clearTimeout(endTimerRef.current);
+    endTimerRef.current = setTimeout(finish, cutoffMs);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (endTimerRef.current) clearTimeout(endTimerRef.current);
+    };
+  }, []);
 
   return (
     <div style={{minHeight:"100vh",background:"#000",display:"flex",alignItems:"center",justifyContent:"center"}}>
       <video
         src="/design-reference/it_s_nearly_perfect_except_th.mp4"
         autoPlay
-        muted
         playsInline
         preload="auto"
+        onLoadedMetadata={handleLoadedMetadata}
         onEnded={finish}
         onError={finish}
         style={{display:"block",width:"100%",height:"100vh",objectFit:"cover",background:"#000"}}
@@ -3015,7 +3166,7 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
             <div style={{position:"absolute",left:"50%",top:148,transform:"translateX(-50%)"}}>
               <div style={movieChipStyle(movie1ChipLong, 332)}>{card.movies[0]}</div>
             </div>
-            <div style={{position:"absolute",left:"50%",top:175,transform:"translateX(-50%)",width:30,height:30,borderRadius:15,background:"#F6A507",border:"2px solid #1C1D21",boxShadow:"0 1px 0 #1C1D21",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:FONT_FIGMA_STICKER,fontSize:18,lineHeight:1,color:"#1C1D21"}}>+</div>
+            <div style={{position:"absolute",left:"50%",top:178,transform:"translateX(-50%)",width:30,height:30,borderRadius:15,background:"#F6A507",border:"2px solid #1C1D21",boxShadow:"0 1px 0 #1C1D21",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:FONT_FIGMA_STICKER,fontSize:18,lineHeight:1,color:"#1C1D21"}}>+</div>
             <div style={{position:"absolute",left:"50%",top:208,transform:"translateX(-50%)"}}>
               <div style={movieChipStyle(movie2ChipLong, 332)}>{card.movies[1]}</div>
             </div>
@@ -3063,8 +3214,13 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
         onClick={e => e.target === e.currentTarget && !showConnection && onNext()}>
 
         <div style={{position:"relative",width:"min(402px, 100vw)",margin:"0 auto",borderRadius:"12px 12px 0 0",overflow:"visible",boxShadow:T.shadowLg,...resultSheetBg,backgroundColor:T.bgDeep}}>
-          <div style={{padding:"36px 22px 0",minHeight:278}}>
-            <div style={{...POPUP_YELLOW_TEXT,textAlign:"center",fontSize:16.5,textTransform:"uppercase",lineHeight:1.14,letterSpacing:"0.02em",marginBottom:8}}>Time&apos;s Up!</div>
+          <div style={{padding:"36px 22px 0",minHeight:278,position:"relative"}}>
+            <div style={{position:"absolute",left:"50%",top:-22,transform:"translateX(-50%)",zIndex:2}}>
+              <IconStopwatch size={66}/>
+            </div>
+            <div style={{...POPUP_YELLOW_TEXT,textAlign:"center",fontSize:16.5,textTransform:"uppercase",lineHeight:1.14,letterSpacing:"0.02em",marginTop:20,marginBottom:10}}>
+              Time&apos;s Up!
+            </div>
             <div style={{...POPUP_PLAIN_WHITE_TEXT,textAlign:"center",fontSize:9.8,textTransform:"uppercase",lineHeight:1.26,letterSpacing:"0.01em",margin:"0 auto 44px",maxWidth:330}}>
               The clock ran out. No points for
               <br/>
@@ -3091,7 +3247,7 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
             </div>
           </div>
 
-          <div style={{height:94,marginTop:0,background:"#9381FE",borderTop:`1px solid ${T.border}`,position:"relative"}}>
+          <div style={{height:94,marginTop:0,background:"transparent",borderTop:"none",position:"relative"}}>
             <button onClick={onNext} aria-label={isLast ? "Finish" : "Next"}
               style={{position:"absolute",right:24,top:17,width:105,height:57,...BTN.primary,padding:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
               <span style={POPUP_BUTTON_TEXT}>{isLast ? "Finish" : "Next"}</span>
@@ -3132,7 +3288,7 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
             </div>
           </div>
 
-          <div style={{height:94,marginTop:0,background:"#9381FE",borderTop:`1px solid ${T.border}`,position:"relative"}}>
+          <div style={{height:94,marginTop:0,background:"transparent",borderTop:"none",position:"relative"}}>
             <button onClick={onNext} aria-label={isLast ? "Finish" : "Next"}
               style={{position:"absolute",right:24,top:17,width:105,height:57,...BTN.primary,padding:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
               <span style={POPUP_BUTTON_TEXT}>{isLast ? "Finish" : "Next"}</span>
@@ -3151,17 +3307,24 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
 function HangmanTitle({card, found, guesses=[]}) {
   const title = card.mashedTitle || card.movies.join(" + ");
 
-  // Reveal words from any non-miss guess (green or yellow), but never red.
-  // Only words the player actually typed are revealed — never auto-fill from found movies.
+  // Reveal any title word typed in any guess, even if the full guess is wrong.
+  const titleTokenSet = new Set(
+    normWord(title)
+      .split(" ")
+      .filter(Boolean)
+      .map(normalizeToken)
+      .filter(Boolean)
+  );
+
   const typed = new Set();
   guesses.forEach((g) => {
-    const state = guessClassification(g, card);
-    if (state === "miss") return;
     normWord(g)
       .split(" ")
       .filter(Boolean)
       .map(normalizeToken)
-      .forEach((w) => w && typed.add(w));
+      .forEach((w) => {
+        if (w && titleTokenSet.has(w)) typed.add(w);
+      });
   });
 
   function shouldReveal(charIdx) {
@@ -3230,7 +3393,14 @@ function HangmanTitle({card, found, guesses=[]}) {
 // Buttons stay visible but gray out once purchased, matching Figma exactly
 // (Figma nodes 2:118616 → 2:133413 → 2:148210, the three "Hints — Revealed N" states).
 // 
-function HintsModal({card, hintsRevealed, guessesLeft, onReveal, onClose}) {
+function HintsModal({card, hintsRevealed, guessesLeft, onReveal, onClose, hintAnimationSrc}) {
+  const [showHintAnim, setShowHintAnim] = useState(true);
+  const hintAnim = typeof hintAnimationSrc === "string"
+    ? { src: hintAnimationSrc, width: 140, topOffset: -30 }
+    : (hintAnimationSrc || null);
+  useEffect(() => {
+    setShowHintAnim(true);
+  }, [hintAnim?.src]);
   const hd = card.hintData;
   const yearGenreRevealed = hintsRevealed.includes(HINT_TIERS[0].id);
   const actorsRevealed = hintsRevealed.includes(HINT_TIERS[1].id);
@@ -3255,9 +3425,22 @@ function HintsModal({card, hintsRevealed, guessesLeft, onReveal, onClose}) {
   };
 
   return (
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:390,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:390,display:"flex",alignItems:"center",justifyContent:"center",padding:"36px 16px 16px"}}
       onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div style={{width:"100%",maxWidth:400,maxHeight:"85vh",overflowY:"auto",background:T.bgDeep,border:`2px solid ${T.border}`,borderRadius:T.rXl,boxShadow:T.shadowLg,padding:"22px 20px 24px",animation:"slideUp 0.3s ease",position:"relative"}}>
+      <div style={{width:"100%",maxWidth:400,maxHeight:"85vh",overflowY:"auto",overflowX:"visible",background:T.bgDeep,border:`2px solid ${T.border}`,borderRadius:T.rXl,boxShadow:T.shadowLg,padding:"66px 20px 24px",animation:"slideUp 0.3s ease",position:"relative"}}>
+        {hintAnim?.src && showHintAnim && (
+          <div style={{position:"absolute",top:hintAnim.topOffset ?? -58,left:"50%",transform:"translateX(-50%)",zIndex:3,pointerEvents:"none"}}>
+            <ChromaKeyVideo
+              src={hintAnim.src}
+              autoPlay={true}
+              loop={false}
+              width={hintAnim.width ?? 140}
+              height={hintAnim.width ?? 140}
+              onEnded={() => setShowHintAnim(false)}
+              style={{filter:"drop-shadow(0 8px 16px rgba(0,0,0,0.35))"}}
+            />
+          </div>
+        )}
         <button onClick={onClose} aria-label="Close hints" style={{position:"absolute",top:14,right:14,width:30,height:30,background:"#4845F3",border:`2px solid ${T.border}`,borderRadius:7,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
           <IconX size={11}/>
         </button>
@@ -3302,12 +3485,21 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete}) {
   const [timeLeft,setTimeLeft]=useState(initialState?.timeLeft ?? (mode.timeLimit||0));
   const [timedOut,setTimedOut]=useState(false);
   const [showHints,setShowHints]=useState(false);
+  const [showWinAnimation,setShowWinAnimation]=useState(false);
+  const [winAnimationSrc,setWinAnimationSrc]=useState(null);
+  const [winAnimationDurationMs,setWinAnimationDurationMs]=useState(2200);
+  const [winAnimationEnded,setWinAnimationEnded]=useState(false);
+  const winAnimationTimerRef=useRef(null);
+  const winAnimationLockRef=useRef(false);
+  const winAnimationStartedAtRef=useRef(0);
   const guessInputRef=useRef(null);
   const [results,setResults]=useState(initialState?.results||[]);
   const [totalScore,setTotalScore]=useState(initialState?.totalScore||0);
   const [streak,setStreak]=useState(()=>loadStreak());
   const [perfectSolveStreak,setPerfectSolveStreak]=useState(0);
   const prevFoundRef=useRef([false,false]);
+  const speedrunDeadlineRef=useRef(null);
+  const speedrunRafRef=useRef(null);
 
   useEffect(() => {
     const invalidDeck = !Array.isArray(deck) || deck.length !== mode.roundCount;
@@ -3427,11 +3619,49 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete}) {
 
   useEffect(()=>{
     if(!mode.timeLimit) return;
-    if(phase!=="playing"||both||lives<=0) return;
-    if(timeLeft<=0){ setTimedOut(true); setPhase("result"); return; }
-    const t=setTimeout(()=>setTimeLeft(v=>v-1),1000);
-    return ()=>clearTimeout(t);
-  },[timeLeft,phase,both,lives,mode.timeLimit]);
+
+    if(speedrunRafRef.current){
+      cancelAnimationFrame(speedrunRafRef.current);
+      speedrunRafRef.current = null;
+    }
+
+    if(phase!=="playing" || both || lives<=0){
+      speedrunDeadlineRef.current = null;
+      return;
+    }
+
+    // Use wall-clock time so timer behavior stays correct even if setTimeout is altered.
+    if(speedrunDeadlineRef.current===null){
+      speedrunDeadlineRef.current = Date.now() + Math.max(0, timeLeft) * 1000;
+    }
+
+    const tick = () => {
+      const deadline = speedrunDeadlineRef.current;
+      if(deadline===null) return;
+
+      const msLeft = Math.max(0, deadline - Date.now());
+      const nextSeconds = Math.ceil(msLeft / 1000);
+
+      setTimeLeft(prev => (prev===nextSeconds ? prev : nextSeconds));
+
+      if(nextSeconds<=0){
+        speedrunDeadlineRef.current = null;
+        setTimedOut(true);
+        setPhase("result");
+        return;
+      }
+
+      speedrunRafRef.current = requestAnimationFrame(tick);
+    };
+
+    speedrunRafRef.current = requestAnimationFrame(tick);
+    return ()=>{
+      if(speedrunRafRef.current){
+        cancelAnimationFrame(speedrunRafRef.current);
+        speedrunRafRef.current = null;
+      }
+    };
+  },[phase,both,lives,mode.timeLimit,timeLeft,cardIdx]);
 
   const goToCard=(target)=>{
     setCardStates(prev=>({...prev,[activeIdx]:{guesses,hintsRevealed}}));
@@ -3444,15 +3674,18 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete}) {
   };
   const canRewind = activeIdx>0;
   const showRewindButton = activeIdx>0;
+  const skipEnabled = !mode.isDaily;
   const footerBackgroundSrc = showRewindButton
     ? (hintCount===0 ? "/design-reference/Group%2097.svg" : hintCount===1 ? "/design-reference/Group%20102.svg" : "/design-reference/Group%20103.svg")
     : (hintCount===0 ? "/design-reference/Group%2098.svg" : hintCount===1 ? "/design-reference/Group%20100.svg" : "/design-reference/Group%20101.svg");
   const hintButtonLeft = showRewindButton ? 106.5 : 18.5;
   const guessButtonLeft = showRewindButton ? 180.5 : 103.5;
-  const guessButtonWidth = showRewindButton ? 134 : 192;
+  const guessButtonWidth = skipEnabled ? (showRewindButton ? 134 : 192) : (showRewindButton ? 206 : 284);
   const skipButtonLeft = showRewindButton ? 322.5 : 315.5;
   const canReturnToCurrent = isRewound && activeIdx!==cardIdx;
-  const canOpenSkipConfirm = !canReturnToCurrent && !viewOnly && !showSkipConfirm && !showHints;
+  const canOpenSkipConfirm = skipEnabled && !canReturnToCurrent && !viewOnly && !showSkipConfirm && !showHints;
+  const footerX = (px) => `${(px / 402) * 100}%`;
+  const footerY = (px) => `${(px / 94) * 100}%`;
   const handleFooterRightAction=()=>{
     if(canReturnToCurrent){
       goToCard(cardIdx);
@@ -3529,6 +3762,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete}) {
     setCardIdx(idx=>idx+1);
     setGuesses([]); setHintsRevealed([]);
     setTimeLeft(mode.timeLimit||0); setTimedOut(false);
+    speedrunDeadlineRef.current = null;
     setSkipped(false); setPhase("playing");
   };
 
@@ -3548,10 +3782,70 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete}) {
     setCardIdx(idx=>idx+1);
     setGuesses([]); setHintsRevealed([]);
     setTimeLeft(mode.timeLimit||0); setTimedOut(false);
+    speedrunDeadlineRef.current = null;
     setSkipped(false); setPhase("playing");
   };
 
   const roundScore=calcScore(both,currentReward);
+
+  useEffect(() => {
+    return () => {
+      if (winAnimationTimerRef.current) {
+        clearTimeout(winAnimationTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (phase !== "result" || !both || skipped || timedOut) {
+      winAnimationLockRef.current = false;
+      setWinAnimationEnded(false);
+      return;
+    }
+    if (winAnimationLockRef.current) return;
+
+    winAnimationLockRef.current = true;
+    const perfectCinematicSolve = guesses.length === 1 && hintCount === 0;
+    const pool = STICKER_ASSETS.winAnimations.filter(Boolean);
+    const pick = pool.length
+      ? (pool.find((anim) => {
+          const src = (typeof anim === "string" ? anim : anim?.src) || "";
+          return perfectCinematicSolve
+            ? src.toLowerCase().includes("clapboard")
+            : src.toLowerCase().includes("popcorn");
+        }) || pool[0])
+      : null;
+    const pickedSrc = typeof pick === "string" ? pick : (pick?.src || null);
+    const pickedDuration = typeof pick === "object" && typeof pick?.durationMs === "number"
+      ? pick.durationMs
+      : 2200;
+    setWinAnimationSrc(pickedSrc);
+    setWinAnimationDurationMs(pickedDuration);
+    setWinAnimationEnded(false);
+    winAnimationStartedAtRef.current = Date.now();
+    setShowWinAnimation(true);
+
+    // Safety fallback in case a device never fires video onEnded.
+    if (winAnimationTimerRef.current) clearTimeout(winAnimationTimerRef.current);
+    winAnimationTimerRef.current = setTimeout(() => {
+      setWinAnimationEnded(true);
+    }, Math.max(3000, pickedDuration + 1400));
+
+  }, [phase, both, skipped, timedOut, guesses.length, hintCount]);
+
+  useEffect(() => {
+    if (!showWinAnimation || !winAnimationEnded) return;
+    const MIN_RESULT_VISIBLE_MS = 4200;
+    const elapsed = Date.now() - winAnimationStartedAtRef.current;
+    const holdMore = Math.max(0, MIN_RESULT_VISIBLE_MS - elapsed);
+
+    if (winAnimationTimerRef.current) clearTimeout(winAnimationTimerRef.current);
+    winAnimationTimerRef.current = setTimeout(() => {
+      setShowWinAnimation(false);
+      winAnimationLockRef.current = false;
+      setWinAnimationEnded(false);
+    }, holdMore);
+  }, [showWinAnimation, winAnimationEnded]);
 
   useEffect(() => {
     const stateTag = mode
@@ -3601,6 +3895,25 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete}) {
         <img src="/design-reference/Exit.svg" alt="" aria-hidden="true" draggable="false"
           style={{display:"block",width:"100%",height:"100%",pointerEvents:"none",userSelect:"none"}}/>
       </button>
+
+      {/* Win celebration sticker overlay (full-screen, above all UI). */}
+      {showWinAnimation && (
+        <div style={{position:"fixed",inset:0,zIndex:950,display:"flex",alignItems:"flex-start",justifyContent:"center",paddingTop:"7vh",background:"transparent",pointerEvents:"none"}}>
+          {winAnimationSrc ? (
+            <ChromaKeyVideo
+              src={winAnimationSrc}
+              autoPlay={true}
+              loop={false}
+              width={230}
+              height={230}
+              onEnded={() => setWinAnimationEnded(true)}
+              style={{filter:"drop-shadow(0 18px 34px rgba(0,0,0,0.45))",animation:`winStickerPop ${Math.max(700, Math.round(winAnimationDurationMs * 0.7))}ms ease-out both`}}
+            />
+          ) : (
+            <div style={{...WHITE_STICKER_TEXT,fontSize:22}}>Nailed It!</div>
+          )}
+        </div>
+      )}
 
       {/* Out of lives — run is over, Home is the only exit */}
       {lives<=0&&phase!=="result"&&(()=>{
@@ -3669,7 +3982,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete}) {
                 <div style={{position:"absolute",top:-10,right:20}}>
                   <DiffBadge level={card.difficulty} reason={card.difficultyReason}/>
                 </div>
-                <p style={{margin:"6px 0 0",fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:24,lineHeight:1.5,color:T.textPrimary}}>
+                <p style={{margin:"6px 0 0",fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:"clamp(18px, 5.9vw, 24px)",lineHeight:1.5,color:T.textPrimary}}>
                   {card.mashedPlot}
                 </p>
                 {viewOnly&&(()=>{
@@ -3707,10 +4020,8 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete}) {
                   {guesses.map((g,i)=>{
                     const state = guessStates[i] || "miss";
                     const chipStyle = state === "match"
-                      ? {background:"#1D9D96", color:"#fff", icon:<IconCheck size={9}/>}
-                      : state === "partial"
-                        ? {background:"#E8A838", color:"#fff", icon:<IconCheck size={9}/>}
-                        : {background:"#D45A5A", color:"#fff", icon:<IconXMark size={9}/>};
+                      ? {background:"#1D9D96", color:"#fff", icon:<IconCheck size={9}/>} 
+                      : {background:"#D45A5A", color:"#fff", icon:<IconXMark size={9}/>};
                     return (
                       <span key={i} style={{display:"inline-flex",alignItems:"center",gap:5,
                         background:chipStyle.background,border:`1px solid ${T.border}`,
@@ -3727,39 +4038,58 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete}) {
               {/*  HINTS MODAL  */}
               {showHints&&!both&&!viewOnly&&(
                 <HintsModal card={card} hintsRevealed={hintsRevealed} guessesLeft={guessesRemainingForCard}
-                  onReveal={handleRevealHint} onClose={()=>setShowHints(false)}/>
+                  onReveal={handleRevealHint} onClose={()=>setShowHints(false)} hintAnimationSrc={STICKER_ASSETS.hintAnimation}/>
               )}
 
         </div>
 
         {/*  FIXED BOTTOM BUTTON BAR — hints / guess / skip  */}
         {!both&&(
-          <div style={{position:"fixed",bottom:0,left:0,right:0,display:"flex",alignItems:"flex-end",justifyContent:"center",maxWidth:402,margin:"0 auto",zIndex:60,boxSizing:"border-box"}}>
-            <div style={{position:"relative",width:402,height:94}}>
+          <div style={{position:"fixed",bottom:0,left:0,right:0,display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:60,boxSizing:"border-box",padding:"0 max(8px, env(safe-area-inset-left)) max(env(safe-area-inset-bottom), 0px) max(8px, env(safe-area-inset-right))"}}>
+            <div style={{position:"relative",width:"100%",maxWidth:402,aspectRatio:"402 / 94"}}>
               <img src={footerBackgroundSrc} alt="" aria-hidden="true" draggable="false"
                 style={{position:"absolute",inset:0,width:"100%",height:"100%",display:"block",pointerEvents:"none",userSelect:"none"}}/>
+
+              {!skipEnabled && !canReturnToCurrent && (
+                <div
+                  aria-hidden="true"
+                  style={{
+                    position:"absolute",
+                    left:footerX(skipButtonLeft - 2),
+                    top:footerY(12),
+                    width:footerX(72),
+                    height:footerY(74),
+                    background:"#8f7bfd",
+                    borderRadius:12,
+                    boxShadow:"inset 0 0 0 1px rgba(0,0,0,0.14)",
+                    pointerEvents:"none",
+                  }}
+                />
+              )}
 
               {showRewindButton&&(
                 <button aria-label="Rewind to previous card" onClick={()=>canRewind&&goToCard(activeIdx-1)}
                   disabled={!canRewind||showSkipConfirm||showHints}
-                  style={{position:"absolute",left:15,top:16,width:84,height:66,background:"transparent",border:"none",padding:0,cursor:canRewind?"pointer":"not-allowed"}}/>
+                  style={{position:"absolute",left:footerX(15),top:footerY(16),width:footerX(84),height:footerY(66),background:"transparent",border:"none",padding:0,cursor:canRewind?"pointer":"not-allowed"}}/>
               )}
 
               <button aria-label={viewOnly?"Hints unavailable in view-only":"Open hints"} onClick={()=>!viewOnly&&setShowHints(true)} disabled={viewOnly}
-                style={{position:"absolute",left:hintButtonLeft,top:16,width:65,height:66,background:"transparent",border:"none",padding:0,cursor:viewOnly?"not-allowed":"pointer"}}/>
+                style={{position:"absolute",left:footerX(hintButtonLeft),top:footerY(16),width:footerX(65),height:footerY(66),background:"transparent",border:"none",padding:0,cursor:viewOnly?"not-allowed":"pointer"}}/>
 
               <button aria-label="Submit guess" onClick={()=>guessInputRef.current?.submit()} disabled={cardLost}
-                style={{position:"absolute",left:guessButtonLeft,top:18,width:guessButtonWidth,height:64,background:"transparent",border:"none",padding:0,cursor:cardLost?"not-allowed":"pointer"}}/>
+                style={{position:"absolute",left:footerX(guessButtonLeft),top:footerY(18),width:footerX(guessButtonWidth),height:footerY(64),background:"transparent",border:"none",padding:0,cursor:cardLost?"not-allowed":"pointer"}}/>
 
               {cardLost&&(
                 <div aria-hidden="true"
-                  style={{position:"absolute",left:guessButtonLeft+1,top:19,width:guessButtonWidth-2,height:60,background:"rgba(0,0,0,0.2)",borderRadius:9}}/>
+                  style={{position:"absolute",left:footerX(guessButtonLeft+1),top:footerY(19),width:footerX(guessButtonWidth-2),height:footerY(60),background:"rgba(0,0,0,0.2)",borderRadius:9}}/>
               )}
 
-              <button aria-label={canReturnToCurrent?"Return to current card":"Skip card"}
-                onClick={handleFooterRightAction}
-                disabled={!canReturnToCurrent&&!canOpenSkipConfirm}
-                style={{position:"absolute",left:skipButtonLeft,top:16,width:65,height:66,background:"transparent",border:"none",padding:0,cursor:(!canReturnToCurrent&&!canOpenSkipConfirm)?"not-allowed":"pointer"}}/>
+              {(skipEnabled || canReturnToCurrent) && (
+                <button aria-label={canReturnToCurrent?"Return to current card":"Skip card"}
+                  onClick={handleFooterRightAction}
+                  disabled={!canReturnToCurrent&&!canOpenSkipConfirm}
+                  style={{position:"absolute",left:footerX(skipButtonLeft),top:footerY(16),width:footerX(65),height:footerY(66),background:"transparent",border:"none",padding:0,cursor:(!canReturnToCurrent&&!canOpenSkipConfirm)?"not-allowed":"pointer"}}/>
+              )}
             </div>
           </div>
         )}
@@ -3775,8 +4105,7 @@ function EndScreen({mode,results,totalScore,streak,onMenu,onPlayAgain}) {
   const [copied,setCopied]=useState(false);
   const correct=results.filter(r=>isRoundSolved(r)).length;
   const skippedCount=results.filter(r=>r.skipped).length;
-  // All non-solved, non-skipped rounds are ❌ — always sums to total round count
-  const missed=results.filter(r=>!r.skipped&&!isRoundSolved(r)).length;
+  const missed=results.length-correct-skippedCount-results.filter(r=>!r.skipped&&!isRoundSolved(r)&&r.found[0]!==r.found[1]).length;
   const currentStreak=streak||loadStreak();
 
   const shareText=buildShareText(mode,results,totalScore,currentStreak);
@@ -3796,29 +4125,36 @@ function EndScreen({mode,results,totalScore,streak,onMenu,onPlayAgain}) {
     {icon:<span style={{fontSize:13,lineHeight:1,display:"inline-block",transform:"translateY(0.5px)"}}>🔥</span>, bg:"linear-gradient(135deg,#FF4A18,#FFCB2E,#FCEF25)", value:currentStreak.best},
     {icon:<IconStar size={13}/>, bg:T.surfaceRaised, value:totalScore.toLocaleString()},
   ];
-
-  // Score percentage for character image selection
-  const correctPct = results.length > 0 ? correct / results.length : 0;
-  // TODO: replace null below with SVG paths once artwork is ready
-  // e.g. correctPct >= 0.7 ? "/images/end-great.svg" : correctPct >= 0.4 ? "/images/end-ok.svg" : "/images/end-poor.svg"
-  const characterImgSrc = null;
+  const totalCards = Math.max(1, results.length);
+  const correctRatio = correct / totalCards;
+  const trexMood = correctRatio >= 0.9
+    ? "veryHappy"
+    : (correctRatio >= 0.5 ? "happy" : "sad");
+  const trexSrc = STICKER_ASSETS.trex[trexMood];
+  const trexMotion = trexMood === "veryHappy"
+    ? "trexBounce 1.25s ease-in-out infinite"
+    : trexMood === "sad"
+      ? "trexSway 2.2s ease-in-out infinite"
+      : "trexFloat 2.6s ease-in-out infinite";
 
   return (
     <div style={{position:"absolute",inset:0,zIndex:700,overflowY:"auto",...CHECKER_BG,backgroundColor:T.bg,color:T.textOnDark,animation:"fadeIn 0.5s ease"}}>
       <div aria-hidden="true" style={{position:"absolute",right:6,bottom:6,width:4,height:4,borderRadius:2,background:CAPTURE_MARKER_COLOR,pointerEvents:"none",zIndex:1}} />
       <div style={{width:"min(402px, 100vw)",minHeight:"100vh",margin:"0 auto",padding:"14px 0 24px",boxSizing:"border-box"}}>
-      <div style={{width:"100%",minHeight:"calc(100vh - 38px)",backgroundColor:"#4A45EF",backgroundImage:"url('/design-reference/result-sunburst-top.svg')",backgroundRepeat:"no-repeat",backgroundPosition:"center top",backgroundSize:"100% 100%",border:`2px solid ${T.border}`,borderRadius:20,boxShadow:T.shadowLg,padding:"36px 22px 24px",textAlign:"center",boxSizing:"border-box",display:"flex",flexDirection:"column",position:"relative"}}>
+      <div style={{width:"100%",minHeight:"calc(100vh - 38px)",background:"linear-gradient(180deg,#6C57F7 0%,#5D46F0 100%)",border:`2px solid ${T.border}`,borderRadius:20,boxShadow:T.shadowLg,padding:"36px 22px 24px",textAlign:"center",boxSizing:"border-box",display:"flex",flexDirection:"column",position:"relative"}}>
 
         <div aria-hidden="true" style={{position:"absolute",right:6,bottom:6,width:4,height:4,borderRadius:2,background:CAPTURE_MARKER_COLOR,pointerEvents:"none"}} />
         <div style={{...WHITE_STICKER_TEXT,fontSize:24,marginBottom:6,textTransform:"uppercase"}}>The End</div>
-        <div style={{...YELLOW_STICKER_TEXT,fontSize:13,marginBottom:16,textTransform:"uppercase"}}>Share Your Results</div>
+        <div style={{...YELLOW_STICKER_TEXT,fontSize:13,marginBottom:20,textTransform:"uppercase"}}>Share Your Results</div>
 
-        {/* Character illustration — swap characterImgSrc once SVGs are provided */}
-        {characterImgSrc ? (
-          <div style={{display:"flex",justifyContent:"center",alignItems:"flex-end",marginBottom:16,minHeight:160}}>
-            <img src={characterImgSrc} alt="" draggable="false" style={{maxHeight:180,maxWidth:"80%",userSelect:"none"}} />
-          </div>
-        ) : <div style={{flex:1,minHeight:24}} />}
+        <div style={{display:"flex",justifyContent:"center",marginBottom:18,minHeight:124,alignItems:"center"}}>
+          <img
+            src={trexSrc}
+            alt="Trex result sticker"
+            onError={(e)=>{ e.currentTarget.style.display = "none"; }}
+            style={{display:"block",maxWidth:"min(84vw, 260px)",maxHeight:152,objectFit:"contain",filter:"drop-shadow(0 10px 16px rgba(0,0,0,0.35))",animation:trexMotion,transformOrigin:"50% 85%"}}
+          />
+        </div>
 
         {/* Stat chip row */}
         <div style={{display:"flex",justifyContent:"center",gap:8,marginBottom:20,flexWrap:"wrap"}}>
@@ -3997,6 +4333,10 @@ function PlotMixApp() {
         @keyframes slideUp { from{opacity:0;transform:translateY(20px)}  to{opacity:1;transform:translateY(0)} }
         @keyframes pulse   { 0%,100%{opacity:1} 50%{opacity:0.4} }
         @keyframes titlePop{ 0%{opacity:0;transform:scale(0.75)} 60%{transform:scale(1.06)} 100%{opacity:1;transform:scale(1)} }
+        @keyframes winStickerPop { 0%{opacity:0;transform:scale(0.72)} 30%{opacity:1;transform:scale(1.06)} 100%{opacity:1;transform:scale(1)} }
+        @keyframes trexBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+        @keyframes trexSway { 0%,100%{transform:rotate(0deg)} 25%{transform:rotate(-3deg)} 75%{transform:rotate(3deg)} }
+        @keyframes trexFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
         .pmtc { display:inline-block !important; width:32px !important; height:20px !important; min-width:32px !important; min-height:20px !important; border-radius:5px !important; flex-shrink:0 !important; vertical-align:middle !important; }
       `}</style>
       {screen==="intro"&&<IntroVideoScreen onDone={()=>setScreen(hasOnboarded()?"menu":"onboarding")}/>}
