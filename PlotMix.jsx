@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle, useId } from "react";
+import lottie from "lottie-web";
 
 // 
 // MASTER DECK
@@ -315,7 +316,7 @@ const MASTER_DECK = [
     hints: ["One is a Roland Emmerich summer blockbuster; the other a tense 1970s political thriller.", "Both films feature elaborate plans to destroy American leadership.", "The word 'Day' is shared \u2014 one of celebration, one of assassination."],
     difficulty: "Hard",
     difficultyReason: "The Day of the Jackal is a classic that younger players may not know",
-    connection: "Independence Day and The Day of the Jackal are both films about coordinated attacks on the American president \u2014 one from outer space, one from a lone professional assassin. The scale couldn't be more different.",
+    connection: "Both are last-chance day stories: one man relives the same day until he changes himself, while the other survives one catastrophic day that changes the world.",
     hintData: {"films": [{"year": 1996, "genre": "Sci-Fi Action", "actors": ["Will Smith", "Bill Pullman"]}, {"year": 1973, "genre": "Political Thriller", "actors": ["Edward Fox", "Michel Lonsdale"]}]},
   },
   {
@@ -884,7 +885,7 @@ const MASTER_DECK = [
   },
   {
     id: 74,
-    mashedTitle: "The Devil Wears Prada and Prejudice",
+    mashedTitle: "The Devil Wears Pride and Prejudice",
     mashedPlot: "A sharp young woman from a poor early-1800s family takes a grueling job at a prestigious fashion house in London to help secure her sisters' futures, and finds herself slowly falling for the cold, arrogant editor who runs it despite every instinct telling her not to.",
     movies: ["The Devil Wears Prada", "Pride and Prejudice"],
     aliases: [["Devil Wears Prada"], ["Pride and Prejudice 2005", "Pride & Prejudice"]],
@@ -1077,7 +1078,7 @@ const MASTER_DECK = [
   {
     id: 90,
     mashedTitle: "Goodfellowship of the Ring",
-    mashedPlot: "A street kid seduced by the glamour of organized crime is inducted into a brotherhood that stretches back thousands of years, operates by an ancient and merciless code, and meets in a mountain hall so deep underground that nobody outside has ever heard of it.",
+    mashedPlot: "A young New Yorker is seduced into the glamorous, violent world of organized crime, inside a mafia crew that promises power, wealth, and belonging. But when a cursed ring must be smuggled across a war-torn realm, absolute loyalty and sacrifice are the only options.",
     movies: ["Goodfellas", "The Lord of the Rings: The Fellowship of the Ring"],
     aliases: [["Goodfellas Film"], ["Fellowship of the Ring", "Lord of the Rings Fellowship", "LOTR Fellowship"]],
     hints: ["One is Martin Scorsese's 1990 mob epic. The other is Peter Jackson's 2001 fantasy epic.", "One stars Ray Liotta, Joe Pesci, and Robert De Niro. The other stars Elijah Wood, Ian McKellen, and Viggo Mortensen.", "The New York mob meets Middle Earth — Fellas and Fellowship share a root."],
@@ -1153,10 +1154,115 @@ const MASTER_DECK = [
 // GAME MODE CONFIG
 // 
 const GAME_MODES = [
-  { id:"daily", label:"Daily Challenge", icon:"📅", roundCount:3, description:"Every player worldwide gets the same 3 cards today. Compare scores on the leaderboard.", tag:"TODAY", accentColor:"#a78bfa", difficultyPacing:"flat", maxGuesses:6, isDaily:true },
-  { id:"standard", label:"Standard Mode", icon:"🎬", roundCount:16, description:"The full PlotMix experience with pseudo-random cards every run.", tag:"RECOMMENDED", accentColor:"#f59e0b", difficultyPacing:"flat", maxGuesses:6, isDaily:false },
+  { id:"daily", label:"Daily Challenge", icon:"📅", roundCount:1, description:"A single daily card that resets at your local midnight.", tag:"TODAY", accentColor:"#a78bfa", difficultyPacing:"flat", maxGuesses:6, isDaily:true },
+  { id:"standard", label:"Standard Mode", icon:"🎬", roundCount:10, description:"The full PlotMix experience with pseudo-random cards every run.", tag:"RECOMMENDED", accentColor:"#f59e0b", difficultyPacing:"flat", maxGuesses:6, isDaily:false },
   { id:"speedrun", label:"Speed Run", icon:"⏱️", timeLimit:60, roundCount:8, description:"A fast, casual session. Great for a coffee break.", tag:null, accentColor:"#60a5fa", difficultyPacing:"flat", maxGuesses:6, isDaily:false },
 ];
+
+const TRANSITION_FAMILIES = {
+  punchy: {
+    cardIn: "cardInPunchy 0.38s cubic-bezier(.21,1.03,.35,1)",
+    cardOut: "cardOutPunchy 0.2s ease-in forwards",
+    popupSheetIn: "popupSheetPunchy 0.42s cubic-bezier(.17,.9,.32,1.15)",
+    popupBackdropIn: "popupBackdropIn 0.26s ease-out",
+    hintIn: "vaultDoorIn 0.36s cubic-bezier(.18,.87,.33,1)",
+    missShake: "cameraShakePunchy 0.34s ease",
+  },
+  dreamy: {
+    cardIn: "cardInDreamy 0.5s cubic-bezier(.2,.7,.25,1)",
+    cardOut: "cardOutDreamy 0.24s ease-in forwards",
+    popupSheetIn: "popupSheetDreamy 0.5s cubic-bezier(.2,.82,.26,1)",
+    popupBackdropIn: "popupBackdropIn 0.3s ease-out",
+    hintIn: "vaultDoorIn 0.42s cubic-bezier(.18,.87,.33,1)",
+    missShake: "cameraShakeDreamy 0.4s ease",
+  },
+  retro: {
+    cardIn: "cardInRetro 0.46s steps(5, end)",
+    cardOut: "cardOutRetro 0.22s steps(3, end) forwards",
+    popupSheetIn: "popupSheetRetro 0.46s steps(4, end)",
+    popupBackdropIn: "popupBackdropIn 0.26s ease-out",
+    hintIn: "vaultDoorIn 0.36s cubic-bezier(.18,.87,.33,1)",
+    missShake: "cameraShakeRetro 0.26s steps(4, end)",
+  },
+  thriller: {
+    cardIn: "cardInThriller 0.42s cubic-bezier(.18,.9,.35,1)",
+    cardOut: "cardOutThriller 0.2s ease-in forwards",
+    popupSheetIn: "popupSheetThriller 0.4s cubic-bezier(.18,.93,.3,1)",
+    popupBackdropIn: "popupBackdropIn 0.24s ease-out",
+    hintIn: "vaultDoorIn 0.34s cubic-bezier(.18,.87,.33,1)",
+    missShake: "cameraShakeThriller 0.3s ease",
+  },
+};
+
+const TRANSITION_FAMILY_ORDER = ["punchy", "dreamy", "retro", "thriller"];
+
+function pickTransitionFamily(card, cardIdx) {
+  const difficulty = (card?.difficulty || "Medium").toLowerCase();
+  const baseByDifficulty = {
+    easy: "dreamy",
+    medium: "punchy",
+    hard: "thriller",
+  };
+  const baseFamily = baseByDifficulty[difficulty] || "punchy";
+  const offset = TRANSITION_FAMILY_ORDER.indexOf(baseFamily);
+  const familyName = TRANSITION_FAMILY_ORDER[(Math.max(0, offset) + (cardIdx % TRANSITION_FAMILY_ORDER.length)) % TRANSITION_FAMILY_ORDER.length];
+  const preset = TRANSITION_FAMILIES[familyName] || TRANSITION_FAMILIES.punchy;
+  return { name: familyName, ...preset };
+}
+
+const GENRE_TRANSITION_META = {
+  punchy: { tag: "Blockbuster Cut", emoji: "🎬", anim: "genreWipePunchy" },
+  dreamy: { tag: "Dream Dissolve", emoji: "✨", anim: "genreWipeDreamy" },
+  retro: { tag: "Retro Splice", emoji: "📼", anim: "genreWipeRetro" },
+  thriller: { tag: "Thriller Smash", emoji: "⚡", anim: "genreWipeThriller" },
+};
+
+const LOTTIE_ASSETS = {
+  smashImpact: "/lottie/celebration-particles.json",
+  roundWin: "/lottie/confetti-cannons.json",
+  roundMiss: "/lottie/trophy-burst.json",
+  genreByFamily: {
+    punchy: "/lottie/confetti-cannons.json",
+    dreamy: "/lottie/celebration-particles.json",
+    retro: "/lottie/trophy-burst.json",
+    thriller: "/lottie/celebration-particles.json",
+  },
+};
+
+function LottieOverlay({src, loop=false, autoplay=true, speed=1, style={}, onComplete=null}) {
+  const hostRef = useRef(null);
+
+  useEffect(() => {
+    if (!src || !hostRef.current) return;
+
+    const anim = lottie.loadAnimation({
+      container: hostRef.current,
+      renderer: "svg",
+      loop,
+      autoplay,
+      path: src,
+      rendererSettings: {
+        preserveAspectRatio: "xMidYMid meet",
+        clearCanvas: true,
+      },
+    });
+
+    anim.setSpeed(speed);
+
+    let handleComplete = null;
+    if (onComplete) {
+      handleComplete = () => onComplete();
+      anim.addEventListener("complete", handleComplete);
+    }
+
+    return () => {
+      if (handleComplete) anim.removeEventListener("complete", handleComplete);
+      anim.destroy();
+    };
+  }, [src, loop, autoplay, speed, onComplete]);
+
+  return <div ref={hostRef} aria-hidden="true" style={style}/>;
+}
 
 // 
 // SCORING
@@ -1236,7 +1342,13 @@ return currentReward;
 function mulberry32(seed) {
   return () => { let t=(seed+=0x6d2b79f5); t=Math.imul(t^(t>>>15),t|1); t^=t+Math.imul(t^(t>>>7),t|61); return((t^(t>>>14))>>>0)/4294967296; };
 }
-function getDailySeed() { const d=new Date(); return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate(); }
+function dateToSeed(d) { return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate(); }
+function getDailySeed() { return dateToSeed(new Date()); }
+function getYesterdaySeed() {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return dateToSeed(d);
+}
 function shuffleRng(arr,rng) { const a=[...arr]; for(let i=a.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
 
 function moviePairKey(card) {
@@ -1258,13 +1370,35 @@ function uniqueCardsByMoviePair(deck) {
 }
 
 function buildDeck(mode) {
-  const { roundCount, isDaily } = mode;
+  const { id, roundCount, isDaily } = mode;
   const sourceDeck = uniqueCardsByMoviePair(MASTER_DECK);
   const cap = Math.min(roundCount, sourceDeck.length);
-  if (isDaily) return shuffleRng(sourceDeck, mulberry32(getDailySeed())).slice(0,cap);
+  if (isDaily) {
+    const todayShuffled = shuffleRng(sourceDeck, mulberry32(getDailySeed()));
+    if (todayShuffled.length <= 1) return todayShuffled.slice(0, cap);
+
+    // Guardrail: avoid showing the same top daily card on consecutive days.
+    const yesterdayTopId = shuffleRng(sourceDeck, mulberry32(getYesterdaySeed()))[0]?.id;
+    if (todayShuffled[0]?.id === yesterdayTopId) {
+      const [first, ...rest] = todayShuffled;
+      return [...rest, first].slice(0, cap);
+    }
+    return todayShuffled.slice(0, cap);
+  }
   // Non-daily runs are intentionally pseudo-random across the full deck.
-  const rng = mulberry32((Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0);
-  return shuffleRng(sourceDeck, rng).slice(0,cap);
+  const seed = ((Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0);
+  const shuffled = shuffleRng(sourceDeck, mulberry32(seed));
+
+  if (id !== "standard") {
+    return shuffled.slice(0, cap);
+  }
+
+  const recentStartIds = loadRecentStandardStarts();
+  const freshOpeners = shuffled.filter((card) => !recentStartIds.includes(card.id));
+  const firstCard = (freshOpeners.length ? freshOpeners : shuffled)[0];
+  const deck = [firstCard, ...shuffled.filter((card) => card.id !== firstCard.id)].slice(0, cap);
+  saveRecentStandardStarts([firstCard.id]);
+  return deck;
 }
 
 // 
@@ -1329,60 +1463,23 @@ function fuzzy(guess, answer, aliases = []) {
     // 1. Exact match after normalization
     if (g === t) return true;
 
-    // 2. Guess contained in target — must cover at least 70% of target
-    // Raised from 55% to prevent "american beauty" matching "american beauty and the beast"
-    if (g.length >= 6 && t.includes(g) && g.length / t.length >= 0.70) return true;
-
-    // 3. Target contained in guess — must cover at least 70% of guess
-    if (t.length >= 6 && g.includes(t) && t.length / g.length >= 0.70) return true;
-
     // 4. Single-word match now lives in checkGuesses(), where both films in the
     // pair are visible — see below. It's pair-aware instead of a length cutoff.
 
     // 5. Levenshtein on full string — similar length strings, guess at least 4 chars
     // "godfater" → "godfather", "shawsank" → "shawshank"
     const lenDiff = Math.abs(g.length - t.length);
-    if (g.length >= 4 && lenDiff <= 2 && t.length >= 5 && levenshtein(g, t) <= 2) return true;
-
-    // 6. Multi-word guess where ALL words are significant (>=5 chars) and appear in target
-    // "eternal sunshine" → "Eternal Sunshine of the Spotless Mind"
-    // Requires guess to be contained in target (correct word order)
-    // AND all guess words >= 5 chars (no short filler words driving a match)
-    const gWords = g.split(" ");
-    if (gWords.length >= 2 && t.includes(g)) {
-      const allSignificant = gWords.every(w => w.length >= 5);
-      const allInTarget = gWords.every(w => t.split(" ").includes(w));
-      if (allSignificant && allInTarget) return true;
+    if (g.length >= 4 && lenDiff <= 2 && t.length >= 5) {
+      const dist = levenshtein(g, t);
+      const minLen = Math.min(g.length, t.length);
+      // Keep strong typo tolerance on long strings, but for short words require
+      // much tighter distance so "pride" doesn't match "prada".
+      const maxDist = minLen >= 9 ? 2 : 1;
+      if (dist <= maxDist) return true;
     }
+
   }
 
-  return false;
-}
-
-// Single distinctive word, checked against BOTH films in the pair (not a blanket
-// length cutoff). A word counts as identifying film[i] if it's a real word from
-// film[i]'s title, isn't a stopword, and — critically — does NOT also appear in
-// the OTHER film's title. That's the only kind of "ambiguous" that actually
-// matters here: not "is this word rare across all movies everywhere" (unknowable),
-// but "could this exact guess just as easily mean the other half of this mashup."
-function singleWordMatch(guess, thisTitle, otherTitle) {
-  const g = norm(guess);
-  if (!g || g.includes(" ")) return false;      // only single-word guesses
-  if (g.length < 4) return false;
-  if (STOPWORDS.has(g)) return false;
-  if (GENERIC_TITLE_WORDS.has(g)) return false;
-
-  const thisWords = norm(thisTitle).split(" ");
-  const otherWords = otherTitle ? norm(otherTitle).split(" ") : [];
-
-  if (otherWords.includes(g)) return false;      // shared with the sibling film — ambiguous, don't award it
-
-  if (thisWords.includes(g)) return true;        // exact word match
-
-  // Small typo tolerance on longer words: "shawshnak" → "shawshank"
-  if (g.length >= 6) {
-    return thisWords.some(w => w.length >= 6 && !otherWords.includes(w) && levenshtein(g, w) <= 1);
-  }
   return false;
 }
 
@@ -1446,6 +1543,39 @@ function isGuessPresentInMashedTitle(guess, card) {
   return guessTokens.every((token) => mashedTokenSet.has(token));
 }
 
+// If players reveal every meaningful word in the mashed title, treat the round
+// as solved even when guesses were entered as separate words.
+function areAllMashedTitleWordsGuessed(guesses, mashedTitle = "") {
+  const titleTokens = normWord(mashedTitle)
+    .split(" ")
+    .filter(Boolean)
+    .map(normalizeToken)
+    .filter((token) => token && !STOPWORDS.has(token));
+
+  if (titleTokens.length === 0) return false;
+
+  const required = new Set(titleTokens);
+  const guessed = new Set();
+
+  guesses.forEach((g) => {
+    // Only single-word guesses contribute to this fallback completion path.
+    // Multi-word guesses are validated by isMashedTitleGuess instead, so
+    // connector words like "of" vs "and" cannot be bypassed here.
+    const tokens = normWord(g)
+      .split(" ")
+      .filter(Boolean)
+      .map(normalizeToken)
+      .filter(Boolean);
+
+    if (tokens.length !== 1) return;
+
+    const token = tokens[0];
+    if (required.has(token)) guessed.add(token);
+  });
+
+  return Array.from(required).every((token) => guessed.has(token));
+}
+
 function checkGuesses(guesses, movies, aliases, mashedTitle="") {
   const found=[false,false];
   guesses.forEach(g=>{
@@ -1453,12 +1583,10 @@ function checkGuesses(guesses, movies, aliases, mashedTitle="") {
     if(isMashedTitleGuess(g, mashedTitle)) {
       found[0]=true; found[1]=true; return;
     }
-    // Individual film matching — fuzzy() first, then pair-aware single-word check
+    // Individual film matching — strict full-title intent only.
     movies.forEach((m,i)=>{
       if(found[i]) return;
-      if(fuzzy(g,m,aliases[i])) { found[i]=true; return; }
-      if(containsEmbeddedMovieGuess(g, m, aliases[i])) { found[i]=true; return; }
-      if(singleWordMatch(g, m, movies[1-i])) found[i]=true;
+      if(isCorrectMovieGuess(g, m, aliases[i], movies[1 - i])) { found[i]=true; return; }
     });
   });
   return found;
@@ -1519,24 +1647,29 @@ function containsEmbeddedMovieGuess(guess, title, aliases = []) {
   return false;
 }
 
+function isCorrectMovieGuess(guess, movieTitle, aliases = [], otherTitle = "") {
+  return (
+    fuzzy(guess, movieTitle, aliases) ||
+    containsEmbeddedMovieGuess(guess, movieTitle, aliases)
+  );
+}
+
 function isFullyCorrectGuess(guess, card) {
   const aliases = card.aliases || [[], []];
   if (isMashedTitleGuess(guess, card.mashedTitle || "")) return true;
 
   return card.movies.some((m, i) => {
-    if (fuzzy(guess, m, aliases[i])) return true;
-    if (containsEmbeddedMovieGuess(guess, m, aliases[i])) return true;
-    return singleWordMatch(guess, m, card.movies[1 - i]);
+    return isCorrectMovieGuess(guess, m, aliases[i], card.movies[1 - i]);
   });
 }
 
 function guessClassification(guess, card) {
   const normalizedGuess = norm(guess);
   if (!normalizedGuess) return "miss";
-  // A guess is not a miss only if it fully identifies either film (including aliases)
-  // or is one exact, meaningful mashed-title word.
-  if (isFullyCorrectGuess(guess, card)) return "match";
-  return isExactMashedTitleWordGuess(guess, card) ? "match" : "miss";
+  // Any guess whose words are truly present in the mashed title should not be
+  // penalized as a miss, even when it is not a full movie-title solve.
+  if (isFullyCorrectGuess(guess, card) || isGuessPresentInMashedTitle(guess, card)) return "match";
+  return "miss";
 }
 
 
@@ -1548,17 +1681,11 @@ const LS_SAVE = "plotmix_save_v2";
 const LS_SAVE_LEGACY = "plotmix_save";
 const LS_DAILY_PREFIX = "plotmix_daily_";
 const LS_STREAK = "plotmix_streak";
+const LS_STANDARD_RECENT_STARTS = "plotmix_standard_recent_starts";
 const LS_APP_VERSION = "plotmix_app_version";
 const SAVE_SCHEMA_VERSION = 2;
 const APP_STORAGE_VERSION = "2026-07-26-1";
 const APP_BOOT_NONCE = `${APP_STORAGE_VERSION}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-const CAPTURE_MARKER_COLOR = (() => {
-  let hash = 0;
-  for (const ch of APP_BOOT_NONCE) {
-    hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
-  }
-  return `#${((hash & 0x00ffffff) | 0x00404040).toString(16).slice(-6)}`;
-})();
 
 function resetLegacyPersistentState() {
   try {
@@ -1585,6 +1712,23 @@ ensureAppStorageVersion();
 
 function loadStreak() { try{const v=localStorage.getItem(LS_STREAK); return v?JSON.parse(v):{current:0,best:0};}catch{return{current:0,best:0};} }
 function saveStreak(s) { try{localStorage.setItem(LS_STREAK,JSON.stringify(s));}catch{} }
+function loadRecentStandardStarts() {
+  try {
+    const value = localStorage.getItem(LS_STANDARD_RECENT_STARTS);
+    const parsed = value ? JSON.parse(value) : [];
+    return Array.isArray(parsed) ? parsed.filter((id) => Number.isInteger(id)) : [];
+  } catch {
+    return [];
+  }
+}
+function saveRecentStandardStarts(ids) {
+  try {
+    const recent = [...ids, ...loadRecentStandardStarts()]
+      .filter((id, index, arr) => Number.isInteger(id) && arr.indexOf(id) === index)
+      .slice(0, 8);
+    localStorage.setItem(LS_STANDARD_RECENT_STARTS, JSON.stringify(recent));
+  } catch {}
+}
 function updateStreak(bothFound) {
   const s=loadStreak();
   if(bothFound){ s.current++; s.best=Math.max(s.best,s.current); }
@@ -1597,11 +1741,17 @@ function hasDoneDaily() { try{return !!localStorage.getItem(getDailyKey());}catc
 function markDailyDone(score) { try{localStorage.setItem(getDailyKey(),JSON.stringify({score,date:new Date().toISOString()}));}catch{} }
 function getDailyResult() { try{const v=localStorage.getItem(getDailyKey()); return v?JSON.parse(v):null;}catch{return null;} }
 
+function isStaleDailySession(session) {
+  if (!session || session.modeId !== "daily") return false;
+  return session.dailyKey !== getDailyKey();
+}
+
 function isValidSavedSession(session) {
   if (!session || typeof session !== "object") return false;
   if (session.schemaVersion !== SAVE_SCHEMA_VERSION) return false;
   const mode = GAME_MODES.find(gm => gm.id === session.modeId);
   if (!mode) return false;
+  if (isStaleDailySession(session)) return false;
   if (!Array.isArray(session.deck) || session.deck.length !== mode.roundCount) return false;
   if (session.deckLen !== mode.roundCount) return false;
   if (!Number.isInteger(session.cardIdx) || session.cardIdx < 0 || session.cardIdx >= session.deckLen) return false;
@@ -1618,7 +1768,12 @@ function isValidSavedSession(session) {
 function saveSession(data) {
   try {
     const all = loadAllSessions();
-    all[data.modeId] = { ...data, schemaVersion: SAVE_SCHEMA_VERSION, savedAt: Date.now() };
+    all[data.modeId] = {
+      ...data,
+      dailyKey: data.modeId === "daily" ? getDailyKey() : null,
+      schemaVersion: SAVE_SCHEMA_VERSION,
+      savedAt: Date.now(),
+    };
     localStorage.setItem(LS_SAVE, JSON.stringify(all));
   } catch {}
 }
@@ -1721,28 +1876,35 @@ const SFX = {
 };
 function marathonTension(i,n) { return Math.min(1,i/Math.max(1,n*0.75)); }
 
+function getRunBestStreak(results) {
+  let current = 0;
+  let best = 0;
+  for (const r of results) {
+    if (isRoundSolved(r)) {
+      current += 1;
+      if (current > best) best = current;
+    } else {
+      current = 0;
+    }
+  }
+  return best;
+}
+
 // 
 // SHAREABLE RESULT CARD
 // 
-function buildShareText(mode, results, totalScore, streak) {
+function buildShareText(mode, results, totalScore) {
   const correct=results.filter(r=>isRoundSolved(r)).length;
   const skipped=results.filter(r=>r.skipped).length;
   const failed=results.filter(r=>!r.skipped&&!isRoundSolved(r)&&!(r.found&&r.found[0]!==r.found[1])).length;
-  const rows=results.map(r=>{
-    if(r.skipped) return "⏭️";
-    if(isRoundSolved(r)) return "✅";
-    if(r.found[0]!==r.found[1]) return "❌";
-    return "❌";
-  }).join("");
   const dateLine = mode.isDaily ? `📅 ${getTodayLabel()}\n` : "";
-  const bestStreak = Math.max(0, streak?.best || 0);
-  const summaryLine = `${correct}✅ ${failed}❌ ${skipped}⏭️ ${bestStreak}🔥 ${totalScore.toLocaleString()}⭐`;
-  return [
+  const streakValue = getRunBestStreak(results);
+  const summaryLine = `${correct}✅ ${failed}❌ ${skipped}⏭️ ${streakValue}🔥 ${totalScore.toLocaleString()}⭐`;
+  const lines = [
     `🎬 PLOTMIX ${mode.label}`,
     `${dateLine}${summaryLine}`,
-    `${rows}`,
-    `Find the mashed title.`,
-  ].join("\n");
+  ];
+  return lines.join("\n");
 }
 
 // 
@@ -1895,9 +2057,10 @@ const HUD_STAT_PILL = {
   display:"flex",
   alignItems:"center",
   gap:6,
-  background:"rgba(20, 16, 56, 0.42)",
-  border:"1px solid rgba(0,0,0,0.34)",
+  background:"#241D66",
+  border:"1.5px solid #1C1D21",
   borderRadius:8,
+  boxShadow:"0 2px 0 #1C1D21",
   minHeight:32,
   boxSizing:"border-box",
   padding:"0 10px 0 8px",
@@ -1915,23 +2078,23 @@ const HUD_COUNTER_TEXT = {
   transform:"translateY(0.5px)",
 };
 
-// Radiating sunburst rays behind result/end sheets (matches the burst texture visible
-// behind "THE ACADEMY WILL HEAR ABOUT THIS!" and "THE END" in the Figma reference).
-const SUNBURST_BG = {
+// Radiating rays are generated in CSS so they remain consistent regardless of
+// container height/positioning changes and don't regress when SVG layers shift.
+const RESULT_RAYS_BG = {
   backgroundColor: "#4A45EF",
-  backgroundImage: "url('/design-reference/result-sunburst-top.svg')",
-  backgroundPosition: "center top",
-  backgroundRepeat: "no-repeat",
-  backgroundSize: "100% 100%",
+  backgroundImage: [
+    "radial-gradient(circle at 50% 104%, rgba(206, 190, 255, 0.58) 0%, rgba(206, 190, 255, 0.24) 14%, rgba(206, 190, 255, 0) 58%)",
+    "repeating-conic-gradient(from -90deg at 50% 104%, rgba(157, 142, 255, 0.44) 0deg 10deg, rgba(83, 68, 214, 0.1) 10deg 20deg)",
+    "linear-gradient(180deg, #6757F5 0%, #5146E7 52%, #473DD9 100%)",
+  ].join(","),
+  backgroundPosition: "center center, center center, center center",
+  backgroundRepeat: "no-repeat, no-repeat, no-repeat",
+  backgroundSize: "100% 100%, 100% 100%, 100% 100%",
 };
 
-const WIN_RESULT_BG = {
-  backgroundColor: "#4A45EF",
-  backgroundImage: "url('/design-reference/result-sunburst-top.svg')",
-  backgroundPosition: "center top",
-  backgroundRepeat: "no-repeat",
-  backgroundSize: "100% 100%",
-};
+const SUNBURST_BG = RESULT_RAYS_BG;
+
+const WIN_RESULT_BG = RESULT_RAYS_BG;
 
 const RESULT_FOOTER_BG = {
   backgroundColor: "#9381FE",
@@ -1957,7 +2120,7 @@ const STICKER_ASSETS = {
     { src: "/stickers/popcorn.mp4", durationMs: 2100 },
     { src: "/stickers/clapboard.mp4", durationMs: 1200 },
   ],
-  hintAnimation: { src: "/stickers/hint.mp4", width: 150, topOffset: -30 },
+  hintAnimation: { src: "/stickers/hint.mp4", width: 320, aboveGap: 8, liftY: -120 },
   trex: {
     sad: "/stickers/Sad.png",
     happy: "/stickers/Happy.png",
@@ -1981,7 +2144,6 @@ function ChromaKeyVideo({
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const rafRef = useRef(null);
-
   useEffect(() => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -1990,7 +2152,6 @@ function ChromaKeyVideo({
     let disposed = false;
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) return;
-
     const draw = () => {
       if (disposed) return;
       if (video.readyState >= 2 && !video.paused && !video.ended) {
@@ -2346,38 +2507,35 @@ function DiffBadge({level, reason}) {
     Medium: {bg:T.gold},
     Hard:   {bg:T.red},
   }[level]||{bg:T.textMuted};
+  const minWidthByLevel = { Easy: 58, Medium: 86, Hard: 62 };
   const [show,setShow]=useState(false);
   return (
     <div style={{position:"relative",display:"inline-block"}}>
-      {level==="Easy" ? (
-        <span onMouseEnter={()=>setShow(true)} onMouseLeave={()=>setShow(false)}
-          style={{display:"inline-block",width:43,height:19,cursor:reason?"help":"default"}}>
-          <img src="/design-reference/Level.svg" alt="Easy" draggable="false"
-            style={{display:"block",width:"100%",height:"100%",userSelect:"none",pointerEvents:"none"}}/>
-        </span>
-      ) : (
       <span onMouseEnter={()=>setShow(true)} onMouseLeave={()=>setShow(false)}
         style={{
           background:s.bg,
-          color:"#fff",
-          border:`1px solid ${T.border}`,
-          borderRadius:18,
-          minHeight:19,
-          padding:"0 10px",
-          fontSize:8,
-          lineHeight:"19px",
-          fontFamily:"'Outfit',sans-serif",
-          fontWeight:400,
-          letterSpacing:"0.02em",
-          WebkitTextStroke:"0.55px #000000",
-          textShadow:"0 1px 0 rgba(0,0,0,0.7)",
+          color:"#FFFFFF",
+          border:`2px solid ${T.border}`,
+          borderRadius:999,
+          minHeight:28,
+          minWidth:minWidthByLevel[level] || 62,
+          padding:"0 12px",
+          fontSize:11,
+          lineHeight:1,
+          fontFamily:FONT_FIGMA_STICKER,
+          fontWeight:700,
+          letterSpacing:"0.04em",
+          textShadow:"none",
           textTransform:"uppercase",
           cursor:reason?"help":"default",
-          display:"inline-block"
+          display:"inline-flex",
+          alignItems:"center",
+          justifyContent:"center",
+          whiteSpace:"nowrap",
+          boxShadow:"0 2px 0 #1C1D21",
         }}>
         {level}
       </span>
-      )}
       {reason&&show&&(
         <div style={{position:"absolute",bottom:"calc(100% + 8px)",left:0,background:"#fff",border:`2px solid ${T.border}`,borderRadius:T.r,padding:"12px 16px",fontSize:13,fontFamily:"'Outfit',sans-serif",color:T.textSecondary,zIndex:100,fontStyle:"italic",boxShadow:T.shadow,maxWidth:280,lineHeight:1.65,whiteSpace:"normal"}}>
           {reason}
@@ -2417,16 +2575,21 @@ function ScoreChip({pts,label,color}) {
 }
 
 // Confidence mode picker
-const GuessInput = forwardRef(function GuessInput({onSubmit,disabled},fref) {
+const GuessInput = forwardRef(function GuessInput({onSubmit,disabled,allowSingleLetterY=false},fref) {
   const [val,setVal]=useState("");
   const ref=useRef(null);
   const go=()=>{
-    if(val.trim().length<2||disabled)return;
-    onSubmit(val.trim());
+    const guess = val.trim();
+    const isSingleLetterY = allowSingleLetterY && norm(guess) === "y";
+    if((guess.length<2 && !isSingleLetterY)||disabled)return;
+    onSubmit(guess);
     setVal("");
     ref.current?.focus();
   };
-  useImperativeHandle(fref,()=>({submit:go,hasValue:val.trim().length>=2}));
+  useImperativeHandle(fref,()=>({
+    submit:go,
+    hasValue: val.trim().length>=2 || (allowSingleLetterY && norm(val.trim()) === "y")
+  }));
   return (
     <div style={{position:"relative",width:"100%",height:41,opacity:disabled?0.5:1}}>
       <img src="/design-reference/Frame%2019.svg" alt="" aria-hidden="true" draggable="false"
@@ -2434,14 +2597,16 @@ const GuessInput = forwardRef(function GuessInput({onSubmit,disabled},fref) {
       <input ref={ref} value={val} onChange={e=>setVal(e.target.value)}
         onKeyDown={e=>e.key==="Enter"&&go()} disabled={disabled}
         placeholder="Type your guess..." aria-label="Movie title guess" className="guess-input"
-        autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false}
+        autoComplete="new-password" autoCorrect="off" autoCapitalize="none" spellCheck={false}
+        name="plotmix-guess-input"
+        data-lpignore="true"
+        data-1p-ignore="true"
+        data-form-type="other"
         inputMode="text" enterKeyHint="go"
         style={{position:"absolute",left:0,top:0,width:"100%",height:"100%",boxSizing:"border-box",background:"transparent",border:"none",padding:"10px 16px 8px",color:T.textPrimary,fontSize:14,fontFamily:FONT_DISPLAY,letterSpacing:"0.02em",textTransform:"uppercase",fontWeight:400,lineHeight:"17px",outline:"none"}}/>
     </div>
   );
 });
-
-
 function HowToPlayModal({onClose}) {
   return (
     <div style={{position:"fixed",inset:0,zIndex:400,overflowY:"auto"}}>
@@ -2484,6 +2649,7 @@ function SkipLabelSvg() {
 
 function IntroVideoScreen({onDone}) {
   const [didFinish, setDidFinish] = useState(false);
+  const videoRef = useRef(null);
   const endTimerRef = useRef(null);
 
   const finish = () => {
@@ -2496,40 +2662,51 @@ function IntroVideoScreen({onDone}) {
     onDone();
   };
 
-  const handleLoadedMetadata = (e) => {
-    const durationSec = e.currentTarget?.duration;
+  const scheduleCutoff = (durationSec) => {
     if (!Number.isFinite(durationSec) || durationSec <= 0) return;
     const cutoffMs = Math.max(250, Math.round((durationSec - 4) * 1000));
     if (endTimerRef.current) clearTimeout(endTimerRef.current);
     endTimerRef.current = setTimeout(finish, cutoffMs);
   };
 
+  const handlePlaying = (e) => {
+    scheduleCutoff(e.currentTarget?.duration);
+  };
+
   useEffect(() => {
+    const video = videoRef.current;
+    if (video && video.paused) {
+      const p = video.play();
+      if (p && typeof p.catch === "function") p.catch(() => {});
+    }
     return () => {
       if (endTimerRef.current) clearTimeout(endTimerRef.current);
     };
   }, []);
 
   return (
-    <div style={{minHeight:"100vh",background:"#000",display:"flex",alignItems:"center",justifyContent:"center"}}>
+    <div style={{minHeight:"100dvh",background:"#000",display:"flex",alignItems:"center",justifyContent:"center"}}>
       <video
+        ref={videoRef}
         src="/design-reference/it_s_nearly_perfect_except_th.mp4"
         autoPlay
+        muted
         playsInline
         preload="auto"
-        onLoadedMetadata={handleLoadedMetadata}
+        onPlaying={handlePlaying}
         onEnded={finish}
         onError={finish}
-        style={{display:"block",width:"100%",height:"100vh",objectFit:"cover",background:"#000"}}
+        style={{display:"block",width:"100%",height:"100dvh",objectFit:"cover",background:"#000"}}
       />
     </div>
   );
 }
 
-function Onboarding({onDone, showClose=false, finalLabel="Let's Start"}) {
+function Onboarding({onDone, showClose=false, finalLabel="Let's Start", showSkip=false, onSkip}) {
   const [step,setStep] = useState(0);
   const isLast = step === 2;
   const slideSrc = `/design-reference/carousel%20${step+1}.svg`;
+  const skipHandler = onSkip || onDone;
 
   // Figma geometry on a 402x874 frame.
   const NAV_Y = 804;
@@ -2541,8 +2718,8 @@ function Onboarding({onDone, showClose=false, finalLabel="Let's Start"}) {
   const CTA_W = 192;
 
   return (
-    <div style={{height:"100vh",background:T.bg,display:"flex",justifyContent:"center",alignItems:"center",overflow:"hidden"}}>
-      <div style={{position:"relative",width:"min(402px, calc(100vh * 402 / 874))",height:"min(874px, 100vh)"}}>
+    <div style={{height:"100dvh",background:T.bg,display:"flex",justifyContent:"center",alignItems:"center",overflow:"hidden"}}>
+      <div style={{position:"relative",width:"min(402px, calc(100dvh * 402 / 874))",height:"min(874px, 100dvh)"}}>
         <img src={slideSrc} alt="How to play" style={{position:"absolute",inset:0,width:"100%",height:"100%",display:"block",userSelect:"none",pointerEvents:"none"}}/>
 
         {showClose&&(
@@ -2560,6 +2737,13 @@ function Onboarding({onDone, showClose=false, finalLabel="Let's Start"}) {
         {!isLast&&(
           <button onClick={()=>setStep(s=>Math.min(2,s+1))} aria-label="Next"
             style={{position:"absolute",top:`${NAV_Y/874*100}%`,left:`${NEXT_X/402*100}%`,width:`${NAV_W/402*100}%`,height:`${NAV_H/874*100}%`,background:"transparent",border:"none",padding:0,cursor:"pointer",zIndex:2}}/>
+        )}
+
+        {showSkip&&(
+          <button onClick={skipHandler} aria-label="Skip how to play"
+            style={{position:"absolute",top:`${20/874*100}%`,right:`${16/402*100}%`,background:"rgba(36,29,102,0.96)",border:`2px solid ${T.border}`,borderRadius:999,padding:"8px 12px",fontFamily:FONT_FIGMA_STICKER,fontSize:10,color:"#FFFFFF",textTransform:"uppercase",letterSpacing:"0.04em",cursor:"pointer",zIndex:3,boxShadow:"0 2px 0 #1C1D21"}}>
+            Skip How To
+          </button>
         )}
 
         {isLast&&(
@@ -2826,8 +3010,8 @@ function ModeSelect({onSelect}) {
   const byId = Object.fromEntries(GAME_MODES.map(m=>[m.id,m]));
 
   return (
-    <div style={{minHeight:"100vh",...CHECKER_BG,display:"flex",justifyContent:"center",alignItems:"flex-start"}}>
-      <div style={{position:"relative",width:"100%",maxWidth:402,aspectRatio:"402 / 874"}}>
+    <div style={{minHeight:"100dvh",...CHECKER_BG,display:"flex",justifyContent:"center",alignItems:"flex-start"}}>
+      <div style={{position:"relative",width:"min(402px, calc(100dvh * 402 / 874))",height:"min(874px, 100dvh)"}}>
         <div style={{position:"absolute",inset:0}}
           dangerouslySetInnerHTML={{__html:
             `<svg viewBox="0 0 402 874" width="100%" height="100%" fill="none" preserveAspectRatio="xMidYMin meet" xmlns="http://www.w3.org/2000/svg" style="display:block">${MODESELECT_ART}</svg>`}}/>
@@ -2846,9 +3030,36 @@ function ModeSelect({onSelect}) {
                 background:"transparent",border:"none",padding:0,
                 cursor:"pointer",
                 opacity:1,
-                borderRadius:8}}/>
+                borderRadius:8,
+                zIndex:3}}/>
           );
         })}
+
+        <div
+          aria-hidden="true"
+          style={{
+            position:"absolute",
+            left:"50%",
+            top:mostRecentSession?"80.8%":"84.6%",
+            transform:"translate(-50%, -50%)",
+            pointerEvents:"none",
+            zIndex:1,
+          }}
+        >
+          <img
+            src="/stickers/Happy.png"
+            alt=""
+            draggable="false"
+            style={{
+              display:"block",
+              width:"auto",
+              height:"clamp(148px, 21vh, 188px)",
+              filter:"drop-shadow(0 12px 16px rgba(0,0,0,0.42))",
+              animation:"homeTrexFloat 3s ease-in-out infinite",
+              transformOrigin:"50% 75%",
+            }}
+          />
+        </div>
 
         {mostRecentSession&&(
           <button onClick={()=>onSelect(null,mostRecentSession.modeId)} aria-label="Resume Game"
@@ -2869,21 +3080,25 @@ function ModeSelect({onSelect}) {
 // 
 function TitleReveal({card,found,onDone}) {
   const [phase,setPhase]=useState("enter"); // enter | collide | hold
+  const [impact,setImpact]=useState(false);
   const title=card.mashedTitle||card.movies.join(" + ");
   const [f1,...f1rest]=card.movies[0].split(" ");
   const [f2,...f2rest]=card.movies[1].split(" ");
 
   useEffect(()=>{
     const t1=setTimeout(()=>setPhase("collide"),900);
+    const tImpact=setTimeout(()=>setImpact(true),1180);
+    const tImpactOff=setTimeout(()=>setImpact(false),1460);
     const t2=setTimeout(()=>setPhase("hold"),1600);
     const t3=setTimeout(()=>{ SFX.complete(); onDone(); },3200);
-    return()=>{clearTimeout(t1);clearTimeout(t2);clearTimeout(t3);};
+    return()=>{clearTimeout(t1);clearTimeout(tImpact);clearTimeout(tImpactOff);clearTimeout(t2);clearTimeout(t3);};
   },[]);
 
   return (
-    <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:280,textAlign:"center",gap:20,padding:"24px 0",overflow:"hidden",background:T.bg}}>
+    <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:280,textAlign:"center",gap:20,padding:"24px 0",overflow:"hidden",background:T.bg,position:"relative",animation:impact?"impactShake 0.22s ease":"none"}}>
+      {impact && <div style={{position:"absolute",inset:0,background:"radial-gradient(circle at 50% 45%, rgba(255,239,145,0.65) 0%, rgba(255,239,145,0) 55%)",pointerEvents:"none",animation:"impactFlash 0.3s ease"}}/>}
       {phase!=="hold" ? (
-        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:phase==="collide"?4:56,transition:"gap 0.5s cubic-bezier(.68,-0.55,.27,1.55)",overflow:"hidden",width:"100%",padding:"0 24px"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:phase==="collide"?4:56,transition:"gap 0.5s cubic-bezier(.68,-0.55,.27,1.55)",overflow:"hidden",width:"100%",padding:"0 24px",position:"relative",zIndex:2}}>
           <div style={{fontFamily:"'Outfit',sans-serif",fontSize:22,fontStyle:"italic",color:T.blue,opacity:phase==="enter"?0:1,transform:phase==="enter"?"translateX(-60px)":"translateX(0)",transition:"all 0.6s cubic-bezier(.68,-0.55,.27,1.55)",textAlign:"right",flex:1,lineHeight:1.3,fontWeight:700}}>
             {card.movies[0]}
           </div>
@@ -2893,7 +3108,7 @@ function TitleReveal({card,found,onDone}) {
           </div>
         </div>
       ) : (
-        <div style={{animation:"titlePop 0.4s cubic-bezier(.68,-0.55,.27,1.55)",textAlign:"center",padding:"0 24px"}}>
+        <div style={{animation:"titlePop 0.4s cubic-bezier(.68,-0.55,.27,1.55)",textAlign:"center",padding:"0 24px",position:"relative",zIndex:2}}>
           <div style={{fontFamily:FONT_FIGMA_STICKER,fontSize:T.sm,color:T.textMuted,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:10,fontWeight:600}}>The Mashed Title Was...</div>
           <div style={{...YELLOW_STICKER_TEXT,fontSize:44,lineHeight:1.2,letterSpacing:"0.04em",marginBottom:18}}>
             {title}
@@ -3077,12 +3292,18 @@ function getResultMessage(both, hintsUsed, guessCount, maxGuesses, skipped=false
 // 
 // ROUND RESULT POPUP — auto-shown the moment a round ends
 // 
-function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, roundScore, cardIdx, totalCards, results=[], isLast, onNext, onMenu, skipped=false, timedOut=false}) {
+function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, roundScore, cardIdx, totalCards, results=[], isLast, onNext, onMenu, skipped=false, timedOut=false, showSticker=false, stickerSrc=null, stickerDurationMs=2200, onStickerEnded, reducedMotion=false, transitionFamily=TRANSITION_FAMILIES.punchy}) {
   const both = found[0] && found[1];
   const won = both;
-  const msg = getResultMessage(both, hintCount, guessCount, maxGuesses, skipped, roundScore, timedOut);
+  const msgRef = useRef(null);
+  if (!msgRef.current) {
+    msgRef.current = getResultMessage(both, hintCount, guessCount, maxGuesses, skipped, roundScore, timedOut);
+  }
+  const msg = msgRef.current;
   const title = card.mashedTitle || card.movies.join(" + ");
   const [showConnection,setShowConnection]=useState(false);
+  const [scoreDisplay, setScoreDisplay] = useState(reducedMotion ? roundScore : 0);
+  const [entered, setEntered] = useState(reducedMotion);
 
   useEffect(() => {
     const h = e => { if (e.key === "Escape") { if(showConnection) setShowConnection(false); else onNext(); } };
@@ -3112,41 +3333,169 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
     if(isRoundSolved(pr)) return "check";
     return null;
   };
-  const dotCount=Math.min(10,Math.max(totalCards,1));
+  const dotCount=Math.max(totalCards,1);
+  const [dotRevealCount, setDotRevealCount] = useState(reducedMotion ? dotCount : 0);
+  const resultLottieSrc = won
+    ? LOTTIE_ASSETS.roundWin
+    : (skipped || timedOut ? null : LOTTIE_ASSETS.roundMiss);
   const resultSheetBg = won ? WIN_RESULT_BG : SUNBURST_BG;
-  const movie1ChipLong = (card.movies[0] || "").length > 24;
-  const movie2ChipLong = (card.movies[1] || "").length > 24;
-  const movieChipStyle = (isLong, maxWidthPx) => ({
-    display: "inline-flex",
+  const rx = (px) => `${(px / 402) * 100}%`;
+  const ry = (px) => `${(px / 484) * 100}%`;
+  const rfy = (px) => `${(px / 94) * 100}%`;
+
+  const popupTitleSize = title.length > 34 ? 17 : (title.length > 26 ? 19 : 24);
+  const popupTitleStyle = {
+    ...POPUP_TITLE_TEXT,
+    fontSize: popupTitleSize,
+    lineHeight: 1.04,
+    maxWidth: "100%",
+    textAlign: "center",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
+  };
+
+  useEffect(() => {
+    if (reducedMotion) {
+      setEntered(true);
+      return;
+    }
+    setEntered(false);
+    const id = setTimeout(() => setEntered(true), 70);
+    return () => clearTimeout(id);
+  }, [reducedMotion, cardIdx, msg.headline, title]);
+
+  const stagedRise = (delayMs = 0, y = 10, baseTransform = "") => (
+    reducedMotion
+      ? undefined
+      : {
+          opacity: entered ? 1 : 0,
+          transform: entered
+            ? (baseTransform || "translateY(0)")
+            : `${baseTransform ? `${baseTransform} ` : ""}translateY(${y}px)`,
+          transition: `opacity 360ms ease ${delayMs}ms, transform 360ms ease ${delayMs}ms`,
+        }
+  );
+
+  useEffect(() => {
+    if (reducedMotion) {
+      setScoreDisplay(roundScore);
+      return;
+    }
+    const start = performance.now();
+    const duration = 650;
+    let raf = null;
+    const tick = (now) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setScoreDisplay(Math.round(roundScore * eased));
+      if (t < 1) {
+        raf = requestAnimationFrame(tick);
+      }
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [roundScore, reducedMotion]);
+
+  useEffect(() => {
+    if (reducedMotion) {
+      setDotRevealCount(dotCount);
+      return;
+    }
+    setDotRevealCount(0);
+    let cursor = 0;
+    const id = setInterval(() => {
+      cursor += 1;
+      setDotRevealCount(cursor);
+      if (cursor >= dotCount) clearInterval(id);
+    }, 64);
+    return () => clearInterval(id);
+  }, [dotCount, reducedMotion]);
+
+  const buildChipLines = (title, maxCharsPerLine, maxLines = 3) => {
+    const words = String(title || "").trim().split(/\s+/).filter(Boolean);
+    if (words.length === 0) return [""];
+    const lines = [];
+    let line = "";
+    words.forEach((word) => {
+      const candidate = line ? `${line} ${word}` : word;
+      if (candidate.length <= maxCharsPerLine || line.length === 0) {
+        line = candidate;
+      } else {
+        lines.push(line);
+        line = word;
+      }
+    });
+    if (line) lines.push(line);
+    if (lines.length <= maxLines) return lines;
+    const merged = lines.slice(0, maxLines - 1);
+    merged.push(lines.slice(maxLines - 1).join(" "));
+    return merged;
+  };
+
+  const movieChipLayout = (movieTitle) => {
+    const titleLength = String(movieTitle || "").trim().length;
+    const prefersWide = titleLength > 14;
+    const width = prefersWide ? 282 : 232;
+    const lines = buildChipLines(movieTitle, prefersWide ? 18 : 14, 3);
+    const lineCount = lines.length;
+    const fontSize = lineCount >= 3 ? "clamp(12px, 3.6vw, 14px)" : "clamp(13px, 4vw, 15px)";
+    const height = 48 + Math.max(0, (lineCount - 1) * 14);
+    return { width, lines, lineCount, fontSize, height };
+  };
+
+  const movieChipStyle = (chip) => ({
+    display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    width: "fit-content",
-    minWidth: 84,
-    maxWidth: `min(${maxWidthPx}px, calc(100% - 24px))`,
-    height: 24,
+    width: `min(${chip.width}px, calc(100% - 20px))`,
+    minWidth: 176,
+    maxWidth: `min(${chip.width}px, calc(100% - 20px))`,
+    minHeight: chip.height,
+    height: chip.height,
     background: "#fff",
-    border: "1px solid #1C1D21",
-    padding: isLong ? "0 10px" : "0 14px",
+    border: "1px solid #000000",
+    padding: "8px 10px 6px",
     boxSizing: "border-box",
     fontFamily: FONT_FIGMA_STICKER,
-    fontSize: isLong ? 13 : 16,
+    fontSize: chip.fontSize,
+    fontWeight: 700,
     color: T.textPrimary,
     textTransform: "uppercase",
-    letterSpacing: isLong ? "-0.01em" : "0",
-    lineHeight: 1,
-    overflow: "visible",
-    whiteSpace: "nowrap",
+    letterSpacing: "0",
+    lineHeight: 1.05,
+    textAlign: "center",
+    overflow: "hidden",
+    whiteSpace: "normal",
+    wordBreak: "normal",
+    overflowWrap: "normal",
   });
 
   if (won) {
+    const topChip = movieChipLayout(card.movies[0]);
+    const bottomChip = movieChipLayout(card.movies[1]);
+    const movieStackCenterX = 201;
+    const chipGap = 5.5;
+    const titleGap = 30;
+    const plusHeight = 26;
+    const plusWidth = 30;
+    const preferredTitleY = 296;
+    const minTopChipY = 118;
+    const chipStackHeight = topChip.height + chipGap + plusHeight + chipGap + bottomChip.height;
+    const topChipY = Math.max(minTopChipY, preferredTitleY - titleGap - chipStackHeight);
+    const plusY = topChipY + topChip.height + chipGap;
+    const bottomChipY = plusY + plusHeight + chipGap;
+    const idealTitleY = bottomChipY + bottomChip.height + titleGap;
+    const titleY = Math.min(Math.max(248, idealTitleY), 296);
     return (
-      <div style={{position:"fixed",inset:0,zIndex:300,display:"flex",justifyContent:"center",alignItems:"flex-end",overflowY:"auto",background:"rgba(0,0,0,0.35)"}}
+      <div style={{position:"fixed",inset:0,zIndex:300,display:"flex",justifyContent:"center",alignItems:"flex-end",overflowY:"auto",background:"rgba(0,0,0,0.35)",backdropFilter:reducedMotion?"none":"blur(5px)",animation:reducedMotion?"none":transitionFamily.popupBackdropIn}}
         onClick={e => e.target === e.currentTarget && !showConnection && onNext()}>
 
         {showConnection&&card.connection&&(
           <div style={{position:"absolute",inset:0,zIndex:500,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:0,overflowY:"auto",background:"rgba(0,0,0,0.45)"}}
             onClick={e=>e.target===e.currentTarget&&setShowConnection(false)}>
-            <div style={{position:"relative",width:"min(402px, 100vw)",margin:"0 auto",minHeight:"100vh",display:"flex",alignItems:"flex-start",justifyContent:"center",paddingTop:18,boxSizing:"border-box"}}>
+            <div style={{position:"relative",width:"min(402px, 100vw)",margin:"0 auto",minHeight:"100dvh",display:"flex",alignItems:"flex-start",justifyContent:"center",paddingTop:18,boxSizing:"border-box"}}>
               <div style={{width:"100%",border:`2px solid ${T.border}`,borderRadius:20,boxShadow:T.shadowLg,background:"linear-gradient(180deg,#6E58F7 0%,#5C46F0 100%)",padding:"28px 18px 22px",textAlign:"center"}}>
                 <div style={{...WHITE_STICKER_TEXT,fontSize:20,textTransform:"uppercase",marginBottom:10}}>The Connection</div>
                 <p style={{margin:0,fontFamily:"'Outfit',sans-serif",fontSize:15,lineHeight:1.55,color:"#fff"}}>{card.connection}</p>
@@ -3158,48 +3507,76 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
           </div>
         )}
 
-        <div style={{position:"relative",width:"min(402px, 100vw)",margin:"0 auto",borderRadius:"12px 12px 0 0",overflow:"visible",boxShadow:T.shadowLg,...resultSheetBg,backgroundColor:T.bgDeep}}>
-          <div style={{height:484,textAlign:"center",position:"relative"}}>
-            <div style={{...POPUP_YELLOW_TEXT,fontSize:16,textTransform:"uppercase",lineHeight:1.06,letterSpacing:"0",position:"absolute",left:26,right:26,top:29}}>{msg.headline}</div>
-            <div style={{...POPUP_PLAIN_WHITE_TEXT,fontSize:12,lineHeight:1.15,textTransform:"uppercase",letterSpacing:"-0.01em",position:"absolute",left:30,right:30,top:74}}>{msg.sub}</div>
-
-            <div style={{position:"absolute",left:"50%",top:148,transform:"translateX(-50%)"}}>
-              <div style={movieChipStyle(movie1ChipLong, 332)}>{card.movies[0]}</div>
+        <div style={{position:"relative",width:"min(402px, 100vw)",margin:"0 auto",borderRadius:"12px 12px 0 0",overflow:"visible",boxShadow:T.shadowLg,...resultSheetBg,backgroundColor:T.bgDeep,animation:reducedMotion?"none":transitionFamily.popupSheetIn,transformOrigin:"50% 100%"}}>
+          {!!resultLottieSrc && !reducedMotion && (
+            <LottieOverlay
+              key={`${resultLottieSrc}-${cardIdx}-win`}
+              src={resultLottieSrc}
+              loop={false}
+              speed={1.02}
+              style={{
+                position:"absolute",
+                left:"50%",
+                top:"6%",
+                width:"min(88vw, 320px)",
+                height:"min(88vw, 320px)",
+                transform:"translateX(-50%)",
+                pointerEvents:"none",
+                opacity:0.75,
+                zIndex:2,
+              }}
+            />
+          )}
+          {showSticker && stickerSrc && (
+            <div style={{position:"absolute",left:"50%",bottom:"calc(100% + 6px)",transform:"translateX(-50%)",zIndex:6,pointerEvents:"none"}}>
+              <ChromaKeyVideo
+                src={stickerSrc}
+                autoPlay={true}
+                loop={false}
+                width={260}
+                height={260}
+                onEnded={onStickerEnded}
+                style={{filter:"drop-shadow(0 14px 24px rgba(0,0,0,0.42))",animation:`winStickerPop ${Math.max(700, Math.round(stickerDurationMs * 0.7))}ms ease-out both`,transform:"translateY(-36px)"}}
+              />
             </div>
-            <div style={{position:"absolute",left:"50%",top:178,transform:"translateX(-50%)",width:30,height:30,borderRadius:15,background:"#F6A507",border:"2px solid #1C1D21",boxShadow:"0 1px 0 #1C1D21",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:FONT_FIGMA_STICKER,fontSize:18,lineHeight:1,color:"#1C1D21"}}>+</div>
-            <div style={{position:"absolute",left:"50%",top:208,transform:"translateX(-50%)"}}>
-              <div style={movieChipStyle(movie2ChipLong, 332)}>{card.movies[1]}</div>
+          )}
+          <div style={{aspectRatio:"402 / 484",textAlign:"center",position:"relative"}}>
+            <div style={{...POPUP_YELLOW_TEXT,fontSize:"clamp(13px, 4vw, 16px)",textTransform:"uppercase",lineHeight:1.06,letterSpacing:"0",position:"absolute",left:rx(26),right:rx(26),top:ry(29),...stagedRise(20, 8)}}>{msg.headline}</div>
+            <div style={{...POPUP_PLAIN_WHITE_TEXT,fontSize:"clamp(10.5px, 3.2vw, 12.8px)",lineHeight:1.23,textTransform:"none",letterSpacing:"0.01em",position:"absolute",left:rx(30),right:rx(30),top:ry(72),...stagedRise(70, 8)}}>{msg.sub}</div>
+
+            <div style={{...movieChipStyle(topChip),position:"absolute",left:rx(movieStackCenterX),top:ry(topChipY),transform:"translateX(-50%)",...stagedRise(120, 10, "translateX(-50%)")}}>{topChip.lines.join(" ")}</div>
+            <div style={{position:"absolute",left:rx(movieStackCenterX),top:ry(plusY),transform:"translateX(-50%)",width:rx(plusWidth),height:ry(plusHeight),borderRadius:9,background:"#F6A507",border:"2px solid #1C1D21",boxShadow:"0 1px 0 #1C1D21",boxSizing:"border-box",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:FONT_FIGMA_STICKER,fontSize:"clamp(12px, 3.7vw, 16px)",lineHeight:1,color:"#1C1D21",...stagedRise(170, 10, "translateX(-50%)")}}>+</div>
+            <div style={{...movieChipStyle(bottomChip),position:"absolute",left:rx(movieStackCenterX),top:ry(bottomChipY),transform:"translateX(-50%)",...stagedRise(210, 10, "translateX(-50%)")}}>{bottomChip.lines.join(" ")}</div>
+
+            <div style={{position:"absolute",left:rx(25),top:ry(titleY),width:rx(352),height:ry(78),background:"#342698",border:"2px solid #F6A507",borderRadius:11,boxShadow:"0 4px 0 #1C1D21",padding:"10px 12px",boxSizing:"border-box",display:"flex",alignItems:"center",justifyContent:"center",...stagedRise(260, 12)}}>
+              <div style={popupTitleStyle}>{title}</div>
             </div>
 
-            <div style={{position:"absolute",left:25,top:248,width:352,height:78,background:"#342698",border:"2px solid #F6A507",borderRadius:12,boxShadow:"0 4px 0 #1C1D21",padding:"10px 12px",boxSizing:"border-box",display:"flex",alignItems:"center",justifyContent:"center"}}>
-              <div style={POPUP_TITLE_TEXT}>{title}</div>
-            </div>
-
-            <div style={{position:"absolute",left:24,top:401,width:131,height:40,background:"#D3CAFE",border:"2px solid #1C1D21",borderRadius:9,boxShadow:"0 4px 0 #1C1D21",padding:"0 10px",display:"inline-flex",alignItems:"center",gap:8,justifyContent:"center",boxSizing:"border-box"}}>
+            <div style={{position:"absolute",left:rx(24),top:ry(401),width:rx(131),height:ry(40),background:"#D3CAFE",border:"2px solid #1C1D21",borderRadius:9,boxShadow:"0 4px 0 #1C1D21",padding:"0 10px",display:"inline-flex",alignItems:"center",gap:8,justifyContent:"center",boxSizing:"border-box",...stagedRise(320, 8)}}>
               <IconStar size={18} />
-              <span style={POPUP_SCORE_TEXT}>+{roundScore} PTS</span>
+              <span style={{...POPUP_SCORE_TEXT,display:"inline-block",animation:reducedMotion?"none":"scorePulse 0.28s ease"}}>+{scoreDisplay} PTS</span>
             </div>
 
-            <div style={{position:"absolute",left:212,top:388,display:"grid",gridTemplateColumns:"repeat(5, 26px)",gridTemplateRows:"repeat(2, 26px)",gap:"14px 9px",justifyContent:"center"}}>
+            <div style={{position:"absolute",left:rx(212),top:ry(388),display:"grid",gridTemplateColumns:"repeat(5, 26px)",gridTemplateRows:"repeat(2, 26px)",gap:"14px 9px",justifyContent:"center",...stagedRise(360, 8)}}>
               {Array.from({length:dotCount}).map((_,i)=>{
                 const bg = dotFor(i);
                 const glyph = glyphFor(i);
                 return (
-                  <div key={i} style={{width:26,height:26,borderRadius:"50%",background:bg,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 0 #1C1D21"}}>
-                    {glyph==="x" ? <IconXMark size={10} color="#F08D87"/> : glyph==="check" ? <IconCheck size={10} color="#6AE89D"/> : null}
+                  <div key={i} style={{width:26,height:26,borderRadius:"50%",background:bg,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 0 #1C1D21",opacity:i<dotRevealCount?1:0.2,transform:i<dotRevealCount?"scale(1)":"scale(0.8)",transition:"opacity 0.22s ease, transform 0.22s ease"}}>
+                    {i<dotRevealCount && (glyph==="x" ? <IconXMark size={10} color="#F08D87"/> : glyph==="check" ? <IconCheck size={10} color="#6AE89D"/> : null)}
                   </div>
                 );
               })}
             </div>
           </div>
 
-          <div style={{height:94,marginTop:0,...RESULT_FOOTER_BG,borderTop:`1px solid ${T.border}`,position:"relative"}}>
+          <div style={{aspectRatio:"402 / 94",marginTop:0,...RESULT_FOOTER_BG,borderTop:`1px solid ${T.border}`,position:"relative"}}>
             <button onClick={()=>setShowConnection(true)} aria-label="The Connection"
-              style={{position:"absolute",left:24,top:17,width:206,height:60,...BTN.cyan,padding:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+              style={{position:"absolute",left:rx(24),top:rfy(17),width:rx(207),height:rfy(57),...BTN.cyan,padding:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
               <span style={POPUP_BUTTON_TEXT}>The Connection</span>
             </button>
             <button onClick={onNext} aria-label={isLast ? "Finish" : "Next"}
-              style={{position:"absolute",right:24,top:17,width:104,height:60,...BTN.primary,padding:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+              style={{position:"absolute",right:rx(24),top:rfy(17),width:rx(105),height:rfy(57),...BTN.primary,padding:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
               <span style={POPUP_BUTTON_TEXT}>{isLast ? "Finish" : "Next"}</span>
             </button>
           </div>
@@ -3210,27 +3587,29 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
 
   if (timedOut) {
     return (
-      <div style={{position:"fixed",inset:0,zIndex:300,display:"flex",justifyContent:"center",alignItems:"flex-end",overflowY:"auto",background:"rgba(0,0,0,0.35)"}}
+      <div style={{position:"fixed",inset:0,zIndex:300,display:"flex",justifyContent:"center",alignItems:"flex-end",overflowY:"auto",background:"rgba(0,0,0,0.35)",backdropFilter:reducedMotion?"none":"blur(5px)",animation:reducedMotion?"none":transitionFamily.popupBackdropIn}}
         onClick={e => e.target === e.currentTarget && !showConnection && onNext()}>
 
-        <div style={{position:"relative",width:"min(402px, 100vw)",margin:"0 auto",borderRadius:"12px 12px 0 0",overflow:"visible",boxShadow:T.shadowLg,...resultSheetBg,backgroundColor:T.bgDeep}}>
-          <div style={{padding:"36px 22px 0",minHeight:278,position:"relative"}}>
+        <div style={{position:"relative",width:"min(402px, 100vw)",margin:"0 auto",borderRadius:"12px 12px 0 0",overflow:"visible",boxShadow:T.shadowLg,...resultSheetBg,backgroundColor:T.bgDeep,animation:reducedMotion?"none":transitionFamily.popupSheetIn,transformOrigin:"50% 100%"}}>
+          <div style={{padding:"52px 22px 28px",minHeight:390,position:"relative",display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
             <div style={{position:"absolute",left:"50%",top:-22,transform:"translateX(-50%)",zIndex:2}}>
               <IconStopwatch size={66}/>
             </div>
-            <div style={{...POPUP_YELLOW_TEXT,textAlign:"center",fontSize:16.5,textTransform:"uppercase",lineHeight:1.14,letterSpacing:"0.02em",marginTop:20,marginBottom:10}}>
-              Time&apos;s Up!
-            </div>
-            <div style={{...POPUP_PLAIN_WHITE_TEXT,textAlign:"center",fontSize:9.8,textTransform:"uppercase",lineHeight:1.26,letterSpacing:"0.01em",margin:"0 auto 44px",maxWidth:330}}>
-              The clock ran out. No points for
-              <br/>
-              this round.
+            <div>
+              <div style={{...POPUP_YELLOW_TEXT,textAlign:"center",fontSize:16.5,textTransform:"uppercase",lineHeight:1.14,letterSpacing:"0.02em",marginTop:10,marginBottom:12}}>
+                Time&apos;s Up!
+              </div>
+              <div style={{...POPUP_PLAIN_WHITE_TEXT,textAlign:"center",fontSize:9.8,textTransform:"uppercase",lineHeight:1.26,letterSpacing:"0.01em",margin:"0 auto",maxWidth:330}}>
+                The clock ran out. No points for
+                <br/>
+                this round.
+              </div>
             </div>
 
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginBottom:14,flexWrap:"nowrap"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"nowrap"}}>
               <div style={{background:"#D3CAFE",border:"2px solid #1C1D21",borderRadius:9,boxShadow:"0 4px 0 #1C1D21",width:131,height:40,padding:"0 10px",display:"inline-flex",alignItems:"center",gap:8,justifyContent:"center"}}>
                 <IconStar size={18}/>
-                <span style={{...POPUP_SCORE_TEXT,fontSize:14}}>0 PTS</span>
+                <span style={{...POPUP_SCORE_TEXT,fontSize:14,display:"inline-block",animation:reducedMotion?"none":"scorePulse 0.28s ease"}}>{scoreDisplay} PTS</span>
               </div>
 
               <div style={{display:"grid",gridTemplateColumns:"repeat(5, 26px)",gridTemplateRows:"repeat(2, 26px)",gap:"12px 9px",justifyContent:"center",marginRight:2}}>
@@ -3238,8 +3617,8 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
                   const bg = dotFor(i);
                   const glyph = glyphFor(i);
                   return (
-                    <div key={i} style={{width:26,height:26,borderRadius:"50%",background:bg,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 0 #1C1D21"}}>
-                      {glyph==="x" ? <IconXMark size={10} color="#F08D87"/> : glyph==="check" ? <IconCheck size={10} color="#6AE89D"/> : null}
+                    <div key={i} style={{width:26,height:26,borderRadius:"50%",background:bg,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 0 #1C1D21",opacity:i<dotRevealCount?1:0.2,transform:i<dotRevealCount?"scale(1)":"scale(0.8)",transition:"opacity 0.22s ease, transform 0.22s ease"}}>
+                      {i<dotRevealCount && (glyph==="x" ? <IconXMark size={10} color="#F08D87"/> : glyph==="check" ? <IconCheck size={10} color="#6AE89D"/> : null)}
                     </div>
                   );
                 })}
@@ -3260,18 +3639,58 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
 
   if (!won) {
     return (
-      <div style={{position:"fixed",inset:0,zIndex:300,display:"flex",justifyContent:"center",alignItems:"flex-end",overflowY:"auto",background:"rgba(0,0,0,0.35)"}}
+      <div style={{position:"fixed",inset:0,zIndex:300,display:"flex",justifyContent:"center",alignItems:"center",overflowY:"auto",padding:"80px 0 24px",boxSizing:"border-box",background:"rgba(0,0,0,0.35)",backdropFilter:reducedMotion?"none":"blur(5px)",animation:reducedMotion?"none":transitionFamily.popupBackdropIn}}
         onClick={e => e.target === e.currentTarget && !showConnection && onNext()}>
 
-        <div style={{position:"relative",width:"min(402px, 100vw)",margin:"0 auto",borderRadius:"12px 12px 0 0",overflow:"visible",boxShadow:T.shadowLg,...resultSheetBg,backgroundColor:T.bgDeep}}>
-          <div style={{padding:"36px 22px 0",minHeight:278}}>
-            <div style={{...POPUP_YELLOW_TEXT,textAlign:"center",fontSize:16.5,textTransform:"uppercase",lineHeight:1.14,letterSpacing:"0.02em",marginBottom:8}}>{msg.headline}</div>
-            <div style={{...POPUP_PLAIN_WHITE_TEXT,textAlign:"center",fontSize:9.8,textTransform:"uppercase",lineHeight:1.26,letterSpacing:"0.01em",margin:"0 auto 44px",maxWidth:330}}>{msg.sub}</div>
+        <div style={{position:"relative",width:"min(402px, 100vw)",margin:"0 auto",borderRadius:"12px 12px 0 0",overflow:"visible",boxShadow:T.shadowLg,...resultSheetBg,backgroundColor:T.bgDeep,animation:reducedMotion?"none":transitionFamily.popupSheetIn,transformOrigin:"50% 100%"}}>
+          {!!resultLottieSrc && !reducedMotion && (
+            <LottieOverlay
+              key={`${resultLottieSrc}-${cardIdx}-miss`}
+              src={resultLottieSrc}
+              loop={false}
+              speed={0.98}
+              style={{
+                position:"absolute",
+                left:"50%",
+                top:"2%",
+                width:"min(88vw, 280px)",
+                height:"min(88vw, 280px)",
+                transform:"translateX(-50%)",
+                pointerEvents:"none",
+                opacity:0.44,
+                zIndex:1,
+              }}
+            />
+          )}
+          <div style={{padding:"52px 22px 28px",minHeight:390,display:"flex",flexDirection:"column",justifyContent:"space-between",position:"relative"}}>
+            <div>
+              <div style={{...POPUP_YELLOW_TEXT,textAlign:"center",fontSize:16.5,textTransform:"uppercase",lineHeight:1.14,letterSpacing:"0.02em",marginBottom:12}}>{msg.headline}</div>
+              <div style={{...POPUP_PLAIN_WHITE_TEXT,textAlign:"center",fontSize:9.8,textTransform:"uppercase",lineHeight:1.26,letterSpacing:"0.01em",margin:"0 auto",maxWidth:330}}>{msg.sub}</div>
+            </div>
 
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginBottom:14,flexWrap:"nowrap"}}>
+            {skipped && (
+              <div style={{height:170,display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none",margin:"10px 0 8px"}}>
+                <img
+                  src={STICKER_ASSETS.trex.sad}
+                  alt=""
+                  aria-hidden="true"
+                  draggable="false"
+                  style={{
+                    display:"block",
+                    height:"100%",
+                    width:"auto",
+                    maxWidth:"82%",
+                    filter:"drop-shadow(0 14px 18px rgba(0,0,0,0.45))",
+                    animation:reducedMotion?"none":"skipSadFloat 1.9s ease-in-out infinite",
+                  }}
+                />
+              </div>
+            )}
+
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"nowrap"}}>
               <div style={{background:"#D3CAFE",border:"2px solid #1C1D21",borderRadius:9,boxShadow:"0 4px 0 #1C1D21",width:131,height:40,padding:"0 10px",display:"inline-flex",alignItems:"center",gap:8,justifyContent:"center"}}>
                 <IconStar size={18}/>
-                <span style={{...POPUP_SCORE_TEXT,fontSize:14}}>{roundScore} PTS</span>
+                <span style={{...POPUP_SCORE_TEXT,fontSize:14,display:"inline-block",animation:reducedMotion?"none":"scorePulse 0.28s ease"}}>{scoreDisplay} PTS</span>
               </div>
 
               <div style={{display:"grid",gridTemplateColumns:"repeat(5, 26px)",gridTemplateRows:"repeat(2, 26px)",gap:"12px 9px",justifyContent:"center",marginRight:2}}>
@@ -3279,8 +3698,8 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
                   const bg = dotFor(i);
                   const glyph = glyphFor(i);
                   return (
-                    <div key={i} style={{width:26,height:26,borderRadius:"50%",background:bg,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 0 #1C1D21"}}>
-                      {glyph==="x" ? <IconXMark size={10} color="#F08D87"/> : glyph==="check" ? <IconCheck size={10} color="#6AE89D"/> : null}
+                    <div key={i} style={{width:26,height:26,borderRadius:"50%",background:bg,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 0 #1C1D21",opacity:i<dotRevealCount?1:0.2,transform:i<dotRevealCount?"scale(1)":"scale(0.8)",transition:"opacity 0.22s ease, transform 0.22s ease"}}>
+                      {i<dotRevealCount && (glyph==="x" ? <IconXMark size={10} color="#F08D87"/> : glyph==="check" ? <IconCheck size={10} color="#6AE89D"/> : null)}
                     </div>
                   );
                 })}
@@ -3343,8 +3762,8 @@ function HangmanTitle({card, found, guesses=[]}) {
 
   const allRevealed = found[0] && found[1];
 
-  // Group tiles by word so a word never breaks across two lines.
-  // Wrapping happens between words only.
+  // Prefer wrapping between words, but allow very long single words to wrap
+  // inside themselves so they cannot force horizontal scrolling on mobile.
   const words = [];
   let cursor = 0;
   title.split(" ").forEach((w) => {
@@ -3353,9 +3772,11 @@ function HangmanTitle({card, found, guesses=[]}) {
   });
 
   return (
-    <div style={{display:"flex",flexWrap:"wrap",gap:"7px 14px",alignItems:"center"}}>
-      {words.map((word, wi) => (
-        <div key={wi} style={{display:"flex",gap:1,flexShrink:0,flexWrap:"nowrap"}}>
+    <div style={{display:"flex",flexWrap:"wrap",gap:"7px 14px",alignItems:"center",maxWidth:"100%",overflowX:"hidden",overflowY:"visible",paddingBottom:4}}>
+      {words.map((word, wi) => {
+        const mustWrapInsideWord = word.text.length > 9;
+        return (
+        <div key={wi} style={{display:"flex",gap:1,flexShrink:mustWrapInsideWord ? 1 : 0,flexWrap:mustWrapInsideWord ? "wrap" : "nowrap",maxWidth:"100%",overflow:"visible",paddingBottom:4}}>
           {word.text.split("").map((ch, ci) => {
             // Punctuation (":", "-", "'"…) is never hidden — a blank tile for a colon
             // is unguessable and just confuses the board.
@@ -3383,7 +3804,8 @@ function HangmanTitle({card, found, guesses=[]}) {
             );
           })}
         </div>
-      ))}
+      );
+      })}
     </div>
   );
 }
@@ -3393,10 +3815,11 @@ function HangmanTitle({card, found, guesses=[]}) {
 // Buttons stay visible but gray out once purchased, matching Figma exactly
 // (Figma nodes 2:118616 → 2:133413 → 2:148210, the three "Hints — Revealed N" states).
 // 
-function HintsModal({card, hintsRevealed, guessesLeft, onReveal, onClose, hintAnimationSrc}) {
+function HintsModal({card, hintsRevealed, guessesLeft, onReveal, onClose, hintAnimationSrc, reducedMotion=false, transitionFamily=TRANSITION_FAMILIES.punchy}) {
   const [showHintAnim, setShowHintAnim] = useState(true);
+  const [recentlyUnlocked, setRecentlyUnlocked] = useState(null);
   const hintAnim = typeof hintAnimationSrc === "string"
-    ? { src: hintAnimationSrc, width: 140, topOffset: -30 }
+    ? { src: hintAnimationSrc, width: 320, aboveGap: 8, liftY: -120 }
     : (hintAnimationSrc || null);
   useEffect(() => {
     setShowHintAnim(true);
@@ -3405,18 +3828,32 @@ function HintsModal({card, hintsRevealed, guessesLeft, onReveal, onClose, hintAn
   const yearGenreRevealed = hintsRevealed.includes(HINT_TIERS[0].id);
   const actorsRevealed = hintsRevealed.includes(HINT_TIERS[1].id);
 
+  const revealWithFx = (tierId) => {
+    setRecentlyUnlocked(tierId);
+    onReveal(tierId);
+  };
+
+  useEffect(() => {
+    if (!recentlyUnlocked) return;
+    const id = setTimeout(() => setRecentlyUnlocked(null), 560);
+    return () => clearTimeout(id);
+  }, [recentlyUnlocked]);
+
   const FilmBoxes = ({i}) => {
     const f = hd?.films?.[i];
     return (
       <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,marginBottom:14}}>
         <div style={{fontFamily:FONT_FIGMA_STICKER,fontSize:11,color:"#fff",opacity:0.85,marginBottom:2,textTransform:"uppercase"}}>Film {i+1}</div>
-        <div style={{background:"#fff",border:`1px solid ${T.border}`,padding:"6px 14px",minWidth:170,textAlign:"center"}}>
+        <div style={{background:"#fff",border:`1px solid ${T.border}`,padding:"6px 14px",minWidth:170,textAlign:"center",animation:!reducedMotion && recentlyUnlocked===HINT_TIERS[0].id ? "vaultUnlockPulse 0.48s ease" : "none",transformOrigin:"50% 50%"}}>
           <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:14,color:T.textPrimary}}>
             {yearGenreRevealed&&f ? `${f.year} ${f.genre.toUpperCase()}` : "?????"}
           </span>
         </div>
-        <div style={{background:"#fff",border:`1px solid ${T.border}`,padding:"6px 14px",minWidth:170,textAlign:"center"}}>
-          <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:14,color:T.textPrimary,textDecoration:actorsRevealed&&f?"underline":"none"}}>
+        <div style={{background:"#fff",border:`1px solid ${T.border}`,padding:"6px 14px",minWidth:170,textAlign:"center",position:"relative",overflow:"hidden",animation:!reducedMotion && recentlyUnlocked===HINT_TIERS[1].id ? "vaultUnlockPulse 0.48s ease" : "none",transformOrigin:"50% 50%"}}>
+          {!actorsRevealed && (
+            <div style={{position:"absolute",inset:0,background:"repeating-linear-gradient(130deg,#0b0a16 0 9px,#201d38 9px 18px)",opacity:0.9,pointerEvents:"none"}}/>
+          )}
+          <span style={{position:"relative",zIndex:1,fontFamily:FONT_FIGMA_STICKER,fontSize:14,color:T.textPrimary,textDecoration:actorsRevealed&&f?"underline":"none",animation:!reducedMotion && actorsRevealed && recentlyUnlocked===HINT_TIERS[1].id ? "tapePeelReveal 0.45s ease" : "none",display:"inline-block"}}>
             {actorsRevealed&&f ? f.actors[0].toUpperCase() : "?????"}
           </span>
         </div>
@@ -3425,22 +3862,23 @@ function HintsModal({card, hintsRevealed, guessesLeft, onReveal, onClose, hintAn
   };
 
   return (
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:390,display:"flex",alignItems:"center",justifyContent:"center",padding:"36px 16px 16px"}}
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:390,display:"flex",alignItems:"flex-end",justifyContent:"center",padding:"150px 16px 16px"}}
       onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div style={{width:"100%",maxWidth:400,maxHeight:"85vh",overflowY:"auto",overflowX:"visible",background:T.bgDeep,border:`2px solid ${T.border}`,borderRadius:T.rXl,boxShadow:T.shadowLg,padding:"66px 20px 24px",animation:"slideUp 0.3s ease",position:"relative"}}>
+      <div style={{position:"relative",width:"100%",maxWidth:400,overflow:"visible"}}>
         {hintAnim?.src && showHintAnim && (
-          <div style={{position:"absolute",top:hintAnim.topOffset ?? -58,left:"50%",transform:"translateX(-50%)",zIndex:3,pointerEvents:"none"}}>
+          <div style={{position:"fixed",left:"50%",top:`calc(max(64px, env(safe-area-inset-top)) + ${hintAnim.aboveGap ?? 8}px)`,transform:"translateX(-50%)",zIndex:430,pointerEvents:"none"}}>
             <ChromaKeyVideo
               src={hintAnim.src}
               autoPlay={true}
               loop={false}
-              width={hintAnim.width ?? 140}
-              height={hintAnim.width ?? 140}
+              width={hintAnim.width ?? 320}
+              height={hintAnim.width ?? 320}
               onEnded={() => setShowHintAnim(false)}
-              style={{filter:"drop-shadow(0 8px 16px rgba(0,0,0,0.35))"}}
+              style={{filter:"drop-shadow(0 14px 24px rgba(0,0,0,0.42))",transform:`translateY(${hintAnim.liftY ?? -120}px)`}}
             />
           </div>
         )}
+        <div style={{width:"100%",maxHeight:"85vh",overflowY:"auto",overflowX:"visible",background:T.bgDeep,border:`2px solid ${T.border}`,borderRadius:T.rXl,boxShadow:T.shadowLg,padding:"66px 20px 24px",animation:reducedMotion?"none":transitionFamily.hintIn,position:"relative",transformOrigin:"50% 100%"}}>
         <button onClick={onClose} aria-label="Close hints" style={{position:"absolute",top:14,right:14,width:30,height:30,background:"#4845F3",border:`2px solid ${T.border}`,borderRadius:7,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
           <IconX size={11}/>
         </button>
@@ -3450,18 +3888,19 @@ function HintsModal({card, hintsRevealed, guessesLeft, onReveal, onClose, hintAn
         <FilmBoxes i={1}/>
 
         <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:16}}>
-          <button onClick={()=>onReveal(HINT_TIERS[0].id)} disabled={yearGenreRevealed||guessesLeft===0}
+          <button onClick={()=>revealWithFx(HINT_TIERS[0].id)} disabled={yearGenreRevealed||guessesLeft===0}
             style={{...BTN.cyan,opacity:yearGenreRevealed?0.4:guessesLeft===0?0.4:1,cursor:yearGenreRevealed||guessesLeft===0?"not-allowed":"pointer",padding:"13px 0"}}>
             <span style={{...WHITE_STICKER_TEXT,fontSize:13,letterSpacing:"0.03em",textTransform:"uppercase"}}>
               Year & Genre  -1 pts{yearGenreRevealed?" ✓":""}
             </span>
           </button>
-          <button onClick={()=>onReveal(HINT_TIERS[1].id)} disabled={actorsRevealed||guessesLeft===0}
+          <button onClick={()=>revealWithFx(HINT_TIERS[1].id)} disabled={actorsRevealed||guessesLeft===0}
             style={{...BTN.primary,opacity:actorsRevealed?0.4:guessesLeft===0?0.4:1,cursor:actorsRevealed||guessesLeft===0?"not-allowed":"pointer",padding:"13px 0"}}>
             <span style={{...WHITE_STICKER_TEXT,fontSize:13,letterSpacing:"0.03em",textTransform:"uppercase"}}>
               Lead Actors  -3 pts{actorsRevealed?" ✓":""}
             </span>
           </button>
+        </div>
         </div>
       </div>
     </div>
@@ -3471,7 +3910,7 @@ function HintsModal({card, hintsRevealed, guessesLeft, onReveal, onClose, hintAn
 // 
 // GAME SCREEN
 // 
-function GameScreen({mode,deck,initialState,onQuit,onComplete}) {
+function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=false}) {
   const [cardIdx,setCardIdx]=useState(initialState?.cardIdx||0);
   // Revisiting an earlier card. rewindIdx===null means "playing the current card".
   const [rewindIdx,setRewindIdx]=useState(null);
@@ -3485,6 +3924,13 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete}) {
   const [timeLeft,setTimeLeft]=useState(initialState?.timeLeft ?? (mode.timeLimit||0));
   const [timedOut,setTimedOut]=useState(false);
   const [showHints,setShowHints]=useState(false);
+  const [showMissShake, setShowMissShake] = useState(false);
+  const [cardTransitionPhase, setCardTransitionPhase] = useState("in"); // in | out | idle
+  const [genreTransition, setGenreTransition] = useState(null);
+  const missShakeTimerRef = useRef(null);
+  const cardSwapTimerRef = useRef(null);
+  const cardSwapSettleTimerRef = useRef(null);
+  const genreTransitionTimerRef = useRef(null);
   const [showWinAnimation,setShowWinAnimation]=useState(false);
   const [winAnimationSrc,setWinAnimationSrc]=useState(null);
   const [winAnimationDurationMs,setWinAnimationDurationMs]=useState(2200);
@@ -3513,6 +3959,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete}) {
 
   const activeIdx = rewindIdx!==null ? rewindIdx : cardIdx;
   const card=deck[activeIdx];
+  const transitionFamily = pickTransitionFamily(card, activeIdx);
   const pastResult = rewindIdx!==null ? results[rewindIdx] : null;
   // A card you already won is view-only — you earned it, nothing left to play for.
   // A card with no reward left is view-only too. Anything else can be resumed
@@ -3525,19 +3972,10 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete}) {
   const viewOnly = rewindIdx!==null && (pastWon || pastSpent || pastSkipped);
   const isRewound = rewindIdx!==null;
   const found=checkGuesses(guesses,card.movies,card.aliases||[[],[]],card.mashedTitle||"");
-  const typedWords=new Set();
-  guesses.forEach(g=>{
-    normWord(g)
-      .split(" ")
-      .filter(Boolean)
-      .map(normalizeToken)
-      .forEach(w=>w&&typedWords.add(w));
-  });
-  const titleAllTyped=(card.mashedTitle||card.movies.join(" ")).split(" ")
-    .map(w=>normalizeToken(normWord(w))).filter(Boolean).every(w=>typedWords.has(w));
-  // Board fully revealed == solved. Otherwise the tiles can read complete
-  // while the game still thinks the round is unfinished.
-  const both=(found[0]&&found[1])||titleAllTyped;
+  const titleFullyRevealed = areAllMashedTitleWordsGuessed(guesses, card.mashedTitle || "");
+  // Solved must come from real movie-title or mashed-title matches only.
+  // Completing all meaningful mashed-title words should also complete the round.
+  const both=(found[0]&&found[1]) || titleFullyRevealed;
   const effectiveFound = both ? [true, true] : found;
   const guessStates = guesses.map(g => guessClassification(g, card));
   // Hearts are run-level lives used when a card is skipped or fully lost.
@@ -3552,7 +3990,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete}) {
     const aliases = (card.aliases || [[], []])[i] || [];
     const matched = guesses.some((g) =>
       !isMashedTitleGuess(g, card.mashedTitle || "") &&
-      (fuzzy(g, movieTitle, aliases) || singleWordMatch(g, movieTitle, card.movies[1 - i]))
+      isCorrectMovieGuess(g, movieTitle, aliases, card.movies[1 - i])
     );
     return count + (matched ? 1 : 0);
   }, 0);
@@ -3573,6 +4011,17 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete}) {
     : currentReward;
   const maxPossibleReward=BASE_REWARD;
   const pointsLost=maxPossibleReward-currentReward;
+  const allowSingleLetterY = card.movies.some((m) => normWord(m) === "y tu mama tambien");
+
+  useEffect(() => {
+    if (reducedMotion) {
+      setCardTransitionPhase("idle");
+      return;
+    }
+    setCardTransitionPhase("in");
+    const settle = setTimeout(() => setCardTransitionPhase("idle"), 440);
+    return () => clearTimeout(settle);
+  }, [activeIdx, reducedMotion]);
 
   // Sound on new find
   useEffect(()=>{
@@ -3589,13 +4038,55 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete}) {
     }
   },[cardIdx,guesses,hintsRevealed,results,totalScore,lives,timeLeft,phase,rewindIdx,mode.label,mode.id,deck.length,deck]);
 
-  useEffect(()=>{ if(over&&phase==="playing") setTimeout(()=>setPhase("result"),1000); },[over,phase]);
+  useEffect(()=>{
+    if(isRewound || !over || phase!=="playing") return;
+    const nextPhase = "result";
+    const delay = both ? 300 : 650;
+    const timerId = setTimeout(()=>setPhase(nextPhase), delay);
+    return () => clearTimeout(timerId);
+  },[over,phase,isRewound,both]);
 
   const handleGuess=(g)=>{
     if(cardLost||both||viewOnly) return;
     const state = guessClassification(g, card);
-    if(state==="miss"){ SFX.wrong(); }
+    if(state==="miss"){
+      SFX.wrong();
+      if (!reducedMotion) {
+        setShowMissShake(false);
+        if (missShakeTimerRef.current) clearTimeout(missShakeTimerRef.current);
+        requestAnimationFrame(() => setShowMissShake(true));
+        missShakeTimerRef.current = setTimeout(() => setShowMissShake(false), 380);
+      }
+    }
     setGuesses(p=>[...p,g]);
+  };
+
+  const runCardSwap = (commit) => {
+    if (reducedMotion) {
+      commit();
+      return;
+    }
+    const transitionMeta = GENRE_TRANSITION_META[transitionFamily.name] || GENRE_TRANSITION_META.punchy;
+    setGenreTransition({
+      nonce: Date.now(),
+      name: transitionFamily.name,
+      tag: transitionMeta.tag,
+      emoji: transitionMeta.emoji,
+      anim: transitionMeta.anim,
+    });
+    if (genreTransitionTimerRef.current) clearTimeout(genreTransitionTimerRef.current);
+    genreTransitionTimerRef.current = setTimeout(() => setGenreTransition(null), 520);
+
+    setCardTransitionPhase("out");
+    if (cardSwapTimerRef.current) clearTimeout(cardSwapTimerRef.current);
+    if (cardSwapSettleTimerRef.current) clearTimeout(cardSwapSettleTimerRef.current);
+    cardSwapTimerRef.current = setTimeout(() => {
+      commit();
+      setCardTransitionPhase("in");
+      cardSwapSettleTimerRef.current = setTimeout(() => {
+        setCardTransitionPhase("idle");
+      }, 420);
+    }, 190);
   };
 
   // Reveal a hint tier — modular, add future tiers to HINT_TIERS array
@@ -3686,6 +4177,8 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete}) {
   const canOpenSkipConfirm = skipEnabled && !canReturnToCurrent && !viewOnly && !showSkipConfirm && !showHints;
   const footerX = (px) => `${(px / 402) * 100}%`;
   const footerY = (px) => `${(px / 94) * 100}%`;
+  const showingResult = phase === "result" && !isRewound;
+  const hideGameplayForResult = false;
   const handleFooterRightAction=()=>{
     if(canReturnToCurrent){
       goToCard(cardIdx);
@@ -3705,12 +4198,13 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete}) {
         onComplete(nextResults,totalScore,streak);
         return;
       }
-      setResults(nextResults);
-      setCardIdx(idx=>idx+1);
-      setGuesses([]); setHintsRevealed([]);
-      setPerfectSolveStreak(0);
-      
-      setSkipped(false); setPhase("playing");
+      runCardSwap(() => {
+        setResults(nextResults);
+        setCardIdx(idx=>idx+1);
+        setGuesses([]); setHintsRevealed([]);
+        setPerfectSolveStreak(0);
+        setSkipped(false); setPhase("playing");
+      });
       return;
     }
     const pts=calcScore(both,currentReward);
@@ -3758,12 +4252,14 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete}) {
       onComplete(nextResults,newTotal,newStreak);
       return;
     }
-    setResults(nextResults);
-    setCardIdx(idx=>idx+1);
-    setGuesses([]); setHintsRevealed([]);
-    setTimeLeft(mode.timeLimit||0); setTimedOut(false);
-    speedrunDeadlineRef.current = null;
-    setSkipped(false); setPhase("playing");
+    runCardSwap(() => {
+      setResults(nextResults);
+      setCardIdx(idx=>idx+1);
+      setGuesses([]); setHintsRevealed([]);
+      setTimeLeft(mode.timeLimit||0); setTimedOut(false);
+      speedrunDeadlineRef.current = null;
+      setSkipped(false); setPhase("playing");
+    });
   };
 
   const handleRevealDone=()=>{ setPhase("intermission"); };
@@ -3778,20 +4274,45 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete}) {
       onComplete(nextResults,totalScore,streak);
       return;
     }
-    setResults(nextResults);
-    setCardIdx(idx=>idx+1);
-    setGuesses([]); setHintsRevealed([]);
-    setTimeLeft(mode.timeLimit||0); setTimedOut(false);
-    speedrunDeadlineRef.current = null;
-    setSkipped(false); setPhase("playing");
+    runCardSwap(() => {
+      setResults(nextResults);
+      setCardIdx(idx=>idx+1);
+      setGuesses([]); setHintsRevealed([]);
+      setTimeLeft(mode.timeLimit||0); setTimedOut(false);
+      speedrunDeadlineRef.current = null;
+      setSkipped(false); setPhase("playing");
+    });
   };
 
   const roundScore=calcScore(both,currentReward);
+  const showFooterBar = !showingResult && (!both || canReturnToCurrent);
+  const cardStageAnimation = reducedMotion
+    ? "none"
+    : (cardTransitionPhase === "out"
+      ? transitionFamily.cardOut
+      : cardTransitionPhase === "in"
+        ? transitionFamily.cardIn
+        : "none");
+  const cameraShakeLayerAnimation = reducedMotion || !showMissShake
+    ? "none"
+    : transitionFamily.missShake;
 
   useEffect(() => {
     return () => {
       if (winAnimationTimerRef.current) {
         clearTimeout(winAnimationTimerRef.current);
+      }
+      if (missShakeTimerRef.current) {
+        clearTimeout(missShakeTimerRef.current);
+      }
+      if (cardSwapTimerRef.current) {
+        clearTimeout(cardSwapTimerRef.current);
+      }
+      if (cardSwapSettleTimerRef.current) {
+        clearTimeout(cardSwapSettleTimerRef.current);
+      }
+      if (genreTransitionTimerRef.current) {
+        clearTimeout(genreTransitionTimerRef.current);
       }
     };
   }, []);
@@ -3805,16 +4326,20 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete}) {
     if (winAnimationLockRef.current) return;
 
     winAnimationLockRef.current = true;
-    const perfectCinematicSolve = guesses.length === 1 && hintCount === 0;
     const pool = STICKER_ASSETS.winAnimations.filter(Boolean);
-    const pick = pool.length
-      ? (pool.find((anim) => {
-          const src = (typeof anim === "string" ? anim : anim?.src) || "";
-          return perfectCinematicSolve
-            ? src.toLowerCase().includes("clapboard")
-            : src.toLowerCase().includes("popcorn");
-        }) || pool[0])
-      : null;
+    const clapboardAnim = pool.find((anim) => {
+      const src = (typeof anim === "string" ? anim : anim?.src) || "";
+      return src.toLowerCase().includes("clapboard");
+    });
+    const popcornAnim = pool.find((anim) => {
+      const src = (typeof anim === "string" ? anim : anim?.src) || "";
+      return src.toLowerCase().includes("popcorn");
+    });
+    // Alternate win stickers by round: clapboard on odd-numbered cards, popcorn on even-numbered cards.
+    const useClapboard = cardIdx % 2 === 0;
+    const pick = useClapboard
+      ? (clapboardAnim || popcornAnim || pool[0] || null)
+      : (popcornAnim || clapboardAnim || pool[0] || null);
     const pickedSrc = typeof pick === "string" ? pick : (pick?.src || null);
     const pickedDuration = typeof pick === "object" && typeof pick?.durationMs === "number"
       ? pick.durationMs
@@ -3831,7 +4356,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete}) {
       setWinAnimationEnded(true);
     }, Math.max(3000, pickedDuration + 1400));
 
-  }, [phase, both, skipped, timedOut, guesses.length, hintCount]);
+  }, [phase, both, skipped, timedOut, cardIdx]);
 
   useEffect(() => {
     if (!showWinAnimation || !winAnimationEnded) return;
@@ -3867,10 +4392,52 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete}) {
   }, [mode, cardIdx, phase, skipped, timedOut, isRewound, rewindIdx]);
 
   return (
-    <div style={{minHeight:"100vh",position:"relative",paddingLeft:20,paddingRight:20,paddingBottom:80,...CHECKER_BG,color:T.textOnDark}}>
+    <div style={{minHeight:"100dvh",position:"relative",paddingLeft:20,paddingRight:20,paddingBottom:24,overflowX:"hidden",...CHECKER_BG,color:T.textOnDark}}>
 
-      {/*  AUTO POPUP when round ends  */}
-      {phase==="result"&&(
+      {!!genreTransition && (
+        <div
+          aria-hidden="true"
+          style={{
+            position:"fixed",
+            inset:0,
+            zIndex:280,
+            pointerEvents:"none",
+            display:"flex",
+            alignItems:"center",
+            justifyContent:"center",
+            animation:`${genreTransition.anim} 520ms ease both`,
+            background:"radial-gradient(circle at 50% 52%, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 62%)",
+            backdropFilter:"blur(1.5px)",
+          }}
+          key={genreTransition.nonce}
+        >
+          {!reducedMotion && (
+            <LottieOverlay
+              key={`genre-lottie-${genreTransition.nonce}`}
+              src={LOTTIE_ASSETS.genreByFamily[genreTransition.name] || LOTTIE_ASSETS.smashImpact}
+              loop={false}
+              speed={1.08}
+              style={{
+                position:"absolute",
+                left:"50%",
+                top:"50%",
+                width:"min(90vw, 420px)",
+                height:"min(90vw, 420px)",
+                transform:"translate(-50%, -50%)",
+                pointerEvents:"none",
+                opacity:0.68,
+              }}
+            />
+          )}
+          <div style={{padding:"10px 14px",borderRadius:12,background:"rgba(14,10,44,0.72)",border:"2px solid #1C1D21",boxShadow:"0 4px 0 #1C1D21",display:"inline-flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:15,lineHeight:1}}>{genreTransition.emoji}</span>
+            <span style={{...WHITE_STICKER_TEXT,fontSize:11,letterSpacing:"0.04em",textTransform:"uppercase",lineHeight:1}}>{genreTransition.tag}</span>
+          </div>
+        </div>
+      )}
+
+      {/*  AUTO POPUP when round ends (never while rewinding/view-only)  */}
+      {showingResult&&(
         <RoundResultPopup
           card={card}
           found={effectiveFound}
@@ -3884,6 +4451,12 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete}) {
           isLast={isLast}
           skipped={skipped}
           timedOut={timedOut}
+          showSticker={showWinAnimation && both}
+          stickerSrc={winAnimationSrc}
+          stickerDurationMs={winAnimationDurationMs}
+          onStickerEnded={() => setWinAnimationEnded(true)}
+          reducedMotion={reducedMotion}
+          transitionFamily={transitionFamily}
           onNext={handleResultNext}
           onMenu={()=>{clearSession(mode.id);onQuit();}}
         />
@@ -3895,25 +4468,6 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete}) {
         <img src="/design-reference/Exit.svg" alt="" aria-hidden="true" draggable="false"
           style={{display:"block",width:"100%",height:"100%",pointerEvents:"none",userSelect:"none"}}/>
       </button>
-
-      {/* Win celebration sticker overlay (full-screen, above all UI). */}
-      {showWinAnimation && (
-        <div style={{position:"fixed",inset:0,zIndex:950,display:"flex",alignItems:"flex-start",justifyContent:"center",paddingTop:"7vh",background:"transparent",pointerEvents:"none"}}>
-          {winAnimationSrc ? (
-            <ChromaKeyVideo
-              src={winAnimationSrc}
-              autoPlay={true}
-              loop={false}
-              width={230}
-              height={230}
-              onEnded={() => setWinAnimationEnded(true)}
-              style={{filter:"drop-shadow(0 18px 34px rgba(0,0,0,0.45))",animation:`winStickerPop ${Math.max(700, Math.round(winAnimationDurationMs * 0.7))}ms ease-out both`}}
-            />
-          ) : (
-            <div style={{...WHITE_STICKER_TEXT,fontSize:22}}>Nailed It!</div>
-          )}
-        </div>
-      )}
 
       {/* Out of lives — run is over, Home is the only exit */}
       {lives<=0&&phase!=="result"&&(()=>{
@@ -3945,10 +4499,11 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete}) {
         </div>
       )}
 
-      <div style={{maxWidth:402,margin:"0 auto"}}>
+      {!hideGameplayForResult&&(
+      <div style={{maxWidth:402,margin:"0 auto",animation:cameraShakeLayerAnimation}}>
 
         {/* HEADER — stat row only; the X exit button floats fixed above (see below) */}
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,padding:"72px 0 0"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,padding:"72px 0 24px"}}>
           <div style={HUD_STAT_PILL}>
             <IconTarget size={25}/>
             <span style={HUD_COUNTER_TEXT}>{cardIdx+1}/{deck.length}</span>
@@ -3973,16 +4528,17 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete}) {
 
         {/* PLAYING — structure matches Figma exactly: plot card, bare hangman tiles,
             guess input, then a fixed bottom button bar. Nothing else. */}
-        <div style={{display:"flex",flexDirection:"column",gap:38,animation:"fadeIn 0.45s ease",paddingBottom:110}}>
+        <div style={{display:"flex",flexDirection:"column",gap:28,animation:cardStageAnimation,paddingBottom:showFooterBar?104:24,transformOrigin:"50% 60%"}}>
 
               {/*  PLOT CARD  */}
-              <div style={{background:"#fff",borderRadius:24,padding:"30px 22px 26px",boxSizing:"border-box",position:"relative",border:`2px solid ${T.border}`,boxShadow:T.shadow,marginTop:14}}>
-                <img src="/design-reference/Mashed%20plot%20title.svg" alt="" aria-hidden="true" draggable="false"
-                  style={{position:"absolute",top:-12,left:20,width:104,height:22,pointerEvents:"none",userSelect:"none"}}/>
-                <div style={{position:"absolute",top:-10,right:20}}>
+              <div style={{background:"#fff",borderRadius:22,padding:"26px 20px 22px",boxSizing:"border-box",position:"relative",border:`2px solid ${T.border}`,boxShadow:T.shadow,marginTop:0}}>
+                <div style={{position:"absolute",top:-12,left:20,minWidth:104,height:24,padding:"0 10px",background:"#44408E",border:`1.5px solid ${T.border}`,borderRadius:4,boxShadow:"0 2px 0 #1C1D21",display:"inline-flex",alignItems:"center",justifyContent:"center",fontFamily:FONT_FIGMA_STICKER,fontSize:11,color:"#F3F4FF",textTransform:"uppercase",letterSpacing:"0.04em",lineHeight:1,whiteSpace:"nowrap"}}>
+                  Mashed Plot
+                </div>
+                <div style={{position:"absolute",top:-14,right:14}}>
                   <DiffBadge level={card.difficulty} reason={card.difficultyReason}/>
                 </div>
-                <p style={{margin:"6px 0 0",fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:"clamp(18px, 5.9vw, 24px)",lineHeight:1.5,color:T.textPrimary}}>
+                <p style={{margin:"6px 0 0",fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:"clamp(16px, 5.3vw, 22px)",lineHeight:1.42,color:"#1C1D21"}}>
                   {card.mashedPlot}
                 </p>
                 {viewOnly&&(()=>{
@@ -3998,36 +4554,30 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete}) {
                     </div>
                   );
                 })()}
-                {viewOnly&&pastWon&&(
-                  <div style={{marginTop:12,background:"#342698",border:`2px solid ${T.gold}`,borderRadius:9,padding:"10px 12px",textAlign:"center"}}>
-                    <div style={{fontFamily:FONT_FIGMA_STICKER,fontSize:9,color:"rgba(255,255,255,0.6)",letterSpacing:"0.12em",marginBottom:5}}>THE ANSWER</div>
-                    <div style={{fontFamily:FONT_FIGMA_STICKER,fontSize:14,color:"#fff",textShadow:T.textShadowSticker,lineHeight:1.45,textTransform:"uppercase"}}>{card.mashedTitle||card.movies.join(" + ")}</div>
-                  </div>
-                )}
               </div>
 
               {/*  HANGMAN TILES — bare on the purple background, no card wrapper  */}
               <HangmanTitle card={card} found={pastWon?[true,true]:found} guesses={guesses}/>
 
               {/*  GUESS INPUT  */}
-              <GuessInput ref={guessInputRef} onSubmit={handleGuess} disabled={both||cardLost||viewOnly}/>
+              <GuessInput ref={guessInputRef} onSubmit={handleGuess} disabled={both||cardLost||viewOnly} allowSingleLetterY={allowSingleLetterY}/>
 
 
               {/*  GUESSED-SO-FAR CHIPS — not in the Figma mockup, but the game is unplayable
                   without feedback on what you already tried and what it matched.  */}
               {guesses.length>0&&(
-                <div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:-24}}>
+                <div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:-8}}>
                   {guesses.map((g,i)=>{
                     const state = guessStates[i] || "miss";
                     const chipStyle = state === "match"
-                      ? {background:"#1D9D96", color:"#fff", icon:<IconCheck size={9}/>} 
-                      : {background:"#D45A5A", color:"#fff", icon:<IconXMark size={9}/>};
+                      ? {background:"#1CB5AD", color:"#FFFFFF", icon:<IconCheck size={10}/>} 
+                      : {background:"#E46868", color:"#FFFFFF", icon:<IconXMark size={10}/>};
                     return (
                       <span key={i} style={{display:"inline-flex",alignItems:"center",gap:5,
-                        background:chipStyle.background,border:`1px solid ${T.border}`,
-                        borderRadius:7,padding:"5px 10px",
-                        fontFamily:FONT_FIGMA_STICKER,fontSize:10,
-                        color:chipStyle.color,textShadow:T.textShadowSticker,textTransform:"uppercase"}}>
+                        background:chipStyle.background,border:`2px solid ${T.border}`,
+                        borderRadius:8,padding:"6px 11px",
+                        fontFamily:FONT_FIGMA_STICKER,fontSize:11,
+                        color:chipStyle.color,textShadow:T.textShadowSticker,textTransform:"uppercase",maxWidth:"100%",overflowWrap:"anywhere",boxShadow:"0 2px 0 #1C1D21"}}>
                         {chipStyle.icon}{g}
                       </span>
                     );
@@ -4038,14 +4588,15 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete}) {
               {/*  HINTS MODAL  */}
               {showHints&&!both&&!viewOnly&&(
                 <HintsModal card={card} hintsRevealed={hintsRevealed} guessesLeft={guessesRemainingForCard}
-                  onReveal={handleRevealHint} onClose={()=>setShowHints(false)} hintAnimationSrc={STICKER_ASSETS.hintAnimation}/>
+                  onReveal={handleRevealHint} onClose={()=>setShowHints(false)} hintAnimationSrc={STICKER_ASSETS.hintAnimation}
+                  reducedMotion={reducedMotion} transitionFamily={transitionFamily}/>
               )}
 
         </div>
 
         {/*  FIXED BOTTOM BUTTON BAR — hints / guess / skip  */}
-        {!both&&(
-          <div style={{position:"fixed",bottom:0,left:0,right:0,display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:60,boxSizing:"border-box",padding:"0 max(8px, env(safe-area-inset-left)) max(env(safe-area-inset-bottom), 0px) max(8px, env(safe-area-inset-right))"}}>
+        {showFooterBar&&(
+          <div style={{position:"fixed",bottom:0,left:0,right:0,display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:60,boxSizing:"border-box",padding:"0 env(safe-area-inset-left) max(env(safe-area-inset-bottom), 0px) env(safe-area-inset-right)",background:"#9381FE",borderTop:`1px solid ${T.border}`}}>
             <div style={{position:"relative",width:"100%",maxWidth:402,aspectRatio:"402 / 94"}}>
               <img src={footerBackgroundSrc} alt="" aria-hidden="true" draggable="false"
                 style={{position:"absolute",inset:0,width:"100%",height:"100%",display:"block",pointerEvents:"none",userSelect:"none"}}/>
@@ -4076,8 +4627,8 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete}) {
               <button aria-label={viewOnly?"Hints unavailable in view-only":"Open hints"} onClick={()=>!viewOnly&&setShowHints(true)} disabled={viewOnly}
                 style={{position:"absolute",left:footerX(hintButtonLeft),top:footerY(16),width:footerX(65),height:footerY(66),background:"transparent",border:"none",padding:0,cursor:viewOnly?"not-allowed":"pointer"}}/>
 
-              <button aria-label="Submit guess" onClick={()=>guessInputRef.current?.submit()} disabled={cardLost}
-                style={{position:"absolute",left:footerX(guessButtonLeft),top:footerY(18),width:footerX(guessButtonWidth),height:footerY(64),background:"transparent",border:"none",padding:0,cursor:cardLost?"not-allowed":"pointer"}}/>
+              <button aria-label="Submit guess" onClick={()=>guessInputRef.current?.submit()} disabled={cardLost||both||viewOnly}
+                style={{position:"absolute",left:footerX(guessButtonLeft),top:footerY(18),width:footerX(guessButtonWidth),height:footerY(64),background:"transparent",border:"none",padding:0,cursor:(cardLost||both||viewOnly)?"not-allowed":"pointer"}}/>
 
               {cardLost&&(
                 <div aria-hidden="true"
@@ -4085,15 +4636,44 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete}) {
               )}
 
               {(skipEnabled || canReturnToCurrent) && (
-                <button aria-label={canReturnToCurrent?"Return to current card":"Skip card"}
-                  onClick={handleFooterRightAction}
-                  disabled={!canReturnToCurrent&&!canOpenSkipConfirm}
-                  style={{position:"absolute",left:footerX(skipButtonLeft),top:footerY(16),width:footerX(65),height:footerY(66),background:"transparent",border:"none",padding:0,cursor:(!canReturnToCurrent&&!canOpenSkipConfirm)?"not-allowed":"pointer"}}/>
+                <>
+                  <button aria-label={canReturnToCurrent?"Return to current card":"Skip card"}
+                    onClick={handleFooterRightAction}
+                    disabled={!canReturnToCurrent&&!canOpenSkipConfirm}
+                    style={{position:"absolute",left:footerX(skipButtonLeft),top:footerY(16),width:footerX(65),height:footerY(66),background:"transparent",border:"none",padding:0,cursor:(!canReturnToCurrent&&!canOpenSkipConfirm)?"not-allowed":"pointer"}}/>
+
+                  {canReturnToCurrent && (
+                    <div
+                      aria-hidden="true"
+                      style={{
+                        position:"absolute",
+                        left:footerX(skipButtonLeft),
+                        top:footerY(16),
+                        width:footerX(65),
+                        height:footerY(66),
+                        pointerEvents:"none",
+                      }}
+                    >
+                      <img
+                        src="/design-reference/next%20button.svg"
+                        alt=""
+                        draggable="false"
+                        style={{
+                          display:"block",
+                          width:"100%",
+                          height:"100%",
+                          userSelect:"none",
+                        }}
+                      />
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }
@@ -4101,14 +4681,14 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete}) {
 
 
 
-function EndScreen({mode,results,totalScore,streak,onMenu,onPlayAgain}) {
+function EndScreen({mode,results,totalScore,onMenu,onPlayAgain}) {
   const [copied,setCopied]=useState(false);
   const correct=results.filter(r=>isRoundSolved(r)).length;
   const skippedCount=results.filter(r=>r.skipped).length;
   const missed=results.length-correct-skippedCount-results.filter(r=>!r.skipped&&!isRoundSolved(r)&&r.found[0]!==r.found[1]).length;
-  const currentStreak=streak||loadStreak();
+  const displayStreakValue = getRunBestStreak(results);
 
-  const shareText=buildShareText(mode,results,totalScore,currentStreak);
+  const shareText=buildShareText(mode,results,totalScore);
   const handleShare=()=>{
     const done=()=>{setCopied(true);setTimeout(()=>setCopied(false),2600);};
     if(navigator.clipboard&&window.isSecureContext){
@@ -4122,7 +4702,7 @@ function EndScreen({mode,results,totalScore,streak,onMenu,onPlayAgain}) {
     {icon:<IconCheck size={12} color="#005242"/>, bg:"#6AE89D", value:correct},
     {icon:<IconXMark size={11} color="#5E0311"/>, bg:"#F08D87", value:missed},
     {icon:<IconSkip size={13} color="#fff"/>, bg:T.orange, value:skippedCount},
-    {icon:<span style={{fontSize:13,lineHeight:1,display:"inline-block",transform:"translateY(0.5px)"}}>🔥</span>, bg:"linear-gradient(135deg,#FF4A18,#FFCB2E,#FCEF25)", value:currentStreak.best},
+    {icon:<span style={{fontSize:13,lineHeight:1,display:"inline-block",transform:"translateY(0.5px)"}}>🔥</span>, bg:"linear-gradient(135deg,#FF4A18,#FFCB2E,#FCEF25)", value:displayStreakValue},
     {icon:<IconStar size={13}/>, bg:T.surfaceRaised, value:totalScore.toLocaleString()},
   ];
   const totalCards = Math.max(1, results.length);
@@ -4139,35 +4719,33 @@ function EndScreen({mode,results,totalScore,streak,onMenu,onPlayAgain}) {
 
   return (
     <div style={{position:"absolute",inset:0,zIndex:700,overflowY:"auto",...CHECKER_BG,backgroundColor:T.bg,color:T.textOnDark,animation:"fadeIn 0.5s ease"}}>
-      <div aria-hidden="true" style={{position:"absolute",right:6,bottom:6,width:4,height:4,borderRadius:2,background:CAPTURE_MARKER_COLOR,pointerEvents:"none",zIndex:1}} />
-      <div style={{width:"min(402px, 100vw)",minHeight:"100vh",margin:"0 auto",padding:"14px 0 24px",boxSizing:"border-box"}}>
-      <div style={{width:"100%",minHeight:"calc(100vh - 38px)",background:"linear-gradient(180deg,#6C57F7 0%,#5D46F0 100%)",border:`2px solid ${T.border}`,borderRadius:20,boxShadow:T.shadowLg,padding:"36px 22px 24px",textAlign:"center",boxSizing:"border-box",display:"flex",flexDirection:"column",position:"relative"}}>
+      <div style={{width:"min(402px, 100vw)",minHeight:"100dvh",margin:"0 auto",padding:"14px 0 24px",boxSizing:"border-box"}}>
+      <div style={{width:"100%",minHeight:"calc(100dvh - 38px)",...WIN_RESULT_BG,backgroundColor:T.bgDeep,border:`2px solid ${T.border}`,borderRadius:20,boxShadow:T.shadowLg,padding:"56px 22px 24px",textAlign:"center",boxSizing:"border-box",display:"flex",flexDirection:"column",position:"relative"}}>
 
-        <div aria-hidden="true" style={{position:"absolute",right:6,bottom:6,width:4,height:4,borderRadius:2,background:CAPTURE_MARKER_COLOR,pointerEvents:"none"}} />
-        <div style={{...WHITE_STICKER_TEXT,fontSize:24,marginBottom:6,textTransform:"uppercase"}}>The End</div>
-        <div style={{...YELLOW_STICKER_TEXT,fontSize:13,marginBottom:20,textTransform:"uppercase"}}>Share Your Results</div>
+        <div style={{...WHITE_STICKER_TEXT,fontSize:"clamp(30px, 8.8vw, 40px)",lineHeight:1.02,marginBottom:10,textTransform:"uppercase"}}>The End</div>
+        <div style={{...YELLOW_STICKER_TEXT,fontSize:"clamp(17px, 5.1vw, 24px)",lineHeight:1.04,marginBottom:24,textTransform:"uppercase"}}>Share Your Results</div>
 
-        <div style={{display:"flex",justifyContent:"center",marginBottom:18,minHeight:124,alignItems:"center"}}>
+        <div style={{display:"flex",justifyContent:"center",marginBottom:24,minHeight:198,alignItems:"center"}}>
           <img
             src={trexSrc}
             alt="Trex result sticker"
             onError={(e)=>{ e.currentTarget.style.display = "none"; }}
-            style={{display:"block",maxWidth:"min(84vw, 260px)",maxHeight:152,objectFit:"contain",filter:"drop-shadow(0 10px 16px rgba(0,0,0,0.35))",animation:trexMotion,transformOrigin:"50% 85%"}}
+            style={{display:"block",width:"min(96vw, 340px)",maxWidth:"100%",maxHeight:220,objectFit:"contain",filter:"drop-shadow(0 12px 20px rgba(0,0,0,0.38))",animation:trexMotion,transformOrigin:"50% 85%"}}
           />
         </div>
 
         {/* Stat chip row */}
-        <div style={{display:"flex",justifyContent:"center",gap:8,marginBottom:20,flexWrap:"wrap"}}>
+        <div style={{display:"flex",justifyContent:"center",gap:6,marginBottom:24,flexWrap:"nowrap"}}>
           {chips.map((c,i)=>(
-            <div key={i} style={{background:c.bg,border:`1.5px solid ${T.border}`,borderRadius:9,boxShadow:"0 3px 0 #1C1D21",padding:"10px 12px",display:"flex",flexDirection:"column",alignItems:"center",gap:4,minWidth:44,minHeight:88,justifyContent:"center"}}>
-              <div style={{height:16,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>{c.icon}</div>
-              <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:12,color:T.textPrimary,lineHeight:1,display:"inline-block",transform:"translateY(1px)"}}>{c.value}</span>
+            <div key={i} style={{background:c.bg,border:`1.5px solid ${T.border}`,borderRadius:10,boxShadow:"0 3px 0 #1C1D21",padding:"12px 0",display:"flex",flexDirection:"column",alignItems:"center",gap:7,flex:"1 1 0",maxWidth:62,minHeight:104,justifyContent:"center",boxSizing:"border-box"}}>
+              <div style={{height:22,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>{c.icon}</div>
+              <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:16,color:T.textPrimary,lineHeight:1,display:"inline-block",transform:"translateY(1px)"}}>{c.value}</span>
             </div>
           ))}
         </div>
 
-        <button onClick={handleShare} style={{...BTN.cyan,width:"100%",padding:"13px 0",marginBottom:16}}>
-          <span style={{...WHITE_STICKER_TEXT,fontSize:13,letterSpacing:"0.03em",textTransform:"uppercase"}}>{copied?"Copied ✓":"Copy"}</span>
+        <button onClick={handleShare} style={{...BTN.cyan,width:"100%",padding:"16px 0",marginBottom:18}}>
+          <span style={{...WHITE_STICKER_TEXT,fontSize:"clamp(18px, 5.2vw, 24px)",lineHeight:1.02,letterSpacing:"0.03em",textTransform:"uppercase"}}>{copied?"Copied ✓":"Copy"}</span>
         </button>
 
         <div style={{marginTop:"auto",display:"flex",gap:10}}>
@@ -4194,7 +4772,7 @@ function PlotMixApp() {
   // This prevents Android WebView from showing its default dark background
   useEffect(()=>{
     document.documentElement.style.cssText = 'background:#7462FC !important;background-color:#7462FC !important;color:#FFFFFF !important;';
-    document.body.style.cssText = 'background:#7462FC !important;background-color:#7462FC !important;color:#FFFFFF !important;margin:0;padding:0;min-height:100vh;';
+    document.body.style.cssText = 'background:#7462FC !important;background-color:#7462FC !important;color:#FFFFFF !important;margin:0;padding:0;min-height:100dvh;';
     const meta = document.createElement('meta');
     meta.name = 'theme-color';
     meta.content = '#7462FC';
@@ -4273,7 +4851,7 @@ function PlotMixApp() {
   };
 
   return (
-    <div style={{background:T.bg,backgroundColor:T.bg,color:T.textOnDark,minHeight:"100vh"}}>
+    <div style={{background:T.bg,backgroundColor:T.bg,color:T.textOnDark,minHeight:"100dvh"}}>
       <style>{`
         html, body {
           margin: 0 !important;
@@ -4282,8 +4860,12 @@ function PlotMixApp() {
           background-color: #7462FC !important;
           color: #FFFFFF !important;
           font-size: 16px !important;
-          min-height: 100vh !important;
+          min-height: 100dvh !important;
           -webkit-font-smoothing: antialiased;
+        }
+
+        #root {
+          min-height: 100dvh !important;
         }
 
         *, *::before, *::after {
@@ -4333,17 +4915,47 @@ function PlotMixApp() {
         @keyframes slideUp { from{opacity:0;transform:translateY(20px)}  to{opacity:1;transform:translateY(0)} }
         @keyframes pulse   { 0%,100%{opacity:1} 50%{opacity:0.4} }
         @keyframes titlePop{ 0%{opacity:0;transform:scale(0.75)} 60%{transform:scale(1.06)} 100%{opacity:1;transform:scale(1)} }
+        @keyframes impactShake { 0%{transform:translateX(0)} 25%{transform:translateX(-6px)} 50%{transform:translateX(5px)} 75%{transform:translateX(-3px)} 100%{transform:translateX(0)} }
+        @keyframes impactFlash { 0%{opacity:0} 30%{opacity:1} 100%{opacity:0} }
         @keyframes winStickerPop { 0%{opacity:0;transform:scale(0.72)} 30%{opacity:1;transform:scale(1.06)} 100%{opacity:1;transform:scale(1)} }
+        @keyframes popupBackdropIn { from{opacity:0} to{opacity:1} }
+        @keyframes popupSheetPunchy { 0%{transform:translateY(34px) scale(0.96)} 65%{transform:translateY(-9px) scale(1.01)} 100%{transform:translateY(0) scale(1)} }
+        @keyframes popupSheetDreamy { 0%{transform:translateY(44px) scale(0.98); opacity:0.4} 100%{transform:translateY(0) scale(1); opacity:1} }
+        @keyframes popupSheetRetro { 0%{transform:translateY(40px); opacity:0} 35%{transform:translateY(16px); opacity:0.55} 75%{transform:translateY(-6px); opacity:0.9} 100%{transform:translateY(0); opacity:1} }
+        @keyframes popupSheetThriller { 0%{transform:translateY(28px) scale(1.01)} 50%{transform:translateY(-3px) scale(1)} 100%{transform:translateY(0) scale(1)} }
+        @keyframes genreWipePunchy { 0%{opacity:0; clip-path:inset(0 100% 0 0)} 35%{opacity:1} 100%{opacity:0; clip-path:inset(0 0 0 100%)} }
+        @keyframes genreWipeDreamy { 0%{opacity:0; transform:scale(1.06)} 35%{opacity:1; transform:scale(1)} 100%{opacity:0; transform:scale(0.98)} }
+        @keyframes genreWipeRetro { 0%{opacity:0} 20%{opacity:0.95} 40%{opacity:0.35} 60%{opacity:0.95} 100%{opacity:0} }
+        @keyframes genreWipeThriller { 0%{opacity:0; clip-path:inset(0 0 100% 0)} 38%{opacity:1; clip-path:inset(0 0 0 0)} 100%{opacity:0; clip-path:inset(100% 0 0 0)} }
+        @keyframes cardInPunchy { 0%{transform:translateY(28px) scale(0.97); opacity:0} 100%{transform:translateY(0) scale(1); opacity:1} }
+        @keyframes cardOutPunchy { to{transform:translateY(-8px) scale(0.98); opacity:0} }
+        @keyframes cardInDreamy { 0%{transform:translateY(20px) scale(0.99); filter:blur(4px); opacity:0} 100%{transform:translateY(0) scale(1); filter:blur(0); opacity:1} }
+        @keyframes cardOutDreamy { to{transform:translateY(-6px); opacity:0; filter:blur(3px)} }
+        @keyframes cardInRetro { 0%{opacity:0; transform:translateY(16px)} 100%{opacity:1; transform:translateY(0)} }
+        @keyframes cardOutRetro { to{opacity:0; transform:translateY(-4px)} }
+        @keyframes cardInThriller { 0%{transform:scale(1.02) translateY(10px); filter:contrast(1.25); opacity:0} 100%{transform:scale(1) translateY(0); filter:contrast(1); opacity:1} }
+        @keyframes cardOutThriller { to{transform:scale(0.99) translateY(-6px); opacity:0} }
+        @keyframes cameraShakePunchy { 0%{transform:translateX(0)} 20%{transform:translateX(-6px)} 40%{transform:translateX(5px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(3px)} 100%{transform:translateX(0)} }
+        @keyframes cameraShakeDreamy { 0%{transform:translateX(0)} 33%{transform:translateX(-3px)} 66%{transform:translateX(3px)} 100%{transform:translateX(0)} }
+        @keyframes cameraShakeRetro { 0%{transform:translateX(0)} 25%{transform:translateX(-4px)} 50%{transform:translateX(4px)} 75%{transform:translateX(-2px)} 100%{transform:translateX(0)} }
+        @keyframes cameraShakeThriller { 0%{transform:translateX(0)} 18%{transform:translateX(-5px)} 36%{transform:translateX(5px)} 54%{transform:translateX(-3px)} 72%{transform:translateX(2px)} 100%{transform:translateX(0)} }
+        @keyframes scorePulse { 0%{transform:scale(0.88)} 60%{transform:scale(1.08)} 100%{transform:scale(1)} }
+        @keyframes vaultDoorIn { 0%{transform:translateY(20px) scale(0.98); opacity:0} 100%{transform:translateY(0) scale(1); opacity:1} }
+        @keyframes vaultUnlockPulse { 0%{transform:scale(1)} 35%{transform:scale(1.04)} 100%{transform:scale(1)} }
+        @keyframes tapePeelReveal { 0%{clip-path:inset(0 100% 0 0)} 100%{clip-path:inset(0 0 0 0)} }
         @keyframes trexBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
         @keyframes trexSway { 0%,100%{transform:rotate(0deg)} 25%{transform:rotate(-3deg)} 75%{transform:rotate(3deg)} }
         @keyframes trexFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
+        @keyframes homeTrexFloat { 0%,100%{transform:translateY(0) rotate(0deg)} 50%{transform:translateY(-7px) rotate(-1.2deg)} }
+        @keyframes skipStickerDrop { 0%{opacity:0; transform:translateY(-22px) scale(0.86) rotate(-6deg)} 55%{opacity:1; transform:translateY(4px) scale(1.03) rotate(1.5deg)} 100%{opacity:1; transform:translateY(0) scale(1) rotate(0deg)} }
+        @keyframes skipSadFloat { 0%,100%{transform:translateY(0) rotate(0deg)} 50%{transform:translateY(-4px) rotate(-1.5deg)} }
         .pmtc { display:inline-block !important; width:32px !important; height:20px !important; min-width:32px !important; min-height:20px !important; border-radius:5px !important; flex-shrink:0 !important; vertical-align:middle !important; }
       `}</style>
       {screen==="intro"&&<IntroVideoScreen onDone={()=>setScreen(hasOnboarded()?"menu":"onboarding")}/>}
-      {screen==="onboarding"&&<Onboarding onDone={()=>setScreen("menu")}/>}
+      {screen==="onboarding"&&<Onboarding onDone={()=>{markOnboarded();setScreen("menu");}} onSkip={()=>{markOnboarded();setScreen("menu");}} showSkip/>}
       {screen==="menu"&&<ModeSelect onSelect={handleModeSelect}/>}
-      {screen==="game"&&mode&&<GameScreen mode={mode} deck={deck} initialState={resumeState} onQuit={goMenu} onComplete={handleComplete}/>}
-      {screen==="end"&&completedRun&&<EndScreen mode={completedRun.mode} results={completedRun.results} totalScore={completedRun.totalScore} streak={completedRun.streak ?? finalStreak} onMenu={goMenu} onPlayAgain={handlePlayAgain}/>}
+      {screen==="game"&&mode&&<GameScreen mode={mode} deck={deck} initialState={resumeState} onQuit={goMenu} onComplete={handleComplete} reducedMotion={false}/>}
+      {screen==="end"&&completedRun&&<EndScreen mode={completedRun.mode} results={completedRun.results} totalScore={completedRun.totalScore} onMenu={goMenu} onPlayAgain={handlePlayAgain}/>}
       {/* Not during play: it overlaps the Skip button and swallows its clicks,
           and the Figma gameplay frame has no floating help button. */}
       {screen==="menu"&&<HelpButton onClick={()=>setShowHelp(true)}/>}
