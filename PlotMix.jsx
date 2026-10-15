@@ -824,18 +824,6 @@ const MASTER_DECK = [
     hintData: {"films":[{"year":2011,"genre":"Family Drama","actors":["Matt Damon","Scarlett Johansson"]},{"year":2001,"genre":"Comedy","actors":["Ben Stiller","Owen Wilson"]}]}
   },
   {
-    id: 69,
-    mashedTitle: "The Fault in Our Star Wars",
-    mashedPlot: "Two teenagers meet at a cancer support group in Indianapolis and fall deeply in love. When they travel to Amsterdam to meet a reclusive author, they discover he has secretly been recruited by the Rebel Alliance — and that the only way to save their relationship is to destroy the Death Star.",
-    movies: ["The Fault in Our Stars", "Star Wars"],
-    aliases: [["Fault in Our Stars", "The Fault In Our Stars"], ["Star Wars A New Hope", "Star Wars Episode 4", "Episode IV", "A New Hope"]],
-    hints: ["One is a 2014 teen romance based on a John Green novel. The other is a 1977 space opera that changed cinema forever.", "One stars Shailene Woodley and Ansel Elgort. The other stars Mark Hamill, Harrison Ford and Carrie Fisher.", "A terminal cancer diagnosis meets the Force, lightsabers, and a galaxy far, far away."],
-    difficulty: "Easy",
-    difficultyReason: "Both films are massively well-known and the title mashup writes itself — players will laugh the moment they see the answer",
-    connection: "Both films are fundamentally about young people confronting impossible odds — one against illness, one against an evil empire — and choosing love and hope anyway.",
-    hintData: {"films":[{"year":2014,"genre":"Romantic Drama","actors":["Shailene Woodley","Ansel Elgort"]},{"year":1977,"genre":"Sci-Fi Adventure","actors":["Mark Hamill","Harrison Ford","Carrie Fisher"]}]}
-  },
-  {
     id: 70,
     mashedTitle: "Independence Groundhog Day",
     mashedPlot: "A cocky fighter pilot wakes up on July 4th to find Earth under attack by a massive alien invasion fleet. He joins the resistance, helps destroy an alien mothership — then wakes up on July 4th again. And again. Every time he dies fighting the aliens, the day resets, and he has to find a new way to save humanity from scratch.",
