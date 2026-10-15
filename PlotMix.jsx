@@ -4785,7 +4785,22 @@ function EndScreen({mode,results,totalScore,onMenu,onPlayAgain}) {
 // 
 // ROOT
 // 
+// Follows the operating system's "reduce motion" accessibility setting.
+function usePrefersReducedMotion() {
+  const query = "(prefers-reduced-motion: reduce)";
+  const [reduced,setReduced]=useState(()=>typeof window!=="undefined" && !!window.matchMedia && window.matchMedia(query).matches);
+  useEffect(()=>{
+    if(!window.matchMedia) return;
+    const mql=window.matchMedia(query);
+    const onChange=()=>setReduced(mql.matches);
+    mql.addEventListener?.("change",onChange);
+    return ()=>mql.removeEventListener?.("change",onChange);
+  },[]);
+  return reduced;
+}
+
 function PlotMixApp() {
+  const reducedMotion=usePrefersReducedMotion();
   // Inject background into document.head immediately — before React renders anything
   // This prevents Android WebView from showing its default dark background
   useEffect(()=>{
@@ -4972,7 +4987,7 @@ function PlotMixApp() {
       {screen==="intro"&&<IntroVideoScreen onDone={()=>setScreen(hasOnboarded()?"menu":"onboarding")}/>}
       {screen==="onboarding"&&<Onboarding onDone={()=>{markOnboarded();setScreen("menu");}} onSkip={()=>{markOnboarded();setScreen("menu");}} showSkip/>}
       {screen==="menu"&&<ModeSelect onSelect={handleModeSelect}/>}
-      {screen==="game"&&mode&&<GameScreen mode={mode} deck={deck} initialState={resumeState} onQuit={goMenu} onComplete={handleComplete} reducedMotion={false}/>}
+      {screen==="game"&&mode&&<GameScreen mode={mode} deck={deck} initialState={resumeState} onQuit={goMenu} onComplete={handleComplete} reducedMotion={reducedMotion}/>}
       {screen==="end"&&completedRun&&<EndScreen mode={completedRun.mode} results={completedRun.results} totalScore={completedRun.totalScore} onMenu={goMenu} onPlayAgain={handlePlayAgain}/>}
       {/* Not during play: it overlaps the Skip button and swallows its clicks,
           and the Figma gameplay frame has no floating help button. */}
