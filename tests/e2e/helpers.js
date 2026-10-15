@@ -26,6 +26,16 @@ export async function openMenu(page) {
   await expect(page.getByRole('button', { name: MODES.standard.label })).toBeVisible({ timeout: 30_000 })
 }
 
+// The Daily card is chosen from the date, so pin the browser's date to keep
+// Daily tests on the same card every day. Timers keep running normally.
+// 2026-10-14 is the day this suite was first verified. Some cards would break
+// the "name each film separately" test (see docs/TESTING.md, card #54).
+export const PINNED_DAILY_DATE = new Date('2026-10-14T12:00:00')
+
+export async function pinDailyDate(page) {
+  await page.clock.setFixedTime(PINNED_DAILY_DATE)
+}
+
 export async function startMode(page, modeId) {
   await page.getByRole('button', { name: MODES[modeId].label }).click()
   await expect(guessInput(page)).toBeVisible()

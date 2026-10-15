@@ -6,7 +6,7 @@
 //   - 6 wrong guesses lose the card; a lost or skipped card costs 1 heart
 import { test, expect } from '@playwright/test'
 import {
-  openMenu, startMode, submitGuess, guessInput, waitForSave, currentCard, pointsCounter,
+  openMenu, startMode, submitGuess, guessInput, waitForSave, currentCard, pointsCounter, pinDailyDate,
 } from './helpers.js'
 
 // Clearly not a film title and not a word from any mashed title.
@@ -20,6 +20,7 @@ async function finishRound(page, label) {
 
 test.describe('guessing and scoring', () => {
   test('naming both films separately solves the card for full points', async ({ page }) => {
+    await pinDailyDate(page)
     await openMenu(page)
     await startMode(page, 'daily')
     const card = await currentCard(page, 'daily')
@@ -164,6 +165,7 @@ test.describe('saving', () => {
 test.describe('sharing', () => {
   test('Copy puts the result summary on the clipboard', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    await pinDailyDate(page)
     await openMenu(page)
     await startMode(page, 'daily')
     const card = await currentCard(page, 'daily')

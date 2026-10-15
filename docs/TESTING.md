@@ -27,6 +27,18 @@ screenshots and traces is attached to the run as `playwright-report`.
   request and say so. Never change gameplay rules to make a test pass.
 - **Google Fonts requests are blocked in tests** so results don't depend on
   the network. Fonts are cosmetic and not under test.
+- **Daily tests pin the browser date to 2026-10-14** (`pinDailyDate` in
+  `helpers.js`). The Daily card is chosen from the date, so without the pin
+  a test's card changes every day. Timers still run normally.
+
+## Known game defects found by testing (not fixed; need an owner decision)
+
+- **Card #54 "The Green 8 Mile": naming one film solves the whole card.**
+  "The Green Mile" is within the 2-character typo tolerance of the full
+  mashed title, so `isMashedTitleGuess` accepts it as the complete answer.
+  Found by checking every card against the matching code; reproduced in the
+  browser with the date set to 2026-11-18, when #54 is the Daily card. Fixing
+  it changes matching rules, so it needs approval first.
 
 ## What is covered
 
