@@ -2122,9 +2122,9 @@ const STICKER_ASSETS = {
   ],
   hintAnimation: { src: "/stickers/hint.mp4", width: 320, aboveGap: 8, liftY: -120 },
   trex: {
-    sad: "/stickers/Sad.png",
-    happy: "/stickers/Happy.png",
-    veryHappy: "/stickers/Very-happy.png",
+    sad: "/stickers/Sad.webp",
+    happy: "/stickers/Happy.webp",
+    veryHappy: "/stickers/Very-happy.webp",
   },
 };
 
@@ -3047,7 +3047,7 @@ function ModeSelect({onSelect}) {
           }}
         >
           <img
-            src="/stickers/Happy.png"
+            src="/stickers/Happy.webp"
             alt=""
             draggable="false"
             style={{
