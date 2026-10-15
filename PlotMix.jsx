@@ -3944,6 +3944,9 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   const [streak,setStreak]=useState(()=>loadStreak());
   const [perfectSolveStreak,setPerfectSolveStreak]=useState(0);
   const prevFoundRef=useRef([false,false]);
+  // Set once a round's result has been applied, so a double tap on Next
+  // (the button stays on screen during the card transition) can't apply it twice.
+  const resultAppliedRef=useRef(false);
   const speedrunDeadlineRef=useRef(null);
   const speedrunRafRef=useRef(null);
 
@@ -4188,7 +4191,13 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     setShowSkipConfirm(true);
   };
 
+  useEffect(()=>{
+    if(phase==="result") resultAppliedRef.current=false;
+  },[phase]);
+
   const handleResultNext=()=>{
+    if(resultAppliedRef.current) return;
+    resultAppliedRef.current=true;
     if(skipped){
       const skipResult={card,found:[false,false],solved:false,guesses:guesses.length,hints:hintsRevealed.length,guessList:[...guesses],hintList:[...hintsRevealed],pts:0,reward:currentReward,skipped:true};
       const nextResults = upsertRoundResult(results, cardIdx, skipResult);
