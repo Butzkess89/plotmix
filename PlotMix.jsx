@@ -4119,7 +4119,10 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       speedrunRafRef.current = null;
     }
 
-    if(phase!=="playing" || both || lives<=0){
+    // Only solving the current card stops its clock. Viewing an earlier card
+    // (rewind) must not pause it, or players get unlimited thinking time.
+    const currentCardSolved = both && rewindIdx===null;
+    if(phase!=="playing" || currentCardSolved || lives<=0){
       speedrunDeadlineRef.current = null;
       return;
     }
@@ -4140,6 +4143,8 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
 
       if(nextSeconds<=0){
         speedrunDeadlineRef.current = null;
+        // Time ran out on the current card: bring the player back to it first.
+        if(rewindIdx!==null) goToCard(cardIdx);
         setTimedOut(true);
         setPhase("result");
         return;
@@ -4155,7 +4160,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
         speedrunRafRef.current = null;
       }
     };
-  },[phase,both,lives,mode.timeLimit,timeLeft,cardIdx]);
+  },[phase,both,lives,mode.timeLimit,timeLeft,cardIdx,rewindIdx]);
 
   const goToCard=(target)=>{
     setCardStates(prev=>({...prev,[activeIdx]:{guesses,hintsRevealed}}));
