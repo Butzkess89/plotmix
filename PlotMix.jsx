@@ -3972,7 +3972,10 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   // no re-attempting it for score later, even if points were left on it.
   const pastSkipped = !!(pastResult && pastResult.skipped);
   const pastSpent = !!(pastResult && !pastWon && !pastSkipped && (pastResult.reward||0) <= 0);
-  const viewOnly = rewindIdx!==null && (pastWon || pastSpent || pastSkipped);
+  // A card lost by using up every wrong guess is finished too: it can't take more guesses.
+  const pastOutOfGuesses = !!(pastResult && !pastWon && !pastSkipped &&
+    (pastResult.guessList||[]).filter(g=>guessClassification(g, card)==="miss").length >= mode.maxGuesses);
+  const viewOnly = rewindIdx!==null && (pastWon || pastSpent || pastSkipped || pastOutOfGuesses);
   const isRewound = rewindIdx!==null;
   const found=checkGuesses(guesses,card.movies,card.aliases||[[],[]],card.mashedTitle||"");
   const titleFullyRevealed = areAllMashedTitleWordsGuessed(guesses, card.mashedTitle || "");
@@ -4009,8 +4012,9 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     : hintCount===1
       ? "/design-reference/Guess%20button-1.svg" // 1/2
       : "/design-reference/Guess%20button.svg"; // 0/2
+  // A finished card shows the points it actually scored (0 if lost or skipped).
   const liveCardPts = viewOnly && pastResult
-    ? (typeof pastResult.reward === "number" ? pastResult.reward : (both ? (pastResult.pts ?? BASE_REWARD) : 0))
+    ? (typeof pastResult.pts === "number" ? pastResult.pts : (pastWon ? BASE_REWARD : 0))
     : currentReward;
   const maxPossibleReward=BASE_REWARD;
   const pointsLost=maxPossibleReward-currentReward;
