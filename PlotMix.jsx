@@ -1437,7 +1437,9 @@ function levenshtein(a, b) {
   return dp[b.length];
 }
 
-const STOPWORDS = new Set(["the","a","an","and","of","in","on","at","to","for","with","is","it","or","from","by","there","will","day","being"]);
+// Grammar words a player never has to type to complete a title word by word.
+// Real title words ("day", "will", "there", "being", ...) must not be listed here.
+const STOPWORDS = new Set(["the","a","an","and","of","in","on","at","to","for","with","is","it","or","from","by"]);
 const GENERIC_TITLE_WORDS = new Set(["life","man","men","woman","women","world","story","time","night","home","love","boy","girl"]);
 
 function fuzzy(guess, answer, aliases = []) {
@@ -1546,19 +1548,14 @@ function areAllMashedTitleWordsGuessed(guesses, mashedTitle = "") {
   const guessed = new Set();
 
   guesses.forEach((g) => {
-    // Only single-word guesses contribute to this fallback completion path.
-    // Multi-word guesses are validated by isMashedTitleGuess instead, so
-    // connector words like "of" vs "and" cannot be bypassed here.
-    const tokens = normWord(g)
+    // Every title word in any guess counts, however many words the guess had.
+    // This is the same rule HangmanTitle uses to reveal tiles, so a title that
+    // is fully shown on screen is also solved.
+    normWord(g)
       .split(" ")
       .filter(Boolean)
       .map(normalizeToken)
-      .filter(Boolean);
-
-    if (tokens.length !== 1) return;
-
-    const token = tokens[0];
-    if (required.has(token)) guessed.add(token);
+      .forEach((token) => { if (required.has(token)) guessed.add(token); });
   });
 
   return Array.from(required).every((token) => guessed.has(token));
