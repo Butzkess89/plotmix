@@ -44,6 +44,7 @@ Evidence: **Confirmed** (reproduced in a browser or by running the game's own co
 | G7 | The all-time streak is updated again when a rewound card is replayed (and twice by G1). | Low | Inflated streak | S | Code |
 | G8 | Daily can be replayed without limit and each replay overwrites the stored result. | Low (**design decision**) | Daily score not "once a day" | S | Code |
 | G9 | **Daily cards repeat often.** Each date is an independent shuffle: over the next 365 days there are 273 repeats, the shortest gap between repeats is 2 days, and 2 cards never appear. | Medium | Daily players see the same puzzle again within days | S (a fixed schedule) – changes which card shows on each date, so needs a decision | Confirmed (simulated with game code) |
+| G10 | **A fully revealed title could stay unsolved.** The tiles reveal title words typed several at a time ("The Nightmare", "Before Christmas"), but completion only counted words typed one per guess. The screen showed the answer and the game could not be finished. Found by the owner on the Daily, 2026-10-15. | **High** | Players stuck with no way to finish the card | S | Confirmed; **fixed in PR #4** |
 
 ### 2.2 Content
 

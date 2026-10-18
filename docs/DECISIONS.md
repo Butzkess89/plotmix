@@ -36,6 +36,8 @@ Links shared on WhatsApp/X show no description or image.
 
 **Recommendation: A.** Effort S.
 
+*Update 2026-10-18:* typing the title word by word now works on these cards through the G10 fix (PR #4). Typing the full film name with or without the apostrophe is still matched as before; option A remains open for consistency.
+
 ### 5. Free word guesses (audit G6)
 Typing any word that is in the mashed title reveals it without costing anything, so most cards can be solved for full points by trying words one at a time. A title has 1–9 meaningful words (median 3). This is the core "hangman" feel, so it is a design call.
 - **A.** Keep as is.
@@ -102,3 +104,5 @@ The removed duplicate #69 had different writing for the same card (see `docs/con
 |---|---|---|
 | 2026-10-14 | Read-only audit before any changes; work only through draft PRs | Owner |
 | 2026-10-15 | Phase 2 Batch 1 approved (PR #4) | Owner |
+| 2026-10-18 | Fix G10: a title revealed word by word completes the card (added to PR #4) | Owner |
+| 2026-10-18 | Only grammar words (the, a, an, and, of, in, on, at, to, for, with, is, it, or, from, by) are optional when completing word by word. "day", "days", "will", "there", "being" are real title words and must be found | Owner |
