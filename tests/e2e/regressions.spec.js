@@ -3,6 +3,7 @@
 import { test, expect } from '@playwright/test'
 import {
   openMenu, startMode, submitGuess, waitForSave, currentCard, readSaves, pointsCounter,
+  resumeStandardWithCards,
 } from './helpers.js'
 
 const WRONG_GUESS = 'zzqx wrong guess'
@@ -119,5 +120,28 @@ test.describe('P1: sticker images are lightweight', () => {
     const sticker = page.locator('img[src*="/stickers/"]').first()
     await expect(sticker).toHaveAttribute('src', /\.webp$/)
     await expect.poll(() => sticker.evaluate((img) => img.complete && img.naturalWidth > 0)).toBe(true)
+  })
+})
+
+test.describe('G10: a title revealed word by word completes the card', () => {
+  test('words typed several at a time count, so a fully revealed title is solved', async ({ page }) => {
+    // #77 "The Nightmare Before Christmas Story": the owner got stuck here on 2026-10-15.
+    await resumeStandardWithCards(page, [77])
+    for (const g of ['The Nightmare', 'Before Christmas', 'Story']) await submitGuess(page, g)
+    await page.getByRole('button', { name: 'Next' }).click()
+    const session = await waitForSave(page, 'standard', (s) => s.cardIdx === 1)
+    // Words that are in the title never count as wrong guesses, so the card keeps full points.
+    expect(session.results[0]).toMatchObject({ solved: true, pts: 10, guesses: 3 })
+  })
+
+  test('"day", "will", "there" and "being" are real words that must be found', async ({ page }) => {
+    // #10 "Being John Wick": "John" and "Wick" alone must not complete it.
+    await resumeStandardWithCards(page, [10])
+    await submitGuess(page, 'John')
+    await submitGuess(page, 'Wick')
+    await page.waitForTimeout(1_000)
+    await expect(page.getByRole('button', { name: 'Next' })).toHaveCount(0)
+    await submitGuess(page, 'Being')
+    await expect(page.getByRole('button', { name: 'Next' })).toBeVisible()
   })
 })

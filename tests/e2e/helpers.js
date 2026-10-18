@@ -1,5 +1,7 @@
 // Shared helpers for PlotMix end-to-end tests.
 // These only read the app's own localStorage keys; they never change game code.
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { expect } from '@playwright/test'
 
 export const SAVE_KEY = 'plotmix_save_v2'
@@ -71,3 +73,39 @@ export async function currentCard(page, modeId) {
 }
 
 export const pointsCounter = (page) => page.getByText(/^PTS: \d+$/)
+
+// The card list, read straight from PlotMix.jsx (same method as tests/data/deck-check.mjs).
+// Tests run from the project root, where playwright.config.js lives.
+export function readDeck() {
+  const source = readFileSync(join(process.cwd(), 'PlotMix.jsx'), 'utf8')
+  const start = source.indexOf('const MASTER_DECK = [')
+  const end = source.indexOf('\n];', start)
+  return new Function(`return ${source.slice(start + 'const MASTER_DECK = '.length, end + 2)}`)()
+}
+
+// Start a Standard run on chosen cards by saving a game and using the normal
+// "Resume Game" button. The chosen cards come first; the rest fill up the deck.
+export async function resumeStandardWithCards(page, cardIds) {
+  const all = readDeck()
+  const chosen = cardIds.map((id) => all.find((c) => c.id === id))
+  const deck = [...chosen, ...all.filter((c) => !cardIds.includes(c.id))].slice(0, MODES.standard.roundCount)
+  const save = {
+    standard: {
+      modeName: MODES.standard.label, modeId: 'standard', cardIdx: 0, guesses: [], hintsRevealed: [],
+      results: [], totalScore: 0, lives: 6, timeLeft: 0, deckLen: deck.length, deck,
+      dailyKey: null, schemaVersion: 2, savedAt: Date.now(),
+    },
+  }
+  // The game wipes saved games on load unless its storage version is already recorded.
+  const source = readFileSync(join(process.cwd(), 'PlotMix.jsx'), 'utf8')
+  const storageVersion = source.match(/const APP_STORAGE_VERSION = "([^"]+)"/)[1]
+  await page.addInitScript(([key, value, version]) => {
+    if (sessionStorage.getItem('seeded')) return
+    localStorage.setItem('plotmix_app_version', version)
+    localStorage.setItem(key, value)
+    sessionStorage.setItem('seeded', '1')
+  }, [SAVE_KEY, JSON.stringify(save), storageVersion])
+  await openMenu(page)
+  await page.getByRole('button', { name: 'Resume Game' }).click()
+  await expect(guessInput(page)).toBeVisible()
+}
