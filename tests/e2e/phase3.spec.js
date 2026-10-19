@@ -42,3 +42,12 @@ test.describe('3A-1 the exit button is easy to tap', () => {
     expect(box.height).toBeGreaterThanOrEqual(44)
   })
 })
+
+test.describe('3A-4 lighter first load', () => {
+  test('the intro video is under 1.5 MB and still a playable MP4', async ({ request }) => {
+    const res = await request.get('/design-reference/it_s_nearly_perfect_except_th.mp4')
+    expect(res.status()).toBe(200)
+    expect(res.headers()['content-type']).toContain('video/mp4')
+    expect((await res.body()).length).toBeLessThan(1.5e6)
+  })
+})
