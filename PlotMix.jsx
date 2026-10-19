@@ -2165,7 +2165,7 @@ const STICKER_ASSETS = {
   },
 };
 
-// Renders a video through canvas and keys out near-black pixels so exported
+// Renders a video through canvas and keys out green-screen pixels so exported
 // stickers can sit cleanly over gameplay without a black rectangle.
 function ChromaKeyVideo({
   src,
@@ -2187,11 +2187,15 @@ function ChromaKeyVideo({
     if (!video || !canvas || !src) return;
 
     let disposed = false;
+    let lastFrameTime = -1;
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) return;
     const draw = () => {
       if (disposed) return;
-      if (video.readyState >= 2 && !video.paused && !video.ended) {
+      // Key out a frame only when the video shows a new one: the clips are 30 fps,
+      // while the screen refreshes 60+ times a second.
+      if (video.readyState >= 2 && !video.paused && !video.ended && video.currentTime !== lastFrameTime) {
+        lastFrameTime = video.currentTime;
         const w = canvas.width;
         const h = canvas.height;
         ctx.clearRect(0, 0, w, h);
