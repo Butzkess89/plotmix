@@ -9,6 +9,9 @@ npm run test:data   # card-data check, about 1 second
 npm run test:e2e    # browser tests
 ```
 
+Wrong guesses in tests are one made-up word (`zzqxwrong`), because each wrong
+word costs a point.
+
 The tests build the app (`vite build`), serve it with `vite preview` on port
 4173, and drive it in Chromium at the game's 402x874 phone size.
 
@@ -57,8 +60,9 @@ screenshots and traces is attached to the run as `playwright-report`.
 | Saving | Game survives a reload and resumes on the same card with the same guesses | `gameplay.spec.js` |
 | Saving | Exit to menu discards the save | `gameplay.spec.js` |
 | Sharing | Copy puts the exact summary text on the clipboard | `gameplay.spec.js` |
-| Card data | Every card has the required fields; no duplicate ids, titles or film pairs | `tests/data/deck-check.mjs` |
+| Card data | Every card has the required fields; no duplicate ids, titles or film pairs; extra answers are only the real title written differently | `tests/data/deck-check.mjs` |
 | Regressions | Double tap on Next applies a round once (G1); Speed Run clock runs while rewound (G3); lost card is view-only on rewind (G4); OS reduce-motion respected and animations still play without it (A2); stickers are WebP (P1) | `regressions.spec.js` |
+| Owner decisions (Batch 2) | Share text ends with the game link and uses the share menu where available (#1); link-preview tags and image (#2); one film name never solves a card (#3); apostrophes ignored (#4); each wrong word costs a point, correct guesses free (#5); first Daily result kept on replay (#6); Daily rotation without repeats from 2026-11-01, earlier dates unchanged (#7); nicknames don't count as film names (#8); sound on/off remembered and silences the game (#9); fonts self-hosted, no Google request (#10); card #51 text (#11) | `batch2.spec.js` |
 
 ## Not covered yet
 
