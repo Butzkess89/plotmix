@@ -12,6 +12,11 @@ const deck = new Function(`return ${source.slice(start + 'const MASTER_DECK = '.
 const DIFFICULTIES = new Set(['Easy', 'Medium', 'Hard'])
 const norm = (s) => s.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim()
 const nonEmptyString = (v) => typeof v === 'string' && v.trim().length > 0
+// Owner rule (2026-10-19): an alias may only be the real title written differently
+// (spacing, punctuation, accents, capitals, a leading "the/a/an"). No nicknames,
+// abbreviations, other-language titles, partial titles or numbers written as words.
+const titleKey = (t) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/&/g, 'and')
+  .replace(/['’]/g, '').replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim().replace(/^(the|a|an) /, '').replace(/ /g, '')
 
 const problems = []
 const seen = { id: new Map(), title: new Map(), pair: new Map() }
@@ -31,6 +36,10 @@ for (const card of deck) {
   }
   if (!Array.isArray(card.aliases) || card.aliases.length !== 2 || !card.aliases.every(Array.isArray)) {
     problems.push(`#${id}: aliases must be two lists`)
+  } else if (Array.isArray(card.movies)) {
+    card.aliases.forEach((list, i) => list.forEach((alias) => {
+      if (titleKey(alias) !== titleKey(card.movies[i] || '')) problems.push(`#${id}: alias "${alias}" is not the real title "${card.movies[i]}"`)
+    }))
   }
   if (!Array.isArray(card.hints) || card.hints.length === 0 || !card.hints.every(nonEmptyString)) {
     problems.push(`#${id}: hints missing`)
