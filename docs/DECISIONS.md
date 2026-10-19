@@ -1,8 +1,8 @@
 # PlotMix – Decisions
 
-Record of product decisions. Each pending item lists the options, the evidence and a recommendation. The owner decides; the decision and date are then filled in.
+Record of product decisions. Each item lists the options, the evidence and a recommendation; the owner's decision is recorded in the table at the end.
 
-## Pending: Batch 2 (from `docs/PHASE2_AUDIT.md`), 2026-10-15
+## Batch 2 options (from `docs/PHASE2_AUDIT.md`), 2026-10-15 – all decided 2026-10-19, see the table at the end
 
 Measurements below come from running the game's own matching and shuffle code over all 94 playable cards.
 
@@ -106,3 +106,7 @@ The removed duplicate #69 had different writing for the same card (see `docs/con
 | 2026-10-15 | Phase 2 Batch 1 approved (PR #4) | Owner |
 | 2026-10-18 | Fix G10: a title revealed word by word completes the card (added to PR #4) | Owner |
 | 2026-10-18 | Only grammar words (the, a, an, and, of, in, on, at, to, for, with, is, it, or, from, by) are optional when completing word by word. "day", "days", "will", "there", "being" are real title words and must be found | Owner |
+| 2026-10-19 | Batch 2, implemented in PR #5 (merged 2026-10-19): #1 B share link + share menu; #2 A link previews; #3 A one film name never solves a card; #4 A ignore apostrophes; #6 A first Daily result kept; #7 A Daily rotation from 2026-11-01; #9 A sound button; #10 A self-hosted fonts; #11 B card #51 uses #69's writing; #12 A plotmix-app.vercel.app is the main site | Owner |
+| 2026-10-19 | #5 (owner's own rule): each wrong word in a guess costs 1 point; correct guesses (title words, grammar words, correct film names or full title) cost nothing; still 6 wrong guesses per card | Owner |
+| 2026-10-19 | #8 (owner's own rule): only the real film title counts as naming a film, as written in real life (e.g. "12 Angry Men", not "twelve"). Extra answers allowed only as the real title written differently (spacing, punctuation, accents, capitals, leading the/a/an) | Owner |
+| 2026-10-19 | Single misspelled words are not forgiven (as before); typo tolerance applies only to whole film names and the full title | Owner (default kept) |
