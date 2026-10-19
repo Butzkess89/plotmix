@@ -194,13 +194,22 @@ test.describe('#9 sound on/off', () => {
 test.describe('#10 fonts come from the game itself', () => {
   test('no request goes to Google Fonts and the game fonts load', async ({ page }) => {
     const google = []
-    page.on('request', (r) => { if (/fonts\.(googleapis|gstatic)\.com/.test(r.url())) google.push(r.url()) })
+    const fontFiles = []
+    page.on('request', (r) => {
+      if (/fonts\.(googleapis|gstatic)\.com/.test(r.url())) google.push(r.url())
+      if (r.url().includes('/fonts/')) fontFiles.push(r.url())
+    })
     await page.addInitScript(() => { try { localStorage.setItem('plotmix_onboarded', '1') } catch {} })
     await page.goto('/')
     await expect(page.getByRole('button', { name: 'Standard Mode' })).toBeVisible({ timeout: 30_000 })
-    await page.evaluate(() => document.fonts.ready)
+    // Fonts load when text needs them, so request each one and check it comes from /fonts/.
+    const loaded = await page.evaluate(async () => {
+      const faces = [...await document.fonts.load('16px "Rubik Mono One"', 'A'), ...await document.fonts.load('16px "Outfit"', 'A')]
+      return faces.map((f) => `${f.family}:${f.status}`)
+    })
+    expect(loaded).toEqual(expect.arrayContaining(['Rubik Mono One:loaded', 'Outfit:loaded']))
+    expect(fontFiles.some((u) => u.includes('/fonts/rubik-mono-one-latin.woff2'))).toBe(true)
     expect(google).toEqual([])
-    expect(await page.evaluate(() => document.fonts.check('16px "Rubik Mono One"') && document.fonts.check('16px "Outfit"'))).toBe(true)
   })
 })
 
