@@ -3988,6 +3988,11 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   const winAnimationLockRef=useRef(false);
   const winAnimationStartedAtRef=useRef(0);
   const guessInputRef=useRef(null);
+  // The typing box is "docked" when it is pinned against the bottom button bar
+  // (short screens); it then gets a backdrop so the plot scrolls cleanly behind it.
+  const guessDockRef=useRef(null);
+  const footerBarRef=useRef(null);
+  const [guessDocked,setGuessDocked]=useState(false);
   const [results,setResults]=useState(initialState?.results||[]);
   const [totalScore,setTotalScore]=useState(initialState?.totalScore||0);
   const [streak,setStreak]=useState(()=>loadStreak());
@@ -4355,6 +4360,18 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
 
   const roundScore=calcScore(both,currentReward);
   const showFooterBar = !showingResult && (!both || canReturnToCurrent);
+  useEffect(()=>{
+    const check=()=>{
+      const dock=guessDockRef.current, bar=footerBarRef.current;
+      if(!dock||!bar){ setGuessDocked(false); return; }
+      setGuessDocked(dock.getBoundingClientRect().bottom >= bar.getBoundingClientRect().top - 1);
+    };
+    check();
+    window.addEventListener("scroll",check,{passive:true});
+    window.addEventListener("resize",check);
+    return ()=>{ window.removeEventListener("scroll",check); window.removeEventListener("resize",check); };
+  },[activeIdx,guesses.length,showFooterBar]);
+
   const cardStageAnimation = reducedMotion
     ? "none"
     : (cardTransitionPhase === "out"
@@ -4461,7 +4478,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   }, [mode, cardIdx, phase, skipped, timedOut, isRewound, rewindIdx]);
 
   return (
-    <div style={{minHeight:"100dvh",position:"relative",paddingLeft:20,paddingRight:20,paddingBottom:24,overflowX:"hidden",...CHECKER_BG,color:T.textOnDark}}>
+    <div style={{minHeight:"100dvh",position:"relative",paddingLeft:20,paddingRight:20,paddingBottom:24,overflowX:"clip",...CHECKER_BG,color:T.textOnDark}}>
 
       {!!genreTransition && (
         <div
@@ -4532,10 +4549,11 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       )}
 
       {/* Persistent exit X — fixed above every popup/modal, matches every Figma reference screen */}
+      {/* 44x44 tap area (recommended minimum) around the same 33x35 icon, at the same spot */}
       <button onClick={()=>{clearSession(mode.id);onQuit();}} aria-label="Exit to menu"
-        style={{position:"absolute",top:25,left:20,zIndex:400,width:33,height:35,background:"transparent",border:"none",padding:0,cursor:"pointer"}}>
+        style={{position:"absolute",top:20.5,left:14.5,zIndex:400,width:44,height:44,background:"transparent",border:"none",padding:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
         <img src="/design-reference/Exit.svg" alt="" aria-hidden="true" draggable="false"
-          style={{display:"block",width:"100%",height:"100%",pointerEvents:"none",userSelect:"none"}}/>
+          style={{display:"block",width:33,height:35,pointerEvents:"none",userSelect:"none"}}/>
       </button>
 
       <SoundToggle style={{position:"absolute",top:22,right:20,zIndex:400}}/>
@@ -4630,8 +4648,16 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
               {/*  HANGMAN TILES — bare on the purple background, no card wrapper  */}
               <HangmanTitle card={card} found={pastWon?[true,true]:found} guesses={guesses}/>
 
-              {/*  GUESS INPUT  */}
-              <GuessInput ref={guessInputRef} onSubmit={handleGuess} disabled={both||cardLost||viewOnly} allowSingleLetterY={allowSingleLetterY}/>
+              {/*  GUESS INPUT — stays in place when it fits; on short screens (small phones,
+                  landscape, keyboard open) it stays pinned just above the bottom button bar
+                  instead of hiding behind it. 94/402 is the bar's height-to-width ratio.  */}
+              <div ref={guessDockRef} style={{position:"sticky",zIndex:50,
+                bottom:showFooterBar?"calc(min(100vw, 402px) * 94 / 402 + env(safe-area-inset-bottom, 0px))":"0px",
+                // Padding cancelled by negative margins: same layout as before, room for a backdrop.
+                margin:"-8px -20px",padding:"8px 20px",
+                ...(guessDocked?{...CHECKER_BG,boxShadow:"0 -6px 12px rgba(0,0,0,0.22)"}:{})}}>
+                <GuessInput ref={guessInputRef} onSubmit={handleGuess} disabled={both||cardLost||viewOnly} allowSingleLetterY={allowSingleLetterY}/>
+              </div>
 
 
               {/*  GUESSED-SO-FAR CHIPS — not in the Figma mockup, but the game is unplayable
@@ -4667,7 +4693,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
 
         {/*  FIXED BOTTOM BUTTON BAR — hints / guess / skip  */}
         {showFooterBar&&(
-          <div style={{position:"fixed",bottom:0,left:0,right:0,display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:60,boxSizing:"border-box",padding:"0 env(safe-area-inset-left) max(env(safe-area-inset-bottom), 0px) env(safe-area-inset-right)",background:"#9381FE",borderTop:`1px solid ${T.border}`}}>
+          <div ref={footerBarRef} style={{position:"fixed",bottom:0,left:0,right:0,display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:60,boxSizing:"border-box",padding:"0 env(safe-area-inset-left) max(env(safe-area-inset-bottom), 0px) env(safe-area-inset-right)",background:"#9381FE",borderTop:`1px solid ${T.border}`}}>
             <div style={{position:"relative",width:"100%",maxWidth:402,aspectRatio:"402 / 94"}}>
               <img src={footerBackgroundSrc} alt="" aria-hidden="true" draggable="false"
                 style={{position:"absolute",inset:0,width:"100%",height:"100%",display:"block",pointerEvents:"none",userSelect:"none"}}/>
