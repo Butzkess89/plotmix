@@ -207,7 +207,8 @@ test.describe('#10 fonts come from the game itself', () => {
     // Fonts load when text needs them, so request each one and check it comes from /fonts/.
     const loaded = await page.evaluate(async () => {
       const faces = [...await document.fonts.load('16px "Rubik Mono One"', 'A'), ...await document.fonts.load('16px "Outfit"', 'A')]
-      return faces.map((f) => `${f.family}:${f.status}`)
+      // Safari reports family names with quotes ("Rubik Mono One"), Chrome without.
+      return faces.map((f) => `${f.family.replace(/["']/g, '')}:${f.status}`)
     })
     expect(loaded).toEqual(expect.arrayContaining(['Rubik Mono One:loaded', 'Outfit:loaded']))
     expect(fontFiles.some((u) => u.includes('/fonts/rubik-mono-one-latin.woff2'))).toBe(true)
