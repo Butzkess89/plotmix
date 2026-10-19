@@ -4014,18 +4014,14 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   const card=deck[activeIdx];
   const transitionFamily = pickTransitionFamily(card, activeIdx);
   const pastResult = rewindIdx!==null ? results[rewindIdx] : null;
-  // A card you already won is view-only — you earned it, nothing left to play for.
-  // A card with no reward left is view-only too. Anything else can be resumed
-  // for whatever points remain.
+  // Rewinding shows an earlier card as it ended; these flags pick its labels.
   const pastWon = isRoundSolved(pastResult);
   // A skip is a forfeit, not a pause: the moment you skip, the card is done —
   // no re-attempting it for score later, even if points were left on it.
   const pastSkipped = !!(pastResult && pastResult.skipped);
-  const pastSpent = !!(pastResult && !pastWon && !pastSkipped && (pastResult.reward||0) <= 0);
-  // A card lost by using up every wrong guess is finished too: it can't take more guesses.
-  const pastOutOfGuesses = !!(pastResult && !pastWon && !pastSkipped &&
-    (pastResult.guessList||[]).filter(g=>guessClassification(g, card)==="miss").length >= mode.maxGuesses);
-  const viewOnly = rewindIdx!==null && (pastWon || pastSpent || pastSkipped || pastOutOfGuesses);
+  // Owner decision (2026-10-19): every earlier card is view-only on rewind. Replaying an
+  // unsolved card never recorded a result, so it is no longer offered.
+  const viewOnly = rewindIdx!==null;
   const isRewound = rewindIdx!==null;
   const found=checkGuesses(guesses,card.movies,card.aliases||[[],[]],card.mashedTitle||"");
   const titleFullyRevealed = areAllMashedTitleWordsGuessed(guesses, card.mashedTitle || "");

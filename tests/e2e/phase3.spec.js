@@ -113,3 +113,20 @@ test.describe('3A-3 how a run ends, bonus heart, Play Again, Speed Run countdown
     expect(s.lives).toBe(5)
   })
 })
+
+test.describe('3A-2 earlier cards are view-only on rewind (owner decision B, 2026-10-19)', () => {
+  test('a timed-out Speed Run card cannot be replayed after rewinding', async ({ page }) => {
+    await page.clock.install()
+    await openMenu(page)
+    await startMode(page, 'speedrun')
+    await page.clock.runFor(61_000) // card 1 times out unsolved, with points left
+    await page.getByRole('button', { name: 'Next' }).click()
+    await page.clock.runFor(1_500)
+    await waitForSave(page, 'speedrun', (s) => s.cardIdx === 1)
+
+    await page.getByRole('button', { name: 'Rewind to previous card' }).click()
+    await expect(page.getByRole('button', { name: 'Hints unavailable in view-only' })).toBeVisible()
+    await expect(guessInput(page)).toBeDisabled()
+    await expect(page.getByText('PTS: 0', { exact: true })).toBeVisible()
+  })
+})
