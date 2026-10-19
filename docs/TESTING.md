@@ -13,7 +13,11 @@ Wrong guesses in tests are one made-up word (`zzqxwrong`), because each wrong
 word costs a point.
 
 The tests build the app (`vite build`), serve it with `vite preview` on port
-4173, and drive it in Chromium at the game's 402x874 phone size.
+4173, and drive it at the game's 402x874 phone size in Chromium and, in CI,
+also in WebKit (Safari's engine, used by every iPhone browser). To run the
+WebKit project locally: `npx playwright install webkit` then
+`PW_WEBKIT=1 npm run test:e2e`. Clipboard tests are skipped on WebKit because
+Playwright cannot grant clipboard permission there.
 
 GitHub Actions runs the build and the full suite on every pull request
 (`.github/workflows/ci.yml`). If it fails, the Playwright report with
@@ -63,16 +67,16 @@ screenshots and traces is attached to the run as `playwright-report`.
 | Card data | Every card has the required fields; no duplicate ids, titles or film pairs; extra answers are only the real title written differently | `tests/data/deck-check.mjs` |
 | Regressions | Double tap on Next applies a round once (G1); Speed Run clock runs while rewound (G3); lost card is view-only on rewind (G4); OS reduce-motion respected and animations still play without it (A2); stickers are WebP (P1) | `regressions.spec.js` |
 | Owner decisions (Batch 2) | Share text ends with the game link and uses the share menu where available (#1); link-preview tags and image (#2); one film name never solves a card (#3); apostrophes ignored (#4); each wrong word costs a point, correct guesses free (#5); first Daily result kept on replay (#6); Daily rotation without repeats from 2026-11-01, earlier dates unchanged (#7); nicknames don't count as film names (#8); sound on/off remembered and silences the game (#9); fonts self-hosted, no Google request (#10); card #51 text (#11) | `batch2.spec.js` |
+| Phase 3A | Typing box clear of the bottom bar on small phones and in landscape; 44x44 exit tap area; intro video under 1.5 MB; losing all hearts ends the run; Play Again starts fresh; finishing 10 cards ends with the total; 4 perfect solves give back a heart; Speed Run clock counts down and runs out | `phase3.spec.js` |
 
 ## Not covered yet
 
 - **Speed Run timer**: only the rewind case is covered. The normal countdown
   and the pause on the result popup are not.
-- **Rewind**: replaying a timed-out card for its remaining points, and the
-  streak being updated again on replay (audit finding G7).
-- **Bonus heart** after 4 perfect solves in a row.
-- **Run endings**: losing all hearts, the end screen chips for a full
-  10-card run, Play Again.
+- **Rewind replay**: solving an earlier unsolved card after rewinding records
+  nothing (no points, no streak). Found 2026-10-19; awaiting an owner decision
+  on what replay should do. The suspected double streak update (G7) cannot
+  happen because of this.
 - **Daily rules**: same card for everyone on a given date, never the same top
   card two days running, replay after completion.
 - **Matching edge cases**: typo tolerance, aliases, apostrophes ("Can't"),
@@ -84,4 +88,6 @@ screenshots and traces is attached to the run as `playwright-report`.
   structure and duplicates only.
 - **Visuals**: animations, stickers, video, layout and screenshots. The intro
   video and stickers are not checked to actually play.
-- **Other browsers**: only Chromium runs; Safari/WebKit and Firefox are untested.
+- **Other browsers**: Firefox is untested. WebKit runs in CI, but it is not
+  the same as Safari on a real iPhone (no on-screen keyboard, no real share
+  menu or sound output).

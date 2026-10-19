@@ -12,7 +12,8 @@ const LEGACY_CARD_2026_10_14 = 13
 const nextButton = (page) => page.getByRole('button', { name: 'Next' })
 
 test.describe('#1 share text links back to the game', () => {
-  test('the copied result ends with a link to the game', async ({ page, context }) => {
+  test('the copied result ends with a link to the game', async ({ page, context, browserName }) => {
+    test.skip(browserName === 'webkit', 'Playwright cannot grant clipboard permission in WebKit')
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
     await pinDailyDate(page)
     await openMenu(page)
@@ -103,7 +104,8 @@ test.describe('#5 each wrong word costs a point; correct guesses are free', () =
 })
 
 test.describe('#6 the first Daily result of the day is the one kept', () => {
-  test('replaying the Daily does not overwrite or change the shared result', async ({ page, context }) => {
+  test('replaying the Daily does not overwrite or change the shared result', async ({ page, context, browserName }) => {
+    test.skip(browserName === 'webkit', 'Playwright cannot grant clipboard permission in WebKit')
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
     await pinDailyDate(page)
     await openMenu(page)
