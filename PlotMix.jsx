@@ -1563,11 +1563,19 @@ function areAllMashedTitleWordsGuessed(guesses, mashedTitle = "") {
   return Array.from(required).every((token) => guessed.has(token));
 }
 
+// True when the guess is exactly one film's title (or accepted spelling of it).
+function isExactFilmName(guess, movies, aliases = []) {
+  const g = norm(guess);
+  return movies.some((m, i) => [m, ...((aliases[i]) || [])].some((t) => norm(t) === g));
+}
+
 function checkGuesses(guesses, movies, aliases, mashedTitle="") {
   const found=[false,false];
   guesses.forEach(g=>{
     // Mashed title: accept robust near-full matches but still reject short partials.
-    if(isMashedTitleGuess(g, mashedTitle)) {
+    // Naming one film exactly only ever counts for that film, even when it is
+    // within typo distance of the mashed title ("The Green Mile" vs "The Green 8 Mile").
+    if(!isExactFilmName(g, movies, aliases) && isMashedTitleGuess(g, mashedTitle)) {
       found[0]=true; found[1]=true; return;
     }
     // Individual film matching — strict full-title intent only.
