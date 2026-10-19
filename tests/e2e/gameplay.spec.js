@@ -184,5 +184,7 @@ test.describe('sharing', () => {
     expect(lines[1]).toMatch(/^📅 /)
     // solved / failed / skipped / best streak / score
     expect(lines[2]).toBe('1✅ 0❌ 0⏭️ 1🔥 10⭐')
+    expect(lines[3]).toBe('Play: https://plotmix-app.vercel.app')
+    expect(lines).toHaveLength(4)
   })
 })

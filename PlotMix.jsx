@@ -1920,6 +1920,9 @@ function getRunBestStreak(results) {
 // 
 // SHAREABLE RESULT CARD
 // 
+// The game's public address, added to shared results (owner decision 2026-10-19).
+const PLAY_URL = "https://plotmix-app.vercel.app";
+
 function buildShareText(mode, results, totalScore) {
   const correct=results.filter(r=>isRoundSolved(r)).length;
   const skipped=results.filter(r=>r.skipped).length;
@@ -1930,6 +1933,7 @@ function buildShareText(mode, results, totalScore) {
   const lines = [
     `🎬 PLOTMIX ${mode.label}`,
     `${dateLine}${summaryLine}`,
+    `Play: ${PLAY_URL}`,
   ];
   return lines.join("\n");
 }
@@ -4738,8 +4742,15 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,onMenu,onPlayAgain
   // On a Daily replay, the day's first result is the one shown in the note and shared.
   const officialDaily = dailyReplay ? getDailyResult() : null;
   const shareText = officialDaily?.shareText || buildShareText(mode,results,totalScore);
+  // Phones (and some desktops) have a share menu; elsewhere the result is copied.
+  const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
   const handleShare=()=>{
     const done=()=>{setCopied(true);setTimeout(()=>setCopied(false),2600);};
+    if(canNativeShare){
+      // Closing the share menu without sharing is not an error; anything else falls back to copying.
+      navigator.share({text:shareText}).catch((err)=>{ if(err?.name!=="AbortError") fallbackCopy(shareText,done); });
+      return;
+    }
     if(navigator.clipboard&&window.isSecureContext){
       navigator.clipboard.writeText(shareText).then(done).catch(()=>fallbackCopy(shareText,done));
     } else {
@@ -4799,7 +4810,7 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,onMenu,onPlayAgain
         </div>
 
         <button onClick={handleShare} style={{...BTN.cyan,width:"100%",padding:"16px 0",marginBottom:18}}>
-          <span style={{...WHITE_STICKER_TEXT,fontSize:"clamp(18px, 5.2vw, 24px)",lineHeight:1.02,letterSpacing:"0.03em",textTransform:"uppercase"}}>{copied?"Copied ✓":"Copy"}</span>
+          <span style={{...WHITE_STICKER_TEXT,fontSize:"clamp(18px, 5.2vw, 24px)",lineHeight:1.02,letterSpacing:"0.03em",textTransform:"uppercase"}}>{canNativeShare?"Share":(copied?"Copied ✓":"Copy")}</span>
         </button>
 
         <div style={{marginTop:"auto",display:"flex",gap:10}}>
