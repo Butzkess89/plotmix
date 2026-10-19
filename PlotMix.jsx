@@ -1357,11 +1357,27 @@ function uniqueCardsByMoviePair(deck) {
   });
 }
 
+// Daily rotation (owner decision 2026-10-19): from this local date on, the Daily goes
+// through every card in one fixed shuffled order before any card repeats. Earlier
+// dates keep the original per-date shuffle, so no one's Daily changes mid-day.
+// Adding or removing cards reshuffles the order for days not yet played.
+const DAILY_ROTATION_START = new Date(2026, 10, 1); // 1 November 2026
+const DAILY_ROTATION_SEED = 20261101;
+function localDayNumber(d) { return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000); }
+function dailyRotationCard(sourceDeck, date) {
+  const dayIndex = localDayNumber(date) - localDayNumber(DAILY_ROTATION_START);
+  if (dayIndex < 0 || sourceDeck.length === 0) return null;
+  const order = shuffleRng([...sourceDeck].sort((a, b) => a.id - b.id), mulberry32(DAILY_ROTATION_SEED));
+  return order[dayIndex % order.length];
+}
+
 function buildDeck(mode) {
   const { id, roundCount, isDaily } = mode;
   const sourceDeck = uniqueCardsByMoviePair(MASTER_DECK);
   const cap = Math.min(roundCount, sourceDeck.length);
   if (isDaily) {
+    const rotationCard = dailyRotationCard(sourceDeck, new Date());
+    if (rotationCard) return [rotationCard].slice(0, cap);
     const todayShuffled = shuffleRng(sourceDeck, mulberry32(getDailySeed()));
     if (todayShuffled.length <= 1) return todayShuffled.slice(0, cap);
 
