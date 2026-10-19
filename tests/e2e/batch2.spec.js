@@ -115,7 +115,7 @@ test.describe('#6 the first Daily result of the day is the one kept', () => {
 
     // Replay and lose.
     await page.getByRole('button', { name: 'Play Again' }).click()
-    for (let i = 0; i < 6; i++) await submitGuess(page, `zzqx wrong guess ${i}`)
+    for (let i = 0; i < 6; i++) await submitGuess(page, `zzqxwrong${i}`)
     await page.getByRole('button', { name: 'Finish' }).click()
     await expect(page.getByText('The End')).toBeVisible()
     await expect(page.getByText(/first result.*kept/i)).toBeVisible()
@@ -176,7 +176,7 @@ test.describe('#9 sound on/off', () => {
     await page.reload()
     await expect(page.getByRole('button', { name: 'Sound' })).toHaveAttribute('aria-pressed', 'false')
     await startMode(page, 'standard')
-    await submitGuess(page, 'zzqx wrong guess')
+    await submitGuess(page, 'zzqxwrong')
     await expect(pointsCounter(page)).toHaveText('PTS: 9')
     expect(await page.evaluate(() => window.__tones)).toBe(0)
   })
@@ -186,7 +186,7 @@ test.describe('#9 sound on/off', () => {
     await openMenu(page)
     await startMode(page, 'standard')
     await expect(page.getByRole('button', { name: 'Sound' })).toBeVisible()
-    await submitGuess(page, 'zzqx wrong guess')
+    await submitGuess(page, 'zzqxwrong')
     await expect.poll(() => page.evaluate(() => window.__tones)).toBeGreaterThan(0)
   })
 })

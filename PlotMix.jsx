@@ -1266,7 +1266,7 @@ function LottieOverlay({src, loop=false, autoplay=true, speed=1, style={}, onCom
 // Base reward per card: 10 points
 // Hint Tier 1 (metadata): lowers reward by 1
 // Hint Tier 2 (actors):   lowers reward by 3
-// Wrong guess:            lowers reward by 1
+// Wrong guess:            lowers reward by 1 per wrong word (title words, grammar words and correct film names are free)
 // Guessing films individually: no reward penalty (still considered correct progress)
 // Formula: currentReward = max(0, baseReward - hintPenalty - wrongGuessPenalty)
 // 
@@ -1303,8 +1303,8 @@ const CONFIDENCE_WRONG_MULT  = { sure:0.7, maybe:1.0, hailmary:0.5 };
 // Live reward calculation — called every render so player sees it drop in real time
 // hintsRevealed = array of tier IDs revealed so far
 // filmsGuessedIndividually = count of films found via individual guess (not mash title)
-// wrongGuessCount = guesses that were not fully correct for this card
-function calcReward(hintsRevealed, filmsGuessedIndividually, wrongGuessCount) {
+// wrongWordPenalty = points lost to wrong guesses: one per wrong word in each guess
+function calcReward(hintsRevealed, filmsGuessedIndividually, wrongWordPenalty) {
   const tokensPenalty = hintsRevealed.reduce((acc, tierId) => {
     const tier = HINT_TIERS.find(t => t.id === tierId);
     return acc + (tier ? tier.rewardPenalty : 0);
@@ -1314,7 +1314,7 @@ function calcReward(hintsRevealed, filmsGuessedIndividually, wrongGuessCount) {
     BASE_REWARD
       - tokensPenalty
       - (filmsGuessedIndividually * INDIVIDUAL_FILM_PENALTY)
-      - (wrongGuessCount * WRONG_GUESS_REWARD_PENALTY)
+      - (wrongWordPenalty * WRONG_GUESS_REWARD_PENALTY)
   );
 }
 
@@ -1521,18 +1521,20 @@ function isExactMashedTitleWordGuess(guess, card) {
   return mashedWords.has(token);
 }
 
-function isGuessPresentInMashedTitle(guess, card) {
-  const guessTokens = normWord(guess).split(" ").filter(Boolean).map(normalizeToken);
-  if (guessTokens.length === 0) return false;
-
-  const mashedTokenSet = new Set(
+// Words in a guess that are neither in the mashed title nor grammar words.
+// Each one costs a point (owner rule, 2026-10-19); correct words are free.
+function wrongWordsInGuess(guess, card) {
+  const titleTokens = new Set(
     normWord(card.mashedTitle || "")
       .split(" ")
       .filter(Boolean)
       .map(normalizeToken)
   );
-
-  return guessTokens.every((token) => mashedTokenSet.has(token));
+  return normWord(guess)
+    .split(" ")
+    .filter(Boolean)
+    .map(normalizeToken)
+    .filter((token) => token && !STOPWORDS.has(token) && !titleTokens.has(token));
 }
 
 // If players reveal every meaningful word in the mashed title, treat the round
@@ -1661,10 +1663,16 @@ function isFullyCorrectGuess(guess, card) {
 function guessClassification(guess, card) {
   const normalizedGuess = norm(guess);
   if (!normalizedGuess) return "miss";
-  // Any guess whose words are truly present in the mashed title should not be
-  // penalized as a miss, even when it is not a full movie-title solve.
-  if (isFullyCorrectGuess(guess, card) || isGuessPresentInMashedTitle(guess, card)) return "match";
+  // A correct film name or full title, or a guess made only of title words
+  // (and grammar words), is never a miss.
+  if (isFullyCorrectGuess(guess, card) || wrongWordsInGuess(guess, card).length === 0) return "match";
   return "miss";
+}
+
+// Points a guess costs: one per wrong word; correct guesses cost nothing.
+function guessPenalty(guess, card) {
+  if (guessClassification(guess, card) === "match") return 0;
+  return Math.max(1, wrongWordsInGuess(guess, card).length);
 }
 
 
@@ -3995,7 +4003,9 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     );
     return count + (matched ? 1 : 0);
   }, 0);
-  const currentReward=calcReward(hintsRevealed,filmFoundByIndividualGuessCount,wrongGuessCount);
+  // Each wrong guess uses one of the card's guesses; each wrong word in it costs a point.
+  const wrongWordPenalty=guesses.reduce((sum,g)=>sum+guessPenalty(g, card),0);
+  const currentReward=calcReward(hintsRevealed,filmFoundByIndividualGuessCount,wrongWordPenalty);
   const rewardSpent = !both && currentReward <= 0;
   const cardLost=!both&&(guessesRemainingForCard===0 || rewardSpent);
   const over=both||cardLost;

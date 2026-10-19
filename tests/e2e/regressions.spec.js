@@ -6,11 +6,12 @@ import {
   resumeStandardWithCards,
 } from './helpers.js'
 
-const WRONG_GUESS = 'zzqx wrong guess'
+// One made-up word: not a film title and not a word in any mashed title, so it costs exactly 1 point.
+const WRONG_GUESS = 'zzqxwrong'
 const GENRE_TAG = /Blockbuster Cut|Dream Dissolve|Retro Splice|Thriller Smash/
 
 async function loseCardWithWrongGuesses(page) {
-  for (let i = 0; i < 6; i++) await submitGuess(page, `${WRONG_GUESS} ${i}`)
+  for (let i = 0; i < 6; i++) await submitGuess(page, `${WRONG_GUESS}${i}`)
 }
 
 test.describe('G1: repeated taps on Next apply the round once', () => {
