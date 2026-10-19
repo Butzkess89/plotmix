@@ -1404,6 +1404,7 @@ function norm(s) {
   return s
     .toLowerCase()
     .replace(/&/g, "and")           // & → and
+    .replace(/['’]/g, "")           // can't → cant (apostrophes never split a word)
     .replace(/[^a-z0-9\s]/g, " ")  // strip punctuation
     .replace(/\s+/g, " ")           // collapse whitespace
     .trim()
@@ -1415,6 +1416,7 @@ function normWord(s) {
   return s
     .toLowerCase()
     .replace(/&/g, "and")
+    .replace(/['’]/g, "")
     .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
