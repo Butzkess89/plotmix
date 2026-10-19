@@ -12,7 +12,7 @@ const MASTER_DECK = [
     mashedTitle: "12 Angry White Men Can't Jump",
     mashedPlot: "A jury composed entirely of white men are tasked with deciding the fate of a young black man accused of being a street basketball hustler. One juror, a former basketball hustler himself, gradually convinces the others to question their biases and reconsider the evidence.",
     movies: ["12 Angry Men", "White Men Can't Jump"],
-    aliases: [["12 angry men", "twelve angry men"], ["white men can't jump", "white men cant jump"]],
+    aliases: [["12 angry men"], ["white men can't jump", "white men cant jump"]],
     hints: ["One film is set entirely in a jury room; the other on outdoor basketball courts in LA.", "Both films are about white men confronting racial assumptions \u2014 one in the justice system, one in street sport.", "Think: Henry Fonda meets Woody Harrelson and Wesley Snipes."],
     difficulty: "Medium",
     difficultyReason: "The source films are well-known but the thematic link requires lateral thinking",
@@ -24,7 +24,7 @@ const MASTER_DECK = [
     mashedTitle: "13 Going on 30 Days of Night",
     mashedPlot: "Unpopular schoolgirl Jenna makes an unusual wish on her birthday. Miraculously, her wish comes true and her Alaskan town is plunged into darkness for a month, the 13-year-old Jenna wakes up as a 30-year-old woman and fights a bloodthirsty gang of vampires.",
     movies: ["13 Going on 30", "30 Days of Night"],
-    aliases: [["13 going on 30", "thirteen going on thirty"], ["30 days of night", "thirty days of night"]],
+    aliases: [["13 going on 30"], ["30 days of night"]],
     hints: ["One film is a romantic comedy about a girl who skips adolescence; the other a horror film about vampires exploiting polar darkness.", "The number 30 is the hinge connecting these two very different films.", "Think: Jennifer Garner meets Josh Hartnett \u2014 and a lot of blood."],
     difficulty: "Easy",
     difficultyReason: "The title wordplay is immediately obvious once you see the two films",
@@ -36,7 +36,7 @@ const MASTER_DECK = [
     mashedTitle: "2001: A Space Jam Odyssey",
     mashedPlot: "When a mysterious artifact is uncovered on the Moon, a spacecraft manned by the Looney Tunes and one supercomputer is sent to Jupiter to seek the aid of a retired basketball champion.",
     movies: ["2001: A Space Odyssey", "Space Jam"],
-    aliases: [["2001", "2001 a space odyssey", "space odyssey", "kubrick"], ["space jam", "spacejam"]],
+    aliases: [["2001 a space odyssey"], ["space jam", "spacejam"]],
     hints: ["One is Kubrick's meditation on human evolution; the other is Bugs Bunny playing basketball with Michael Jordan.", "Both feature a journey through space \u2014 one existential, one absolutely not.", "HAL 9000 meets Daffy Duck."],
     difficulty: "Easy",
     difficultyReason: "Both films are iconic and the wordplay is crystal clear",
@@ -48,7 +48,7 @@ const MASTER_DECK = [
     mashedTitle: "A Bug's Life of Brian",
     mashedPlot: "A misfit ant, looking for \"warriors\" to save his colony from greedy grasshoppers, ends up spending the rest of his life being mistaken for the messiah.",
     movies: ["A Bug's Life", "Monty Python's Life of Brian"],
-    aliases: [["a bugs life", "bugs life"], ["life of brian", "monty python life of brian", "monty python's life of brian"]],
+    aliases: [["a bugs life", "bugs life"], ["monty python's life of brian"]],
     hints: ["One is a Pixar film about an ant colony; the other a Monty Python biblical satire.", "Both heroes are reluctant saviours who never asked to lead anyone.", "Think: Flik meets Brian of Nazareth."],
     difficulty: "Medium",
     difficultyReason: "Life of Brian is beloved but generationally specific",
@@ -72,7 +72,7 @@ const MASTER_DECK = [
     mashedTitle: "A Few Good Will Hunting",
     mashedPlot: "A military lawyer intends to prove that a brilliant but troubled young janitor, charged with murdering a fellow Marine, was only following his base commander's orders. A compassionate therapist helps him realize that his past trauma is not his fault.",
     movies: ["A Few Good Men", "Good Will Hunting"],
-    aliases: [["a few good men", "few good men"], ["good will hunting", "will hunting"]],
+    aliases: [["a few good men", "few good men"], ["good will hunting"]],
     hints: ["One is a courtroom drama; the other a story of emotional healing through therapy.", "'You can't handle the truth' meets 'It's not your fault.'", "Think: Tom Cruise and Jack Nicholson meet Matt Damon and Robin Williams."],
     difficulty: "Easy",
     difficultyReason: "Both are beloved 90s films and the wordplay is elegant",
@@ -96,7 +96,7 @@ const MASTER_DECK = [
     mashedTitle: "Apocalypse Now You See Me",
     mashedPlot: "During the Vietnam War, a U.S. Army officer is sent on a secret mission deep into Cambodia to assassinate a group of illusionists known as the Four Horsemen, who use elaborate stage magic to pull off seemingly impossible bank robberies during their performances and redistribute the stolen money to the local tribes.",
     movies: ["Apocalypse Now", "Now You See Me"],
-    aliases: [["apocalypse now"], ["now you see me", "now you see me 1"]],
+    aliases: [["apocalypse now"], ["now you see me"]],
     hints: ["One is Francis Ford Coppola's Vietnam epic; the other a heist thriller built around stage magicians.", "Both films hinge on a journey into darkness to confront a charismatic, messianic figure.", "'The horror, the horror' meets a rabbit out of a hat."],
     difficulty: "Hard",
     difficultyReason: "Connecting a war epic to a magic heist thriller requires creative leaping",
@@ -120,7 +120,7 @@ const MASTER_DECK = [
     mashedTitle: "Being John Wick",
     mashedPlot: "A puppeteer discovers a portal that leads literally into the head of a former hitman who is pulled back into the criminal underworld he left behind after a group of gangsters steal his car and kill the puppy left to him by his late wife.",
     movies: ["Being John Malkovich", "John Wick"],
-    aliases: [["being john malkovich", "john malkovich"], ["john wick", "wick"]],
+    aliases: [["being john malkovich"], ["john wick"]],
     hints: ["One is Charlie Kaufman's surrealist comedy about identity; the other a hyper-violent action thriller.", "Both center on inhabiting or understanding a singular, iconic man named John.", "A portal in a filing cabinet meets a dead puppy."],
     difficulty: "Medium",
     difficultyReason: "Being John Malkovich is well-known but the connection takes a beat",
@@ -132,7 +132,7 @@ const MASTER_DECK = [
     mashedTitle: "Brokeback to the Future",
     mashedPlot: "Two shepherds form a secret romantic and sexual relationship while working together on a remote mountain in 1963. Their relationship becomes complicated when they accidentally travel back 30 years in time and must ensure their own parents fall in love in order to preserve their existence.",
     movies: ["Brokeback Mountain", "Back to the Future"],
-    aliases: [["brokeback mountain", "brokeback"], ["back to the future", "bttf", "back to the future 1"]],
+    aliases: [["brokeback mountain"], ["back to the future"]],
     hints: ["One is Ang Lee's celebrated romantic drama; the other Spielberg's time-travel comedy.", "Both are set partly in the American past and deal with love that is complicated by time.", "Think: Jake Gyllenhaal and Heath Ledger meet Michael J. Fox."],
     difficulty: "Easy",
     difficultyReason: "One of the most famous title mashes \u2014 widely circulated as a joke",
@@ -144,7 +144,7 @@ const MASTER_DECK = [
     mashedTitle: "Captain Fantastic Mr Fox",
     mashedPlot: "A devoted father raising his children off the grid is forced to reenter society after stealing from nearby farmers. Now he must outsmart three determined farmers bent on destroying him and his community.",
     movies: ["Captain Fantastic", "Fantastic Mr. Fox"],
-    aliases: [["captain fantastic"], ["fantastic mr fox", "fantastic mr. fox", "wes anderson fox"]],
+    aliases: [["captain fantastic"], ["fantastic mr fox", "fantastic mr. fox"]],
     hints: ["Both films are about unconventional fathers who raise children outside mainstream society.", "One is a live-action drama starring Viggo Mortensen; the other a Wes Anderson stop-motion film.", "Both fathers ultimately put their families at risk through their own idealism."],
     difficulty: "Medium",
     difficultyReason: "Captain Fantastic is less widely seen than Fantastic Mr. Fox",
@@ -156,7 +156,7 @@ const MASTER_DECK = [
     mashedTitle: "Charlie's Angels and the Chocolate Factory",
     mashedPlot: "A wealthy mystery man runs a detective agency via a speakerphone. His detectives are three beautiful women who end up winning a tour of an amazing candy factory run by an imaginative chocolatier.",
     movies: ["Charlie's Angels", "Charlie and the Chocolate Factory"],
-    aliases: [["charlie's angels", "charlies angels"], ["charlie and the chocolate factory", "willy wonka", "willy wonka and the chocolate factory"]],
+    aliases: [["charlie's angels", "charlies angels"], ["charlie and the chocolate factory"]],
     hints: ["Both Charlies run mysterious operations that very few people are allowed inside.", "One Charlie is a disembodied voice; the other wears a purple top hat.", "Think: Drew Barrymore, Cameron Diaz, and Lucy Liu meet Johnny Depp."],
     difficulty: "Easy",
     difficultyReason: "The shared name Charlie makes the connection immediately satisfying",
@@ -168,7 +168,7 @@ const MASTER_DECK = [
     mashedTitle: "City of Godfather",
     mashedPlot: "In the slums of Rio, two kids' paths diverge as one struggles to become a photographer and the other becomes an aging patriarch of an organized crime dynasty, transferring control of his empire to his reluctant son.",
     movies: ["City of God", "The Godfather"],
-    aliases: [["city of god"], ["the godfather", "godfather", "godfather 1"]],
+    aliases: [["city of god"], ["the godfather", "godfather"]],
     hints: ["One is a Brazilian crime epic shot in the favelas of Rio; the other the definitive American mob saga.", "Both films trace the rise and cost of criminal power across generations.", "Think: Fernando Meirelles meets Francis Ford Coppola."],
     difficulty: "Medium",
     difficultyReason: "City of God is well-regarded but less universally seen than The Godfather",
@@ -180,7 +180,7 @@ const MASTER_DECK = [
     mashedTitle: "Crouching Tiger, Hidden Figures",
     mashedPlot: "A young Chinese warrior steals a sword from a famed swordsman and escapes into a world of romantic adventure with three female African-American mathematicians who work at NASA during the early years of the U.S. space program.",
     movies: ["Crouching Tiger, Hidden Dragon", "Hidden Figures"],
-    aliases: [["crouching tiger hidden dragon", "crouching tiger"], ["hidden figures"]],
+    aliases: [["crouching tiger hidden dragon"], ["hidden figures"]],
     hints: ["One is a wuxia epic set in ancient China; the other a true story set at NASA in the 1960s.", "Both films are about brilliant women breaking through worlds designed to exclude them.", "The word 'Hidden' is the hinge."],
     difficulty: "Medium",
     difficultyReason: "The shared word 'Hidden' is the elegant connector",
@@ -192,7 +192,7 @@ const MASTER_DECK = [
     mashedTitle: "Dirty Harry Met Sally",
     mashedPlot: "Inspector Harry, a tough San Francisco cop hunting a sadistic sniper known as Scorpio, repeatedly crosses paths with Sally, a New York journalist who begins to soften his cynical view of relationships.",
     movies: ["Dirty Harry", "When Harry Met Sally"],
-    aliases: [["dirty harry"], ["when harry met sally", "harry met sally"]],
+    aliases: [["dirty harry"], ["when harry met sally"]],
     hints: ["One Harry carries a .44 Magnum; the other debates whether men and women can be friends.", "Both films are classics of their genre \u2014 one action, one romantic comedy \u2014 that defined the careers of their stars.", "Think: Clint Eastwood meets Billy Crystal and Meg Ryan."],
     difficulty: "Easy",
     difficultyReason: "Both Harrys are iconic and the mash is immediately funny",
@@ -204,7 +204,7 @@ const MASTER_DECK = [
     mashedTitle: "Edge of Tomorrow Never Dies",
     mashedPlot: "A man fighting in a war against aliens must relive the same day every time he dies, until he can find a way to stop a media mogul's plot to provoke a war between China and the United Kingdom.",
     movies: ["Edge of Tomorrow", "Tomorrow Never Dies"],
-    aliases: [["edge of tomorrow", "live die repeat"], ["tomorrow never dies", "james bond tomorrow never dies"]],
+    aliases: [["edge of tomorrow"], ["tomorrow never dies"]],
     hints: ["Both films feature a protagonist fighting a war that repeats itself \u2014 one literally, one through media manipulation.", "One is a Tom Cruise sci-fi film; the other a James Bond adventure.", "The word 'Tomorrow' is the shared hinge."],
     difficulty: "Medium",
     difficultyReason: "Tomorrow Never Dies is a Bond film that casual fans might not place by title",
@@ -228,7 +228,7 @@ const MASTER_DECK = [
     mashedTitle: "Eternal Sunshine of a Beautiful Mind",
     mashedPlot: "After a painful breakup, a brilliant math prodigy develops paranoid schizophrenia and undergoes a procedure to erase memories of his girlfriend from his mind.",
     movies: ["Eternal Sunshine of the Spotless Mind", "A Beautiful Mind"],
-    aliases: [["eternal sunshine", "eternal sunshine of the spotless mind", "spotless mind"], ["a beautiful mind", "beautiful mind"]],
+    aliases: [["eternal sunshine of the spotless mind"], ["a beautiful mind", "beautiful mind"]],
     hints: ["Both films are about brilliant minds that fracture under emotional pressure.", "One erases memories voluntarily; the other creates false ones involuntarily.", "Think: Jim Carrey meets Russell Crowe."],
     difficulty: "Medium",
     difficultyReason: "The thematic link between memory and mental illness is elegant but requires thought",
@@ -240,7 +240,7 @@ const MASTER_DECK = [
     mashedTitle: "Fantastic Beasts and Where to Find Nemo",
     mashedPlot: "A wizard arrives in 1926 New York with a suitcase full of magical creatures, only for several of them to escape and cause chaos across the city. After his son is captured and taken to Sydney, he sets out on a journey to bring him home.",
     movies: ["Fantastic Beasts and Where to Find Them", "Finding Nemo"],
-    aliases: [["fantastic beasts", "fantastic beasts and where to find them"], ["finding nemo", "nemo"]],
+    aliases: [["fantastic beasts and where to find them"], ["finding nemo"]],
     hints: ["Both films are about tracking down something precious that has gone missing in a large, overwhelming world.", "One takes place in wizarding New York; the other in the ocean.", "Think: Eddie Redmayne meets a clownfish."],
     difficulty: "Easy",
     difficultyReason: "Both films are family-friendly blockbusters and the title wordplay is clean",
@@ -264,7 +264,7 @@ const MASTER_DECK = [
     mashedTitle: "Grizzly Man on the Moon",
     mashedPlot: "A grizzly bear activist rises to fame through stand-up, television, and performance art while living among grizzly bears in Alaska. Obsessed with blurring the line between reality and illusion, often leaving the bears unsure whether his pranks are jokes or something more serious. Ultimately, they eat him.",
     movies: ["Grizzly Man", "Man on the Moon"],
-    aliases: [["grizzly man"], ["man on the moon", "andy kaufman film"]],
+    aliases: [["grizzly man"], ["man on the moon"]],
     hints: ["Both films are about real people who made performance their entire identity \u2014 to dangerous extremes.", "One subject was eaten by bears; the other died of cancer, possibly in character.", "Both are directed by Werner Herzog... no, one is. The other stars Jim Carrey."],
     difficulty: "Hard",
     difficultyReason: "Man on the Moon (the Andy Kaufman biopic) is less widely recalled by title",
@@ -276,7 +276,7 @@ const MASTER_DECK = [
     mashedTitle: "How to Train to Busan",
     mashedPlot: "A young Viking who aspires to hunt dragons becomes the unlikely friend of a young dragon himself. As their bond grows, they board a high-speed train where a sudden zombie outbreak rapidly spreads among the passengers.",
     movies: ["How to Train Your Dragon", "Train to Busan"],
-    aliases: [["how to train your dragon", "httyd", "train your dragon"], ["train to busan", "busan"]],
+    aliases: [["how to train your dragon"], ["train to busan"]],
     hints: ["One is a DreamWorks animated adventure; the other a Korean zombie thriller.", "Both are set primarily in motion \u2014 one on dragonback, one on rails.", "The word 'Train' is the connector \u2014 but for very different reasons."],
     difficulty: "Medium",
     difficultyReason: "Train to Busan is a global hit but may be less familiar to some players",
@@ -288,7 +288,7 @@ const MASTER_DECK = [
     mashedTitle: "How to Lose a Guy in 10 Things I Hate About You",
     mashedPlot: "An advertising executive bets he can make a woman fall in love with him in 10 days. Meanwhile, a high-school boy cannot date Bianca until her anti-social older sister Kat has a boyfriend, so he pays the advertising executive to charm Kat.",
     movies: ["How to Lose a Guy in 10 Days", "10 Things I Hate About You"],
-    aliases: [["how to lose a guy in 10 days", "how to lose a guy"], ["10 things i hate about you", "ten things i hate about you"]],
+    aliases: [["how to lose a guy in 10 days"], ["10 things i hate about you"]],
     hints: ["Both are early-2000s romantic comedies built around elaborate deceptions about love.", "Both feature a man paid or bet to win over a woman who wants nothing to do with him.", "Think: Kate Hudson meets Julia Stiles and Heath Ledger."],
     difficulty: "Easy",
     difficultyReason: "Two beloved rom-coms with very compatible plots",
@@ -300,7 +300,7 @@ const MASTER_DECK = [
     mashedTitle: "I Know What You Did Last 500 Days of Summer",
     mashedPlot: "Four friends accidentally cause a man's death and cover it up. 500 days later, a mysterious message reveals their secret isn't safe. One of the friends, Tom, reflects on their relationship and idealizes their time together. As a hook-wielding killer hunts them down, Tom is forced to confront the gap between his expectations and reality.",
     movies: ["I Know What You Did Last Summer", "500 Days of Summer"],
-    aliases: [["i know what you did last summer"], ["500 days of summer", "five hundred days of summer"]],
+    aliases: [["i know what you did last summer"], ["500 days of summer"]],
     hints: ["One is a teen slasher film; the other a non-linear indie romance about heartbreak.", "Both involve a protagonist who cannot let go of the past.", "Think: Jennifer Love Hewitt meets Joseph Gordon-Levitt."],
     difficulty: "Medium",
     difficultyReason: "The tonal combination is jarring in a very funny way",
@@ -312,7 +312,7 @@ const MASTER_DECK = [
     mashedTitle: "Independence Day of the Jackal",
     mashedPlot: "Aliens invade Earth and a scientist, a fighter pilot, and the U.S. president unite to fight back and save humanity. In the aftermath, a group of resentful veterans hire an assassin to kill the president, sparking a race against time to stop him.",
     movies: ["Independence Day", "The Day of the Jackal"],
-    aliases: [["independence day", "id4", "independance day"], ["the day of the jackal", "day of the jackal"]],
+    aliases: [["independence day"], ["the day of the jackal", "day of the jackal"]],
     hints: ["One is a Roland Emmerich summer blockbuster; the other a tense 1970s political thriller.", "Both films feature elaborate plans to destroy American leadership.", "The word 'Day' is shared \u2014 one of celebration, one of assassination."],
     difficulty: "Hard",
     difficultyReason: "The Day of the Jackal is a classic that younger players may not know",
@@ -348,7 +348,7 @@ const MASTER_DECK = [
     mashedTitle: "Kill Bill & Ted's Excellent Adventure",
     mashedPlot: "After waking from a four-year coma, a former assassin embarks on a time-travel quest using a phone booth to help her final history project. She journeys through different historical eras wreaking vengeance on historical figures who betrayed her.",
     movies: ["Kill Bill", "Bill & Ted's Excellent Adventure"],
-    aliases: [["kill bill", "kill bill vol 1", "kill bill volume 1"], ["bill and teds excellent adventure", "bill & ted's excellent adventure", "bill and ted"]],
+    aliases: [["kill bill"], ["bill and teds excellent adventure", "bill & ted's excellent adventure"]],
     hints: ["Both films involve a woman named Bill... wait, no. Both involve the name Bill prominently.", "One Bill is a ruthless assassin; the other two Bills are time-traveling slackers.", "Think: Uma Thurman meets Keanu Reeves and Alex Winter."],
     difficulty: "Easy",
     difficultyReason: "One of the most satisfying title wordplays in the deck",
@@ -372,7 +372,7 @@ const MASTER_DECK = [
     mashedTitle: "License to Kill a Mockingbird",
     mashedPlot: "A secret agent working for MI6 goes rogue after his close friend is brutally attacked and his wife is murdered by a drug lord. Driven by personal vendetta, he arrives in a quiet Southern town where his path crosses with a lawyer defending a black man falsely accused of a terrible crime.",
     movies: ["Licence to Kill", "To Kill a Mockingbird"],
-    aliases: [["licence to kill", "license to kill", "james bond licence to kill"], ["to kill a mockingbird"]],
+    aliases: [["licence to kill"], ["to kill a mockingbird"]],
     hints: ["One is a James Bond film; the other Harper Lee's defining American novel turned film.", "Both protagonists operate outside official systems in the pursuit of justice.", "Bond meets Atticus Finch \u2014 in Alabama."],
     difficulty: "Hard",
     difficultyReason: "Licence to Kill is among the less-recalled Bond films",
@@ -384,7 +384,7 @@ const MASTER_DECK = [
     mashedTitle: "Meet Joe Black Hawk Down",
     mashedPlot: "Death, embodied in human form, arrives to claim a man's soul during the Somali Civil War. Instead, he finds himself drawn to the man's daughter. As violence escalates and a U.S. military helicopter is shot down, Death faces an impossible choice: claiming lives on the battlefield or embracing the meaning he's found in love and connection.",
     movies: ["Meet Joe Black", "Black Hawk Down"],
-    aliases: [["meet joe black", "joe black"], ["black hawk down", "blackhawk down"]],
+    aliases: [["meet joe black"], ["black hawk down", "blackhawk down"]],
     hints: ["Both films share the word 'Black' \u2014 one a name, one a military call sign.", "One is a philosophical romantic drama; the other Ridley Scott's intense war film.", "Think: Brad Pitt meets Josh Hartnett."],
     difficulty: "Medium",
     difficultyReason: "The shared word 'Black' is the pivot and both films are well-known",
@@ -396,7 +396,7 @@ const MASTER_DECK = [
     mashedTitle: "Monsters Incredibles",
     mashedPlot: "In a world where monsters harvest energy from fear, a hidden family of superheroes is forced out of retirement when a human child crosses into their realm, leading them to stop a vengeful villain.",
     movies: ["Monsters, Inc.", "The Incredibles"],
-    aliases: [["monsters inc", "monsters inc.", "monsters incorporated"], ["the incredibles", "incredibles"]],
+    aliases: [["monsters inc", "monsters inc."], ["the incredibles", "incredibles"]],
     hints: ["Both are Pixar films about extraordinary beings living double lives in a world that doesn't fully understand them.", "One hides monsters from children; the other hides superheroes from society.", "Both feature a villain who was once a true believer turned bitter."],
     difficulty: "Easy",
     difficultyReason: "Both are beloved Pixar films and the thematic link is satisfying",
@@ -408,7 +408,7 @@ const MASTER_DECK = [
     mashedTitle: "No Country for Oldboy",
     mashedPlot: "A drug deal goes wrong, leaving behind a suitcase full of cash. A man finds it, triggering a violent chain of events. Meanwhile, a man imprisoned for 15 years is suddenly released and forced to track down his captor within five days.",
     movies: ["No Country for Old Men", "Oldboy"],
-    aliases: [["no country for old men", "no country"], ["oldboy", "old boy"]],
+    aliases: [["no country for old men"], ["oldboy", "old boy"]],
     hints: ["One is the Coen Brothers' West Texas thriller; the other Park Chan-wook's Korean revenge masterpiece.", "Both films feature an unstoppable, philosophically-minded villain.", "Anton Chigurh meets the corridor hallway fight."],
     difficulty: "Hard",
     difficultyReason: "Oldboy is a cult classic but requires familiarity with Korean cinema",
@@ -432,7 +432,7 @@ const MASTER_DECK = [
     mashedTitle: "Portrait of a Lady and the Tramp on Fire",
     mashedPlot: "A French historical romance tells the story of a forbidden love between a female Cocker Spaniel and a street-smart mutt who is hired to secretly paint her portrait.",
     movies: ["Portrait of a Lady on Fire", "Lady and the Tramp"],
-    aliases: [["portrait of a lady on fire", "portrait of a lady"], ["lady and the tramp", "lady & the tramp"]],
+    aliases: [["portrait of a lady on fire"], ["lady and the tramp", "lady & the tramp"]],
     hints: ["One is C\u00e9line Sciamma's acclaimed French art-film romance; the other a 1955 Disney animated classic.", "Both stories centre on a forbidden or socially impossible love between a refined lady and someone beneath her station.", "One famous dinner scene involves candlelight; the other involves shared spaghetti."],
     difficulty: "Hard",
     difficultyReason: "Portrait of a Lady on Fire is critically acclaimed but a niche watch",
@@ -444,7 +444,7 @@ const MASTER_DECK = [
     mashedTitle: "Quantum of Soul",
     mashedPlot: "An MI6 agent seeks revenge while uncovering a secret organization manipulating natural resources in Bolivia. He teams up with a middle school music teacher and a soul-in-training after a near-death experience to discover what truly gives life meaning.",
     movies: ["Quantum of Solace", "Soul"],
-    aliases: [["quantum of solace", "james bond quantum"], ["soul", "pixar soul"]],
+    aliases: [["quantum of solace"], ["soul"]],
     hints: ["One is a James Bond film; the other a Pixar meditation on what makes life worth living.", "Both protagonists are on a mission they believe is about revenge or duty \u2014 and learn it's about something deeper.", "Bond meets Joe Gardner."],
     difficulty: "Medium",
     difficultyReason: "The philosophical contrast is the joke and the insight simultaneously",
@@ -468,7 +468,7 @@ const MASTER_DECK = [
     mashedTitle: "Revolutionary Road to El Dorado",
     mashedPlot: "A 1950s suburban couple come to terms with their personal problems when they get their hands on a map to a legendary city of gold.",
     movies: ["Revolutionary Road", "The Road to El Dorado"],
-    aliases: [["revolutionary road"], ["the road to el dorado", "road to el dorado", "el dorado"]],
+    aliases: [["revolutionary road"], ["the road to el dorado", "road to el dorado"]],
     hints: ["One is Sam Mendes' bleak drama about suburban suffocation; the other a DreamWorks animated adventure.", "Both are about characters who believe a destination will solve their problems \u2014 and find it doesn't.", "Think: Leonardo DiCaprio meets Miguel and Tulio."],
     difficulty: "Hard",
     difficultyReason: "Revolutionary Road is a heavy drama that contrasts wildly with an animated adventure",
@@ -480,7 +480,7 @@ const MASTER_DECK = [
     mashedTitle: "Run Lola Chicken Run",
     mashedPlot: "A young woman has just twenty minutes to rescue her boyfriend after he loses a large sum of money belonging to a criminal. When a charismatic rooster appears, they hatch an elaborate plan to escape the coop.",
     movies: ["Run Lola Run", "Chicken Run"],
-    aliases: [["run lola run", "lola rennt"], ["chicken run"]],
+    aliases: [["run lola run"], ["chicken run"]],
     hints: ["One is a German kinetic thriller about urgency and fate; the other an Aardman animated film about chickens escaping a farm.", "Both films hinge on a daring escape plan executed at speed.", "Think: Franka Potente meets Rocky the Rhode Island Red."],
     difficulty: "Medium",
     difficultyReason: "Run Lola Run is iconic in film circles but less mainstream",
@@ -504,7 +504,7 @@ const MASTER_DECK = [
     mashedTitle: "Shaun of the Dead Poets Society",
     mashedPlot: "An aimless London slacker must protect his loved ones when a sudden zombie apocalypse turns everyday life into a fight for survival. He also begins encouraging his students to seize the day and think for themselves while taking refuge in his favourite pub.",
     movies: ["Shaun of the Dead", "Dead Poets Society"],
-    aliases: [["shaun of the dead"], ["dead poets society", "dead poets"]],
+    aliases: [["shaun of the dead"], ["dead poets society"]],
     hints: ["Both films centre on a charismatic leader who inspires a group of individuals to resist conformity.", "One does it at a school in Vermont; the other at a pub in London while zombies wait outside.", "Think: Simon Pegg meets Robin Williams."],
     difficulty: "Easy",
     difficultyReason: "Both films are beloved and the shared word 'Dead' is the hinge",
@@ -516,7 +516,7 @@ const MASTER_DECK = [
     mashedTitle: "Singin' in the Rain Man",
     mashedPlot: "As Hollywood shifts from silent films to talkies, a silent film star struggles to help his co-star overcome her terrible voice. At the same time, he learns that his late father's fortune has been left to an unknown older brother living in a care facility, prompting a cross-country journey to secure the inheritance.",
     movies: ["Singin' in the Rain", "Rain Man"],
-    aliases: [["singin in the rain", "singing in the rain", "singin' in the rain"], ["rain man", "rainman"]],
+    aliases: [["singin in the rain", "singin' in the rain"], ["rain man", "rainman"]],
     hints: ["Both films share the word 'Rain' \u2014 one joyful, one heavy with responsibility.", "One is a classic MGM musical; the other a Dustin Hoffman and Tom Cruise road movie.", "Gene Kelly meets Dustin Hoffman."],
     difficulty: "Easy",
     difficultyReason: "Both films are among the most famous ever made",
@@ -540,7 +540,7 @@ const MASTER_DECK = [
     mashedTitle: "Spirited Cast Away",
     mashedPlot: "A 10-year-old girl wanders into a bathhouse ruled by gods, witches and spirits. When she wants to return she discovers that her parents have been transformed into pigs and that she is now stranded on a remote island. Forced to survive alone, she adapts to the harsh environment, forming an emotional bond with a volleyball.",
     movies: ["Spirited Away", "Cast Away"],
-    aliases: [["spirited away", "sen to chihiro"], ["cast away", "castaway"]],
+    aliases: [["spirited away"], ["cast away", "castaway"]],
     hints: ["One is Studio Ghibli's masterpiece; the other a Tom Hanks survival drama.", "Both protagonists are suddenly cut off from their world and must adapt to a new one entirely alone.", "Chihiro meets Wilson."],
     difficulty: "Easy",
     difficultyReason: "Both are beloved films and the isolation theme is immediately clear",
@@ -564,7 +564,7 @@ const MASTER_DECK = [
     mashedTitle: "Superbad Boys",
     mashedPlot: "Two teens scramble to score alcohol for a party in hopes of losing their virginity before graduation, but their plan spirals when they are tasked to protect a witness to a murder while investigating a case of stolen heroin from a secure police vault.",
     movies: ["Superbad", "Bad Boys"],
-    aliases: [["superbad"], ["bad boys", "bad boys 1", "bad boys will smith"]],
+    aliases: [["superbad"], ["bad boys"]],
     hints: ["One is a coming-of-age teen comedy; the other a Will Smith and Martin Lawrence action film.", "Both are about male partnerships tested under pressure.", "Think: Jonah Hill and Michael Cera meet Will Smith and Martin Lawrence."],
     difficulty: "Easy",
     difficultyReason: "Both films are widely known and the shared word 'Bad' is obvious",
@@ -610,21 +610,21 @@ const MASTER_DECK = [
   {
     id: 51,
     mashedTitle: "The Fault in Our Star Wars",
-    mashedPlot: "Two teenagers who meet at a cancer support group form a bittersweet romance while becoming entangled in an intergalactic rebellion against an evil empire, discovering the power of the Force along the way.",
+    mashedPlot: "Two teenagers meet at a cancer support group in Indianapolis and fall deeply in love. When they travel to Amsterdam to meet a reclusive author, they discover he has secretly been recruited by the Rebel Alliance — and that the only way to save their relationship is to destroy the Death Star.",
     movies: ["The Fault in Our Stars", "Star Wars"],
-    aliases: [["the fault in our stars", "fault in our stars"], ["star wars", "a new hope", "star wars a new hope", "star wars episode iv"]],
-    hints: ["One is a YA cancer romance; the other the defining science fiction saga.", "Both feature young people who discover their lives are part of something much larger than themselves.", "Hazel and Augustus meet Luke and Leia."],
+    aliases: [["the fault in our stars", "fault in our stars"], ["star wars"]],
+    hints: ["One is a 2014 teen romance based on a John Green novel. The other is a 1977 space opera that changed cinema forever.", "One stars Shailene Woodley and Ansel Elgort. The other stars Mark Hamill, Harrison Ford and Carrie Fisher.", "A terminal cancer diagnosis meets the Force, lightsabers, and a galaxy far, far away."],
     difficulty: "Easy",
-    difficultyReason: "Both are among the most recognisable films of their era",
-    connection: "The Fault in Our Stars and Star Wars are both stories about young people who discover they have very little time and choose to spend it fighting for something that matters.",
-    hintData: {"films": [{"year": 2014, "genre": "Romantic Drama", "actors": ["Shailene Woodley", "Ansel Elgort"]}, {"year": 1977, "genre": "Sci-Fi Adventure", "actors": ["Mark Hamill", "Harrison Ford"]}]},
+    difficultyReason: "Both films are massively well-known and the title mashup writes itself — players will laugh the moment they see the answer",
+    connection: "Both films are fundamentally about young people confronting impossible odds — one against illness, one against an evil empire — and choosing love and hope anyway.",
+    hintData: {"films":[{"year":2014,"genre":"Romantic Drama","actors":["Shailene Woodley","Ansel Elgort"]},{"year":1977,"genre":"Sci-Fi Adventure","actors":["Mark Hamill","Harrison Ford","Carrie Fisher"]}]},
   },
   {
     id: 52,
     mashedTitle: "The Grand Budapest Hotel Rwanda",
     mashedPlot: "A devoted hotel concierge and his young prot\u00e9g\u00e9 become entangled in an adventure involving a priceless painting while sheltering over a thousand Tutsi refugees, risking their lives to save others amid escalating violence in Kigali.",
     movies: ["The Grand Budapest Hotel", "Hotel Rwanda"],
-    aliases: [["the grand budapest hotel", "grand budapest hotel", "grand budapest"], ["hotel rwanda"]],
+    aliases: [["the grand budapest hotel", "grand budapest hotel"], ["hotel rwanda"]],
     hints: ["Both films are set primarily in a hotel that becomes a refuge from extreme violence.", "One is a Wes Anderson comedy-thriller; the other a devastating historical drama.", "Think: Ralph Fiennes meets Don Cheadle."],
     difficulty: "Medium",
     difficultyReason: "The shared setting of a hotel under siege is the elegant connector",
@@ -648,7 +648,7 @@ const MASTER_DECK = [
     mashedTitle: "The Green 8 Mile",
     mashedPlot: "A death row guard in the 1930s learns that a gentle giant in his charge possesses a mysterious gift: he's an amazing rapper who must overcome personal and social challenges while pursuing his dream of making it in the hip-hop world.",
     movies: ["The Green Mile", "8 Mile"],
-    aliases: [["the green mile", "green mile"], ["8 mile", "eight mile", "eminem 8 mile"]],
+    aliases: [["the green mile", "green mile"], ["8 mile"]],
     hints: ["Both films are about someone with extraordinary gifts who is constrained by a hostile system.", "One gift is supernatural healing; the other is rap.", "Think: Tom Hanks meets Eminem."],
     difficulty: "Easy",
     difficultyReason: "Both films are iconic and the shared word 'Mile' is the pivot",
@@ -684,7 +684,7 @@ const MASTER_DECK = [
     mashedTitle: "Vanilla Skyfall",
     mashedPlot: "A publishing heir's charmed life collapses when a jealous lover engineers a crash that leaves his face disfigured. When he awakens, he believes he is a secret agent back on duty after a mission that left him presumed dead. Tasked with stopping a cyberterrorist targeting MI6, he struggles with a fractured identity as dreams, memories, and hallucinations merge. At his childhood home, he must choose between a comforting illusion and a harsh reality.",
     movies: ["Vanilla Sky", "Skyfall"],
-    aliases: [["vanilla sky"], ["skyfall", "james bond skyfall"]],
+    aliases: [["vanilla sky"], ["skyfall"]],
     hints: ["Both films are about a man who cannot tell the difference between the life he is living and the life he has constructed in his mind.", "One is a Tom Cruise mind-bending drama; the other the Bond film that took 007 back to his origins.", "Think: Tom Cruise meets Daniel Craig."],
     difficulty: "Hard",
     difficultyReason: "The thematic link between identity fracture and espionage is subtle",
@@ -696,7 +696,7 @@ const MASTER_DECK = [
     mashedTitle: "Waterworld War Z",
     mashedPlot: "In a future where Earth is almost entirely covered in water, a UN investigator navigates the endless oceans in a race against time to stop a zombie pandemic.",
     movies: ["Waterworld", "World War Z"],
-    aliases: [["waterworld"], ["world war z", "wwz"]],
+    aliases: [["waterworld"], ["world war z"]],
     hints: ["One is a Kevin Costner aquatic epic; the other a Brad Pitt zombie thriller.", "Both films are about a lone survivor racing across a devastated world to find a solution.", "Think: Kevin Costner meets Brad Pitt \u2014 on a very wet set."],
     difficulty: "Easy",
     difficultyReason: "Both are well-known blockbusters and the wordplay is clean",
@@ -720,7 +720,7 @@ const MASTER_DECK = [
     mashedTitle: "XXX-Men",
     mashedPlot: "An extreme sports rebel recruited by the US government to carry out a dangerous undercover mission is joined by a group of genetically gifted mutants, led by a Professor, as they struggle to protect a world that fears and hates them.",
     movies: ["XXX", "X-Men"],
-    aliases: [["xxx", "triple x", "vin diesel xxx"], ["x-men", "xmen", "x men"]],
+    aliases: [["xxx"], ["x-men", "xmen", "x men"]],
     hints: ["One is a Vin Diesel action film about extreme sports; the other the definitive Marvel mutant franchise.", "Both feature outsiders recruited into a secret government or paramilitary operation.", "Xander Cage meets Professor X."],
     difficulty: "Easy",
     difficultyReason: "Both are blockbusters and the X connection is immediately clear",
@@ -732,7 +732,7 @@ const MASTER_DECK = [
     mashedTitle: "Y Tu Mamma Mia!",
     mashedPlot: "In Mexico, two teenage boys and an older woman set out on a road trip to a Greek island after being invited to a wedding, where the bride has invited three men to determine which of them is her true father.",
     movies: ["Y Tu Mam\u00e1 Tambi\u00e9n", "Mamma Mia!"],
-    aliases: [["y tu mama tambien", "y tu mam\u00e1 tambi\u00e9n", "y tu mama"], ["mamma mia", "mamma mia!"]],
+    aliases: [["y tu mama tambien", "y tu mamá también"], ["mamma mia", "mamma mia!"]],
     hints: ["One is Alfonso Cuar\u00f3n's Mexican coming-of-age road movie; the other an ABBA-soundtracked musical comedy.", "Both films are about a woman on a journey between multiple men, none of whom fully understands her.", "Think: Gael Garc\u00eda Bernal meets Meryl Streep and Pierce Brosnan."],
     difficulty: "Medium",
     difficultyReason: "Y Tu Mam\u00e1 Tambi\u00e9n is acclaimed but requires familiarity with world cinema",
@@ -744,7 +744,7 @@ const MASTER_DECK = [
     mashedTitle: "Zero Dark Knight Thirty",
     mashedPlot: "A CIA analyst teams up with Batman to track down a terrorist mastermind over a decade-long manhunt culminating in a high-stakes raid where justice and vengeance collide.",
     movies: ["Zero Dark Thirty", "The Dark Knight"],
-    aliases: [["zero dark thirty"], ["the dark knight", "dark knight", "batman dark knight"]],
+    aliases: [["zero dark thirty"], ["the dark knight", "dark knight"]],
     hints: ["One is Kathryn Bigelow's procedural about the hunt for Bin Laden; the other Christopher Nolan's Batman masterpiece.", "Both films are about the psychological cost of a relentless hunt for a charismatic terrorist.", "Think: Jessica Chastain meets Christian Bale."],
     difficulty: "Medium",
     difficultyReason: "The thematic parallel between obsessive manhunts is the insight",
@@ -768,7 +768,7 @@ const MASTER_DECK = [
     mashedTitle: "The Breakfast at Tiffany's Club",
     mashedPlot: "Five mismatched teenagers — a princess, a jock, a brain, a basket case, and a criminal — are sentenced to Saturday detention at an upscale Manhattan jewelry store. As the day wears on, they bond over champagne, croissants, and the shared realization that they're all lonely behind their carefully constructed facades.",
     movies: ["The Breakfast Club", "Breakfast at Tiffany's"],
-    aliases: [["Breakfast Club"], ["Breakfast at Tiffanys", "Tiffanys"]],
+    aliases: [["Breakfast Club"], ["Breakfast at Tiffanys"]],
     hints: ["One is a 1985 John Hughes teen classic. The other stars Audrey Hepburn and a cat with no name.", "One takes place entirely in a high school library. The other opens with a woman eating a pastry outside a jewelry store at 5am.", "The Breakfast Club meets a New York socialite named Holly Golightly."],
     difficulty: "Easy",
     difficultyReason: "Both films are extremely well-known and the mashed title is immediately obvious once you have either one",
@@ -780,7 +780,7 @@ const MASTER_DECK = [
     mashedTitle: "Lost in Transformers",
     mashedPlot: "A washed-up American action star travels to Tokyo to film a commercial for giant alien robots. Jet-lagged and adrift in a neon-lit megacity he doesn't understand, he strikes up an unlikely friendship with a young married woman — until the robots attack and they must flee across the city together.",
     movies: ["Lost in Translation", "Transformers"],
-    aliases: [["Lost in Translations"], ["Transformer"]],
+    aliases: [[], []],
     hints: ["One is a quiet, melancholy Sofia Coppola film set in Tokyo. The other involves Shia LaBeouf and very loud explosions.", "One stars Bill Murray and Scarlett Johansson barely sleeping. The other stars Megan Fox running in slow motion.", "A lonely hotel bar in Tokyo meets Autobots and Decepticons."],
     difficulty: "Easy",
     difficultyReason: "The tonal contrast between these two films makes the mash immediately funny and recognizable",
@@ -792,7 +792,7 @@ const MASTER_DECK = [
     mashedTitle: "Little Miss Eternal Sunshine",
     mashedPlot: "After a painful breakup, a man agrees to join his dysfunctional family on a cross-country road trip in a broken-down VW bus so his daughter can compete in a children's beauty pageant. Along the way, he undergoes a secret medical procedure to erase every memory of his ex-girlfriend — only to realize, somewhere in New Mexico, that he wants them back.",
     movies: ["Little Miss Sunshine", "Eternal Sunshine of the Spotless Mind"],
-    aliases: [["Little Miss Sunshine"], ["Eternal Sunshine", "Eternal Sunshine of a Spotless Mind", "Eternal Sunshine of the Spotless Mind"]],
+    aliases: [["Little Miss Sunshine"], ["Eternal Sunshine of the Spotless Mind"]],
     hints: ["One is a 2006 road trip film about a little girl's dream. The other stars Jim Carrey having his memories erased.", "One features Alan Arkin, Steve Carell, and a VW bus that won't start. The other features Kate Winslet with blue hair.", "A dysfunctional family road trip meets a memory-erasure procedure."],
     difficulty: "Medium",
     difficultyReason: "Both films are beloved but the connection between them isn't obvious — takes a moment of lateral thinking",
@@ -804,7 +804,7 @@ const MASTER_DECK = [
     mashedTitle: "Black Swan Down",
     mashedPlot: "An obsessive ballerina prepares for the role of a lifetime as both the White and Black Swan in Swan Lake. During opening night, her grip on reality begins to fracture — and her performance is interrupted when the theater is suddenly surrounded by U.S. Army Rangers pinned down in an unexpected and brutal battle.",
     movies: ["Black Swan", "Black Hawk Down"],
-    aliases: [["Blackswan", "Black Swan Film"], ["Black Hawk", "Blackhawk Down"]],
+    aliases: [["Blackswan"], ["Blackhawk Down"]],
     hints: ["One is a 2010 Darren Aronofsky psychological thriller. The other is a 2001 Ridley Scott war film.", "One stars Natalie Portman slowly losing her mind in New York. The other is based on the 1993 Battle of Mogadishu.", "A ballet dancer's descent into madness meets one of cinema's most harrowing combat sequences."],
     difficulty: "Medium",
     difficultyReason: "Both films are well-known but the connection requires recognizing the 'Black' in both titles",
@@ -816,7 +816,7 @@ const MASTER_DECK = [
     mashedTitle: "We Bought a Zoolander",
     mashedPlot: "A widowed journalist moves his family to a dilapidated wildlife park and slowly renovates it back to life. Meanwhile, he uncovers a sinister plot by a flamboyant fashion mogul to brainwash the world's most beautiful animals into becoming the perfect assassins.",
     movies: ["We Bought a Zoo", "Zoolander"],
-    aliases: [["We Bought Zoo"], ["Zoolander 1"]],
+    aliases: [[], []],
     hints: ["One is a 2011 Cameron Crowe family drama starring Matt Damon. The other is a 2001 comedy starring Ben Stiller as a dimwitted supermodel.", "One is heartwarming and features actual animals. The other features a look called Blue Steel.", "A struggling zoo meets the world's most dangerous male model."],
     difficulty: "Easy",
     difficultyReason: "Both films are instantly recognizable and the premise mashup is absurd in the best possible way",
@@ -824,23 +824,11 @@ const MASTER_DECK = [
     hintData: {"films":[{"year":2011,"genre":"Family Drama","actors":["Matt Damon","Scarlett Johansson"]},{"year":2001,"genre":"Comedy","actors":["Ben Stiller","Owen Wilson"]}]}
   },
   {
-    id: 69,
-    mashedTitle: "The Fault in Our Star Wars",
-    mashedPlot: "Two teenagers meet at a cancer support group in Indianapolis and fall deeply in love. When they travel to Amsterdam to meet a reclusive author, they discover he has secretly been recruited by the Rebel Alliance — and that the only way to save their relationship is to destroy the Death Star.",
-    movies: ["The Fault in Our Stars", "Star Wars"],
-    aliases: [["Fault in Our Stars", "The Fault In Our Stars"], ["Star Wars A New Hope", "Star Wars Episode 4", "Episode IV", "A New Hope"]],
-    hints: ["One is a 2014 teen romance based on a John Green novel. The other is a 1977 space opera that changed cinema forever.", "One stars Shailene Woodley and Ansel Elgort. The other stars Mark Hamill, Harrison Ford and Carrie Fisher.", "A terminal cancer diagnosis meets the Force, lightsabers, and a galaxy far, far away."],
-    difficulty: "Easy",
-    difficultyReason: "Both films are massively well-known and the title mashup writes itself — players will laugh the moment they see the answer",
-    connection: "Both films are fundamentally about young people confronting impossible odds — one against illness, one against an evil empire — and choosing love and hope anyway.",
-    hintData: {"films":[{"year":2014,"genre":"Romantic Drama","actors":["Shailene Woodley","Ansel Elgort"]},{"year":1977,"genre":"Sci-Fi Adventure","actors":["Mark Hamill","Harrison Ford","Carrie Fisher"]}]}
-  },
-  {
     id: 70,
     mashedTitle: "Independence Groundhog Day",
     mashedPlot: "A cocky fighter pilot wakes up on July 4th to find Earth under attack by a massive alien invasion fleet. He joins the resistance, helps destroy an alien mothership — then wakes up on July 4th again. And again. Every time he dies fighting the aliens, the day resets, and he has to find a new way to save humanity from scratch.",
     movies: ["Independence Day", "Groundhog Day"],
-    aliases: [["Independence Day Film", "ID4"], ["Groundhog Day Film", "Ground Hog Day"]],
+    aliases: [[], ["Ground Hog Day"]],
     hints: ["One is a 1996 alien invasion blockbuster starring Will Smith. The other is a 1993 comedy about a man stuck repeating the same day.", "One has Bill Pullman delivering a presidential speech. The other has Bill Murray stuck in Punxsutawney, Pennsylvania.", "Will Smith punching an alien meets Bill Murray punching Ned Ryerson — over and over again."],
     difficulty: "Medium",
     difficultyReason: "Both films are iconic but the time-loop twist makes this description trickier to parse — players might not immediately clock the Groundhog Day connection",
@@ -852,7 +840,7 @@ const MASTER_DECK = [
     mashedTitle: "The Princess Bride of Frankenstein",
     mashedPlot: "A farm boy storms a castle to rescue the love of his life, only to find she has been struck by lightning, stitched together from corpses, and brought back to life by a brilliant but unhinged scientist. She does not want to be rescued and the farm boy is deeply reconsidering the relationship.",
     movies: ["The Princess Bride", "Bride of Frankenstein"],
-    aliases: [["Princess Bride"], ["Bride of Frankenstein 1935"]],
+    aliases: [["Princess Bride"], []],
     hints: ["One is a 1987 fairy tale with a farm boy, a Sicilian, and a giant. The other is a 1935 Universal horror classic.", "One features Inigo Montoya and his six-fingered man. The other features Boris Karloff and Elsa Lanchester with streaked hair.", "Westley meets the Monster — both just want their bride."],
     difficulty: "Medium",
     difficultyReason: "The Princess Bride is universally known but Bride of Frankenstein is a classic that younger players may not place immediately",
@@ -864,7 +852,7 @@ const MASTER_DECK = [
     mashedTitle: "Mulholland Driving Miss Daisy",
     mashedPlot: "An aging Southern Jewish widow hires a chauffeur to drive her through Los Angeles, unaware that the mysterious woman who keeps climbing into the back seat is a failed actress living inside someone else's identity.",
     movies: ["Mulholland Drive", "Driving Miss Daisy"],
-    aliases: [["Mulholland Dr", "Mulholland Dr."], ["Driving Miss Daisy Film"]],
+    aliases: [[], []],
     hints: ["One is a 1989 Oscar-winning drama about an elderly woman and her chauffeur in Atlanta. The other is a 2001 David Lynch fever dream set in Hollywood.", "One stars Jessica Tandy and Morgan Freeman. The other stars Naomi Watts and Laura Harring.", "A gentle road movie collides with Lynch's most disorienting masterpiece."],
     difficulty: "Hard",
     difficultyReason: "Mulholland Drive is a cinephile touchstone — casual viewers may not place it from the plot alone",
@@ -876,7 +864,7 @@ const MASTER_DECK = [
     mashedTitle: "Crazy Stupid Love Actually",
     mashedPlot: "A recently divorced middle-aged man is taught the art of seduction by a smooth-talking stranger, only to discover by Christmas that every woman he has approached is already part of the same tangled web of overlapping London romances involving a Prime Minister, a grieving widower, and his own best friend's wife.",
     movies: ["Crazy, Stupid, Love.", "Love Actually"],
-    aliases: [["Crazy Stupid Love"], ["Love Actually Film"]],
+    aliases: [["Crazy Stupid Love"], []],
     hints: ["One is a 2011 American rom-com starring Steve Carell and Ryan Gosling. The other is a 2003 British ensemble holiday classic.", "One features a pickup artist montage in a bar. The other features Hugh Grant, Colin Firth, and a lot of Heathrow Airport.", "A smooth American playboy meets a very British Christmas."],
     difficulty: "Easy",
     difficultyReason: "Both are massively popular rom-coms and Love Actually is one of the most recognised films ever made",
@@ -888,7 +876,7 @@ const MASTER_DECK = [
     mashedTitle: "The Devil Wears Pride and Prejudice",
     mashedPlot: "A sharp young woman from a poor early-1800s family takes a grueling job at a prestigious fashion house in London to help secure her sisters' futures, and finds herself slowly falling for the cold, arrogant editor who runs it despite every instinct telling her not to.",
     movies: ["The Devil Wears Prada", "Pride and Prejudice"],
-    aliases: [["Devil Wears Prada"], ["Pride and Prejudice 2005", "Pride & Prejudice"]],
+    aliases: [["Devil Wears Prada"], ["Pride & Prejudice"]],
     hints: ["One is a 2006 fashion comedy starring Meryl Streep and Anne Hathaway. The other is Jane Austen's most beloved novel adapted to film.", "One features a terrifying editor named Miranda Priestly. The other features Mr. Darcy and the Bennet sisters.", "Meryl Streep meets Mr. Darcy — both equally impossible to impress."],
     difficulty: "Easy",
     difficultyReason: "Both are hugely popular films with massive cultural footprints — the title pun is immediately satisfying",
@@ -900,7 +888,7 @@ const MASTER_DECK = [
     mashedTitle: "The Lion King's Speech",
     mashedPlot: "A young lion cub falsely blamed for his father's death is cast out of his kingdom and grows up in exile, only to return as an adult with a debilitating stutter that an unconventional therapist must cure before he can deliver the speech that will reclaim his throne.",
     movies: ["The Lion King", "The King's Speech"],
-    aliases: [["Lion King", "The Lion King 1994"], ["Kings Speech"]],
+    aliases: [["Lion King"], ["Kings Speech"]],
     hints: ["One is a 1994 Disney animated classic. The other is a 2010 Oscar-winning historical drama.", "One features Jeremy Irons as the villain and Elton John on the soundtrack. The other features Colin Firth as King George VI and Geoffrey Rush as his therapist.", "Simba meets Bertie — two reluctant kings who need to find their voice."],
     difficulty: "Easy",
     difficultyReason: "Both films are extremely well-known and the title splice is perfectly clean — players will get it immediately",
@@ -912,7 +900,7 @@ const MASTER_DECK = [
     mashedTitle: "My Big Fat Greek Wedding Crashers",
     mashedPlot: "Two charming fraudsters crash a boisterous Greek-American family wedding expecting a fun evening, and are instead spritzed with Windex, introduced to sixty relatives, and informed by the patriarch that everything in the world can be traced back to a Greek root word, including their obvious feelings for his daughter.",
     movies: ["My Big Fat Greek Wedding", "Wedding Crashers"],
-    aliases: [["My Big Fat Greek Wedding Film", "Big Fat Greek Wedding"], ["Wedding Crashers Film"]],
+    aliases: [[], []],
     hints: ["One is a 2002 low-budget rom-com that became a massive surprise hit. The other is a 2005 comedy starring Owen Wilson and Vince Vaughn.", "One features a Greek family who believes Windex cures everything. The other features two men who sneak into strangers' weddings.", "Toula's family versus Owen Wilson — only one of them is leaving with a gyro."],
     difficulty: "Easy",
     difficultyReason: "Both are beloved comedies about chaotic weddings and both titles are instantly recognisable",
@@ -924,7 +912,7 @@ const MASTER_DECK = [
     mashedTitle: "The Nightmare Before Christmas Story",
     mashedPlot: "A bespectacled boy in 1940s Indiana wants nothing more than a BB gun for Christmas, which becomes significantly harder to obtain after the ruler of Halloween Town deposes Santa Claus and takes over the holiday.",
     movies: ["The Nightmare Before Christmas", "A Christmas Story"],
-    aliases: [["Nightmare Before Christmas", "Tim Burton Nightmare"], ["Christmas Story Film", "A Christmas Story 1983"]],
+    aliases: [["Nightmare Before Christmas"], []],
     hints: ["One is a 1993 Tim Burton stop-motion animated musical. The other is a beloved 1983 holiday comedy about a boy and his dream gift.", "One features Jack Skellington and Sally. The other features Ralphie Parker and a leg lamp.", "Halloween meets 1940s nostalgia — both are cult Christmas classics."],
     difficulty: "Easy",
     difficultyReason: "Both are iconic Christmas films with enormous fan bases — the title combination is immediately obvious and satisfying",
@@ -936,7 +924,7 @@ const MASTER_DECK = [
     mashedTitle: "It's a Wonderful Life of Pi",
     mashedPlot: "A despairing small-town man on the verge of suicide is visited by a bumbling guardian angel who has just survived months adrift on a lifeboat with a Bengal tiger and is, if anything, even more grateful to be alive.",
     movies: ["It's a Wonderful Life", "Life of Pi"],
-    aliases: [["Its a Wonderful Life", "Wonderful Life"], ["Life of Pi Film"]],
+    aliases: [["Its a Wonderful Life"], []],
     hints: ["One is Frank Capra's 1946 Christmas masterpiece starring Jimmy Stewart. The other is Ang Lee's 2012 survival epic.", "One features an angel named Clarence earning his wings. The other features a Bengal tiger named Richard Parker.", "Bedford Falls meets the Pacific Ocean — both are about finding the will to live."],
     difficulty: "Medium",
     difficultyReason: "Both films are well-known but the connection isn't obvious at first — the shared word 'Life' does a lot of work",
@@ -948,7 +936,7 @@ const MASTER_DECK = [
     mashedTitle: "Million Dollar Baby Driver",
     mashedPlot: "A grizzled boxing trainer reluctantly takes on a fierce young woman who moonlights as a getaway driver, treating each bout like a heist and each heist like a championship fight.",
     movies: ["Million Dollar Baby", "Baby Driver"],
-    aliases: [["Million Dollar Baby Film"], ["Baby Driver Film"]],
+    aliases: [[], []],
     hints: ["One is a 2004 Clint Eastwood boxing drama that won Best Picture. The other is a 2017 Edgar Wright action thriller with an incredible soundtrack.", "One stars Hilary Swank as a determined boxer. The other stars Ansel Elgort as a getaway driver who listens to music to drown out his tinnitus.", "A boxing gym meets a getaway car — both protagonists are called Baby."],
     difficulty: "Easy",
     difficultyReason: "Both films are well-known and the shared word Baby makes the title splice immediately satisfying",
@@ -960,7 +948,7 @@ const MASTER_DECK = [
     mashedTitle: "Twelve Angry Monkeys",
     mashedPlot: "Twelve jurors are locked in a room to decide the fate of a disheveled young man who insists he is a time traveler sent from a plague-ravaged future to prevent the release of a virus that will kill five billion people.",
     movies: ["12 Angry Men", "12 Monkeys"],
-    aliases: [["Twelve Angry Men", "12 Angry Men Film"], ["12 Monkeys Film", "Twelve Monkeys"]],
+    aliases: [[], []],
     hints: ["One is Sidney Lumet's 1957 courtroom masterpiece. The other is Terry Gilliam's 1995 time-travel thriller.", "One stars Henry Fonda as a lone dissenting juror. The other stars Bruce Willis as a time traveller and Brad Pitt as a mental patient.", "Both have exactly twelve in the title — one jury, one army."],
     difficulty: "Medium",
     difficultyReason: "12 Angry Men is a classic but younger players may need the actor hint to place it",
@@ -972,7 +960,7 @@ const MASTER_DECK = [
     mashedTitle: "There Will Be Blood Diamond",
     mashedPlot: "A ruthless oilman cuts a bloody path across West Africa looking for the next big strike, and finds it in the form of a rare pink diamond that a desperate father will do anything to recover before the oilman drinks his milkshake too.",
     movies: ["There Will Be Blood", "Blood Diamond"],
-    aliases: [["There Will Be Blood Film"], ["Blood Diamond Film"]],
+    aliases: [[], []],
     hints: ["One is a 2007 Paul Thomas Anderson epic starring Daniel Day-Lewis. The other is a 2006 Edward Zwick thriller starring Leonardo DiCaprio.", "One features Daniel Plainview and a milkshake monologue. The other is set during Sierra Leone's civil war.", "Two films about men destroying everything around them in pursuit of a precious resource."],
     difficulty: "Medium",
     difficultyReason: "Both films are well-regarded but Blood Diamond is slightly less canonical — the shared word Blood makes the title obvious once you have both",
@@ -984,7 +972,7 @@ const MASTER_DECK = [
     mashedTitle: "Up in the Air Force One",
     mashedPlot: "A slick corporate downsizer who fires people for a living is en route to his next assignment when Russian terrorists seize the plane, and he spends the rest of the flight systematically terminating their employment one by one.",
     movies: ["Up in the Air", "Air Force One"],
-    aliases: [["Up in the Air Film"], ["Air Force One Film"]],
+    aliases: [[], []],
     hints: ["One is a 2009 Jason Reitman drama starring George Clooney as a professional downsizer. The other is a 1997 action thriller starring Harrison Ford as the President.", "One features a man who lives in airports and hates commitment. The other features a President who won't leave his hijacked plane.", "George Clooney meets Harrison Ford at 35,000 feet."],
     difficulty: "Medium",
     difficultyReason: "Both are well-known films but the connection via Air requires a moment of lateral thinking",
@@ -996,7 +984,7 @@ const MASTER_DECK = [
     mashedTitle: "Star Wars of the Worlds",
     mashedPlot: "A dock worker in suburban New Jersey flees with his children as Martian war machines tear through the galaxy, destroying everything in their path until they encounter something no lightsaber could have stopped.",
     movies: ["Star Wars", "War of the Worlds"],
-    aliases: [["Star Wars A New Hope", "Star Wars Episode IV", "A New Hope"], ["War of the Worlds 2005", "War of the Worlds Film"]],
+    aliases: [[], []],
     hints: ["One is George Lucas's 1977 space opera that changed cinema forever. The other is Steven Spielberg's 2005 alien invasion film starring Tom Cruise.", "One features Luke Skywalker, Princess Leia, and the Death Star. The other features Tom Cruise running from tripods with his estranged daughter.", "The most iconic sci-fi franchise collides with H.G. Wells's alien invasion classic."],
     difficulty: "Easy",
     difficultyReason: "Both are massively famous sci-fi films and the shared word War makes the title splice immediately obvious",
@@ -1008,7 +996,7 @@ const MASTER_DECK = [
     mashedTitle: "The Sixth Sense and Sensibility",
     mashedPlot: "A child psychologist is called to treat a quiet, troubled boy at a crumbling English country estate, where the boy claims he can see the dead and the recently deceased master of the house is still very much weighing in on his daughters' marriage prospects.",
     movies: ["The Sixth Sense", "Sense and Sensibility"],
-    aliases: [["Sixth Sense", "The Sixth Sense Film"], ["Sense and Sensibility Film", "Sense & Sensibility"]],
+    aliases: [["Sixth Sense"], ["Sense & Sensibility"]],
     hints: ["One is M. Night Shyamalan's 1999 supernatural thriller with one of cinema's most famous twists. The other is Ang Lee's 1995 Jane Austen adaptation.", "One stars Bruce Willis and Haley Joel Osment. The other stars Emma Thompson and Kate Winslet.", "A ghost story meets Regency England — both hinge on a revelation you didn't see coming."],
     difficulty: "Medium",
     difficultyReason: "Both films are well-known but the connection via Sense requires spotting the shared word across two very different genres",
@@ -1020,7 +1008,7 @@ const MASTER_DECK = [
     mashedTitle: "Get Out of Africa",
     mashedPlot: "A young Black man travels to a remote Kenyan coffee plantation to meet his white girlfriend's colonial family, where the locals smile too widely, the guests sit very still at dinner, and the lush landscape feels increasingly like a trap.",
     movies: ["Get Out", "Out of Africa"],
-    aliases: [["Get Out Film"], ["Out of Africa Film"]],
+    aliases: [[], []],
     hints: ["One is Jordan Peele's 2017 horror masterpiece. The other is Sydney Pollack's 1985 romantic epic starring Meryl Streep and Robert Redford.", "One is set in suburban America at a white family's estate. The other is set in colonial Kenya on a coffee farm.", "A modern horror film collides with a sweeping Old Hollywood romance — both set on someone else's land."],
     difficulty: "Medium",
     difficultyReason: "Get Out is extremely well-known but Out of Africa skews older — younger players may need the actor hint",
@@ -1032,7 +1020,7 @@ const MASTER_DECK = [
     mashedTitle: "A Quiet Place Beyond the Pines",
     mashedPlot: "A motorcycle stuntman quietly robs banks across upstate New York to provide for a child he barely knows, in a valley now patrolled by creatures that hunt entirely by sound.",
     movies: ["A Quiet Place", "The Place Beyond the Pines"],
-    aliases: [["A Quiet Place Film", "Quiet Place"], ["Place Beyond the Pines", "Place Beyond Pines"]],
+    aliases: [["Quiet Place"], ["Place Beyond the Pines"]],
     hints: ["One is John Krasinski's 2018 horror film about a family surviving in silence. The other is Derek Cianfrance's 2012 crime drama starring Ryan Gosling.", "One features creatures that hunt by sound. The other features a motorcycle bank robber with face tattoos.", "A family hiding in silence meets a man who can't stop making noise."],
     difficulty: "Hard",
     difficultyReason: "The Place Beyond the Pines is a cinephile favourite but not as widely seen — the shared word Place is the key",
@@ -1044,7 +1032,7 @@ const MASTER_DECK = [
     mashedTitle: "Slumdog Million Dollar Baby",
     mashedPlot: "A street kid from the Mumbai slums claws his way into a boxing gym the same way he survived childhood: by refusing every question life throws at him until the answer lands.",
     movies: ["Slumdog Millionaire", "Million Dollar Baby"],
-    aliases: [["Slumdog Millionaire Film"], ["Million Dollar Baby Film"]],
+    aliases: [[], []],
     hints: ["One is Danny Boyle's 2008 Best Picture winner set in Mumbai. The other is Clint Eastwood's 2004 Best Picture winner about boxing.", "One stars Dev Patel on a quiz show. The other stars Hilary Swank in a boxing ring.", "Two Best Picture winners about underdogs from impossible circumstances — one quiz, one bout."],
     difficulty: "Medium",
     difficultyReason: "Both are hugely famous films and the shared word Million makes the splice clean — but players need to hold both titles in mind at once",
@@ -1056,7 +1044,7 @@ const MASTER_DECK = [
     mashedTitle: "Boogie Nights of the Living Dead",
     mashedPlot: "A charismatic young man with a gift that makes him a star in the San Fernando Valley adult film industry in 1977 finds his career complicated by a zombie outbreak that the studio is doing its best to shoot around.",
     movies: ["Boogie Nights", "Night of the Living Dead"],
-    aliases: [["Boogie Nights Film"], ["Night of the Living Dead Film", "Night of Living Dead"]],
+    aliases: [[], []],
     hints: ["One is Paul Thomas Anderson's 1997 epic about the adult film industry's golden age. The other is George Romero's 1968 horror classic that invented the modern zombie.", "One stars Mark Wahlberg and Burt Reynolds. The other is a black and white horror film shot in Pennsylvania.", "Disco era hedonism meets the zombie apocalypse — Night bridges both titles."],
     difficulty: "Medium",
     difficultyReason: "Both films are well-known but Night of the Living Dead skews toward film buffs — the shared word Night is the key",
@@ -1068,7 +1056,7 @@ const MASTER_DECK = [
     mashedTitle: "Snow White and the Seven Year Itch",
     mashedPlot: "A married Manhattan man whose wife is away for the summer becomes obsessed with the enchanting neighbor upstairs, who sleeps for days at a time, accepts food only from strangers, and is tended to by seven very small men.",
     movies: ["Snow White and the Seven Dwarfs", "The Seven Year Itch"],
-    aliases: [["Snow White", "Snow White Seven Dwarfs", "Snow White and the Seven Dwarfs"], ["Seven Year Itch"]],
+    aliases: [["Snow White and the Seven Dwarfs"], ["Seven Year Itch"]],
     hints: ["One is Disney's 1937 first animated feature. The other is Billy Wilder's 1955 comedy starring Marilyn Monroe.", "One features a poison apple and seven small miners. The other features the most famous skirt-blowing scene in cinema history.", "A fairy tale princess meets a married man's mid-summer fantasy — Seven bridges both."],
     difficulty: "Hard",
     difficultyReason: "The Seven Year Itch is a classic but younger players may not know it — Snow White is universal, making this an asymmetric difficulty card",
@@ -1080,7 +1068,7 @@ const MASTER_DECK = [
     mashedTitle: "Goodfellowship of the Ring",
     mashedPlot: "A young New Yorker is seduced into the glamorous, violent world of organized crime, inside a mafia crew that promises power, wealth, and belonging. But when a cursed ring must be smuggled across a war-torn realm, absolute loyalty and sacrifice are the only options.",
     movies: ["Goodfellas", "The Lord of the Rings: The Fellowship of the Ring"],
-    aliases: [["Goodfellas Film"], ["Fellowship of the Ring", "Lord of the Rings Fellowship", "LOTR Fellowship"]],
+    aliases: [[], []],
     hints: ["One is Martin Scorsese's 1990 mob epic. The other is Peter Jackson's 2001 fantasy epic.", "One stars Ray Liotta, Joe Pesci, and Robert De Niro. The other stars Elijah Wood, Ian McKellen, and Viggo Mortensen.", "The New York mob meets Middle Earth — Fellas and Fellowship share a root."],
     difficulty: "Medium",
     difficultyReason: "Both films are landmark works that most players will know — the phonetic bridge between Fellas and Fellowship is the key insight",
@@ -1092,7 +1080,7 @@ const MASTER_DECK = [
     mashedTitle: "The French Connection Dispatch",
     mashedPlot: "A foul-tempered New York detective obsessed with cracking a transatlantic heroin ring is reassigned by his editor to cover the story as a civilized long-form feature for a small Parisian magazine, complete with illustrations.",
     movies: ["The French Connection", "The French Dispatch"],
-    aliases: [["French Connection Film"], ["French Dispatch Film", "The French Dispatch Wes Anderson"]],
+    aliases: [[], []],
     hints: ["One is William Friedkin's 1971 Oscar-winning police thriller. The other is Wes Anderson's 2021 love letter to the New Yorker magazine.", "One stars Gene Hackman as Detective Popeye Doyle. The other stars Benicio del Toro, Timothée Chalamet, and a large ensemble.", "French bridges both — a gritty cop thriller meets a perfectly symmetrical magazine anthology."],
     difficulty: "Hard",
     difficultyReason: "The French Connection is a classic but skews older — The French Dispatch is recent but art-house — both French bridges them",
@@ -1104,7 +1092,7 @@ const MASTER_DECK = [
     mashedTitle: "Bridget Jones's Diary of a Wimpy Kid",
     mashedPlot: "A socially disastrous young woman records her humiliations in meticulous illustrated diary entries, including her terrible taste in men, her inability to dress appropriately, and the fact that she has somehow contracted the cheese touch.",
     movies: ["Bridget Jones's Diary", "Diary of a Wimpy Kid"],
-    aliases: [["Bridget Jones Diary", "Bridget Jones"], ["Diary of a Wimpy Kid Film", "Wimpy Kid"]],
+    aliases: [[], []],
     hints: ["One is a 2001 British rom-com starring Renée Zellweger. The other is a 2010 family comedy based on Jeff Kinney's illustrated novels.", "One features Colin Firth as Mr. Darcy and Hugh Grant as Daniel Cleaver. The other features a cheese-obsessed American middle schooler.", "Two diary-keepers, two completely different problems — Diary bridges both."],
     difficulty: "Easy",
     difficultyReason: "Both are hugely popular and the shared word Diary makes the title click immediately",
@@ -1116,7 +1104,7 @@ const MASTER_DECK = [
     mashedTitle: "Rocky Road to Perdition",
     mashedPlot: "A Depression-era hitman flees cross-country with his young son after his employer orders them both killed, stopping in every town long enough to train in a local gym because the man he is running from is also the heavyweight champion of the world.",
     movies: ["Rocky", "Road to Perdition"],
-    aliases: [["Rocky Film", "Rocky 1976"], ["Road to Perdition Film"]],
+    aliases: [[], []],
     hints: ["One is John G. Avildsen's 1976 Best Picture winner about a club boxer from Philadelphia. The other is Sam Mendes's 2002 Depression-era mob thriller.", "One stars Sylvester Stallone as Rocky Balboa. The other stars Tom Hanks as a hitman on the run with his son.", "A boxing underdog story meets a father-son mob road movie — Road bridges both titles."],
     difficulty: "Hard",
     difficultyReason: "Road to Perdition is a critically praised but not universally seen film — Rocky is iconic, making this asymmetric",
@@ -1128,7 +1116,7 @@ const MASTER_DECK = [
     mashedTitle: "The Theory of Everything Everywhere All at Once",
     mashedPlot: "A brilliant physicist slowly losing control of his body discovers that the unified theory of the universe he has spent his life searching for is located inside a laundromat in California, where his wife has been quietly maintaining every possible version of reality while doing the taxes.",
     movies: ["The Theory of Everything", "Everything Everywhere All at Once"],
-    aliases: [["Theory of Everything Film"], ["Everything Everywhere All at Once Film", "EEAAO", "Everything Everywhere"]],
+    aliases: [[], []],
     hints: ["One is a 2014 biographical drama about Stephen Hawking starring Eddie Redmayne. The other is the 2022 multiverse film starring Michelle Yeoh.", "One features a romance between a physicist and his caretaker wife. The other features a Chinese-American laundromat owner discovering she can access parallel universes.", "A Cambridge love story meets the multiverse — Everything bridges both titles."],
     difficulty: "Easy",
     difficultyReason: "Both films are recent, critically acclaimed, and culturally prominent — and the title combination creates the longest, most absurd mash in the game",
@@ -1140,7 +1128,7 @@ const MASTER_DECK = [
     mashedTitle: "Dances with Wolf of Wall Street",
     mashedPlot: "A disillusioned soldier posted to an empty frontier outpost gradually goes native among a tribe of cocaine-fuelled stockbrokers on Long Island, adopting their customs, their language, and eventually a wolf, until the federal government decides to shut the whole operation down.",
     movies: ["Dances with Wolves", "The Wolf of Wall Street"],
-    aliases: [["Dances with Wolves Film"], ["Wolf of Wall Street", "The Wolf of Wall Street Film"]],
+    aliases: [[], ["Wolf of Wall Street"]],
     hints: ["One is Kevin Costner's 1990 Best Picture winner about a Civil War soldier who joins a Lakota Sioux tribe. The other is Martin Scorsese's 2013 excess-fuelled stockbroker epic.", "One stars Kevin Costner and Mary McDonnell. The other stars Leonardo DiCaprio as Jordan Belfort.", "A man goes native on the frontier — Wolf bridges both Wolves and Wall Street."],
     difficulty: "Medium",
     difficultyReason: "Both films are well-known and the shared word Wolf/Wolves is immediately satisfying once spotted",
@@ -1278,7 +1266,7 @@ function LottieOverlay({src, loop=false, autoplay=true, speed=1, style={}, onCom
 // Base reward per card: 10 points
 // Hint Tier 1 (metadata): lowers reward by 1
 // Hint Tier 2 (actors):   lowers reward by 3
-// Wrong guess:            lowers reward by 1
+// Wrong guess:            lowers reward by 1 per wrong word (title words, grammar words and correct film names are free)
 // Guessing films individually: no reward penalty (still considered correct progress)
 // Formula: currentReward = max(0, baseReward - hintPenalty - wrongGuessPenalty)
 // 
@@ -1315,8 +1303,8 @@ const CONFIDENCE_WRONG_MULT  = { sure:0.7, maybe:1.0, hailmary:0.5 };
 // Live reward calculation — called every render so player sees it drop in real time
 // hintsRevealed = array of tier IDs revealed so far
 // filmsGuessedIndividually = count of films found via individual guess (not mash title)
-// wrongGuessCount = guesses that were not fully correct for this card
-function calcReward(hintsRevealed, filmsGuessedIndividually, wrongGuessCount) {
+// wrongWordPenalty = points lost to wrong guesses: one per wrong word in each guess
+function calcReward(hintsRevealed, filmsGuessedIndividually, wrongWordPenalty) {
   const tokensPenalty = hintsRevealed.reduce((acc, tierId) => {
     const tier = HINT_TIERS.find(t => t.id === tierId);
     return acc + (tier ? tier.rewardPenalty : 0);
@@ -1326,7 +1314,7 @@ function calcReward(hintsRevealed, filmsGuessedIndividually, wrongGuessCount) {
     BASE_REWARD
       - tokensPenalty
       - (filmsGuessedIndividually * INDIVIDUAL_FILM_PENALTY)
-      - (wrongGuessCount * WRONG_GUESS_REWARD_PENALTY)
+      - (wrongWordPenalty * WRONG_GUESS_REWARD_PENALTY)
   );
 }
 
@@ -1369,11 +1357,27 @@ function uniqueCardsByMoviePair(deck) {
   });
 }
 
+// Daily rotation (owner decision 2026-10-19): from this local date on, the Daily goes
+// through every card in one fixed shuffled order before any card repeats. Earlier
+// dates keep the original per-date shuffle, so no one's Daily changes mid-day.
+// Adding or removing cards reshuffles the order for days not yet played.
+const DAILY_ROTATION_START = new Date(2026, 10, 1); // 1 November 2026
+const DAILY_ROTATION_SEED = 20261101;
+function localDayNumber(d) { return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000); }
+function dailyRotationCard(sourceDeck, date) {
+  const dayIndex = localDayNumber(date) - localDayNumber(DAILY_ROTATION_START);
+  if (dayIndex < 0 || sourceDeck.length === 0) return null;
+  const order = shuffleRng([...sourceDeck].sort((a, b) => a.id - b.id), mulberry32(DAILY_ROTATION_SEED));
+  return order[dayIndex % order.length];
+}
+
 function buildDeck(mode) {
   const { id, roundCount, isDaily } = mode;
   const sourceDeck = uniqueCardsByMoviePair(MASTER_DECK);
   const cap = Math.min(roundCount, sourceDeck.length);
   if (isDaily) {
+    const rotationCard = dailyRotationCard(sourceDeck, new Date());
+    if (rotationCard) return [rotationCard].slice(0, cap);
     const todayShuffled = shuffleRng(sourceDeck, mulberry32(getDailySeed()));
     if (todayShuffled.length <= 1) return todayShuffled.slice(0, cap);
 
@@ -1416,6 +1420,7 @@ function norm(s) {
   return s
     .toLowerCase()
     .replace(/&/g, "and")           // & → and
+    .replace(/['’]/g, "")           // can't → cant (apostrophes never split a word)
     .replace(/[^a-z0-9\s]/g, " ")  // strip punctuation
     .replace(/\s+/g, " ")           // collapse whitespace
     .trim()
@@ -1427,6 +1432,7 @@ function normWord(s) {
   return s
     .toLowerCase()
     .replace(/&/g, "and")
+    .replace(/['’]/g, "")
     .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -1449,7 +1455,9 @@ function levenshtein(a, b) {
   return dp[b.length];
 }
 
-const STOPWORDS = new Set(["the","a","an","and","of","in","on","at","to","for","with","is","it","or","from","by","there","will","day","being"]);
+// Grammar words a player never has to type to complete a title word by word.
+// Real title words ("day", "will", "there", "being", ...) must not be listed here.
+const STOPWORDS = new Set(["the","a","an","and","of","in","on","at","to","for","with","is","it","or","from","by"]);
 const GENERIC_TITLE_WORDS = new Set(["life","man","men","woman","women","world","story","time","night","home","love","boy","girl"]);
 
 function fuzzy(guess, answer, aliases = []) {
@@ -1529,18 +1537,20 @@ function isExactMashedTitleWordGuess(guess, card) {
   return mashedWords.has(token);
 }
 
-function isGuessPresentInMashedTitle(guess, card) {
-  const guessTokens = normWord(guess).split(" ").filter(Boolean).map(normalizeToken);
-  if (guessTokens.length === 0) return false;
-
-  const mashedTokenSet = new Set(
+// Words in a guess that are neither in the mashed title nor grammar words.
+// Each one costs a point (owner rule, 2026-10-19); correct words are free.
+function wrongWordsInGuess(guess, card) {
+  const titleTokens = new Set(
     normWord(card.mashedTitle || "")
       .split(" ")
       .filter(Boolean)
       .map(normalizeToken)
   );
-
-  return guessTokens.every((token) => mashedTokenSet.has(token));
+  return normWord(guess)
+    .split(" ")
+    .filter(Boolean)
+    .map(normalizeToken)
+    .filter((token) => token && !STOPWORDS.has(token) && !titleTokens.has(token));
 }
 
 // If players reveal every meaningful word in the mashed title, treat the round
@@ -1558,29 +1568,32 @@ function areAllMashedTitleWordsGuessed(guesses, mashedTitle = "") {
   const guessed = new Set();
 
   guesses.forEach((g) => {
-    // Only single-word guesses contribute to this fallback completion path.
-    // Multi-word guesses are validated by isMashedTitleGuess instead, so
-    // connector words like "of" vs "and" cannot be bypassed here.
-    const tokens = normWord(g)
+    // Every title word in any guess counts, however many words the guess had.
+    // This is the same rule HangmanTitle uses to reveal tiles, so a title that
+    // is fully shown on screen is also solved.
+    normWord(g)
       .split(" ")
       .filter(Boolean)
       .map(normalizeToken)
-      .filter(Boolean);
-
-    if (tokens.length !== 1) return;
-
-    const token = tokens[0];
-    if (required.has(token)) guessed.add(token);
+      .forEach((token) => { if (required.has(token)) guessed.add(token); });
   });
 
   return Array.from(required).every((token) => guessed.has(token));
+}
+
+// True when the guess is exactly one film's title (or accepted spelling of it).
+function isExactFilmName(guess, movies, aliases = []) {
+  const g = norm(guess);
+  return movies.some((m, i) => [m, ...((aliases[i]) || [])].some((t) => norm(t) === g));
 }
 
 function checkGuesses(guesses, movies, aliases, mashedTitle="") {
   const found=[false,false];
   guesses.forEach(g=>{
     // Mashed title: accept robust near-full matches but still reject short partials.
-    if(isMashedTitleGuess(g, mashedTitle)) {
+    // Naming one film exactly only ever counts for that film, even when it is
+    // within typo distance of the mashed title ("The Green Mile" vs "The Green 8 Mile").
+    if(!isExactFilmName(g, movies, aliases) && isMashedTitleGuess(g, mashedTitle)) {
       found[0]=true; found[1]=true; return;
     }
     // Individual film matching — strict full-title intent only.
@@ -1666,10 +1679,16 @@ function isFullyCorrectGuess(guess, card) {
 function guessClassification(guess, card) {
   const normalizedGuess = norm(guess);
   if (!normalizedGuess) return "miss";
-  // Any guess whose words are truly present in the mashed title should not be
-  // penalized as a miss, even when it is not a full movie-title solve.
-  if (isFullyCorrectGuess(guess, card) || isGuessPresentInMashedTitle(guess, card)) return "match";
+  // A correct film name or full title, or a guess made only of title words
+  // (and grammar words), is never a miss.
+  if (isFullyCorrectGuess(guess, card) || wrongWordsInGuess(guess, card).length === 0) return "match";
   return "miss";
+}
+
+// Points a guess costs: one per wrong word; correct guesses cost nothing.
+function guessPenalty(guess, card) {
+  if (guessClassification(guess, card) === "match") return 0;
+  return Math.max(1, wrongWordsInGuess(guess, card).length);
 }
 
 
@@ -1738,7 +1757,15 @@ function updateStreak(bothFound) {
 
 function getDailyKey() { const d=new Date(); return `${LS_DAILY_PREFIX}${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`; }
 function hasDoneDaily() { try{return !!localStorage.getItem(getDailyKey());}catch{return false;} }
-function markDailyDone(score) { try{localStorage.setItem(getDailyKey(),JSON.stringify({score,date:new Date().toISOString()}));}catch{} }
+// The first Daily result of the day is the one kept and shared; replays don't
+// overwrite it. Returns true when this call recorded the day's first result.
+function markDailyDone(score, shareText) {
+  try{
+    if(localStorage.getItem(getDailyKey())) return false;
+    localStorage.setItem(getDailyKey(),JSON.stringify({score,shareText,date:new Date().toISOString()}));
+    return true;
+  }catch{ return true; }
+}
 function getDailyResult() { try{const v=localStorage.getItem(getDailyKey()); return v?JSON.parse(v):null;}catch{return null;} }
 
 function isStaleDailySession(session) {
@@ -1839,7 +1866,13 @@ const AudioCtx = typeof window !== "undefined" && (window.AudioContext || window
 let _actx = null;
 function getACtx() { if(!_actx && AudioCtx) _actx=new AudioCtx(); return _actx; }
 
+// Sound on/off (owner decision 2026-10-19), remembered between visits.
+const LS_SOUND = "plotmix_sound";
+function isSoundOn() { try { return localStorage.getItem(LS_SOUND) !== "off"; } catch { return true; } }
+function setSoundOn(on) { try { localStorage.setItem(LS_SOUND, on ? "on" : "off"); } catch {} }
+
 function playTone(frequency, type, duration, gain, delayStart=0, rampDown=true) {
+  if (!isSoundOn()) return;
   try {
     const ctx = getACtx(); if(!ctx) return;
     const o = ctx.createOscillator();
@@ -1893,6 +1926,9 @@ function getRunBestStreak(results) {
 // 
 // SHAREABLE RESULT CARD
 // 
+// The game's public address, added to shared results (owner decision 2026-10-19).
+const PLAY_URL = "https://plotmix-app.vercel.app";
+
 function buildShareText(mode, results, totalScore) {
   const correct=results.filter(r=>isRoundSolved(r)).length;
   const skipped=results.filter(r=>r.skipped).length;
@@ -1903,6 +1939,7 @@ function buildShareText(mode, results, totalScore) {
   const lines = [
     `🎬 PLOTMIX ${mode.label}`,
     `${dateLine}${summaryLine}`,
+    `Play: ${PLAY_URL}`,
   ];
   return lines.join("\n");
 }
@@ -2122,9 +2159,9 @@ const STICKER_ASSETS = {
   ],
   hintAnimation: { src: "/stickers/hint.mp4", width: 320, aboveGap: 8, liftY: -120 },
   trex: {
-    sad: "/stickers/Sad.png",
-    happy: "/stickers/Happy.png",
-    veryHappy: "/stickers/Very-happy.png",
+    sad: "/stickers/Sad.webp",
+    happy: "/stickers/Happy.webp",
+    veryHappy: "/stickers/Very-happy.webp",
   },
 };
 
@@ -2615,6 +2652,18 @@ function HowToPlayModal({onClose}) {
   );
 }
 
+// Speaker button that turns the game's sound effects on and off.
+function SoundToggle({style={}}) {
+  const [on,setOn]=useState(()=>isSoundOn());
+  const toggle=()=>{ const next=!on; setSoundOn(next); setOn(next); };
+  return (
+    <button onClick={toggle} aria-label="Sound" aria-pressed={on} title={on?"Sound on":"Sound off"}
+      style={{width:40,height:40,borderRadius:"50%",background:T.bgDeep,border:`2px solid ${T.border}`,cursor:"pointer",boxShadow:T.shadowSm,display:"flex",alignItems:"center",justifyContent:"center",padding:0,...style}}>
+      <span aria-hidden="true" style={{fontSize:18,lineHeight:1,filter:"drop-shadow(0 1px 0 #1C1D21)"}}>{on?"🔊":"🔇"}</span>
+    </button>
+  );
+}
+
 // Persistent floating "?" button — shown everywhere except inside the modal itself
 function HelpButton({onClick}) {
   return (
@@ -3047,7 +3096,7 @@ function ModeSelect({onSelect}) {
           }}
         >
           <img
-            src="/stickers/Happy.png"
+            src="/stickers/Happy.webp"
             alt=""
             draggable="false"
             style={{
@@ -3944,6 +3993,9 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   const [streak,setStreak]=useState(()=>loadStreak());
   const [perfectSolveStreak,setPerfectSolveStreak]=useState(0);
   const prevFoundRef=useRef([false,false]);
+  // Set once a round's result has been applied, so a double tap on Next
+  // (the button stays on screen during the card transition) can't apply it twice.
+  const resultAppliedRef=useRef(false);
   const speedrunDeadlineRef=useRef(null);
   const speedrunRafRef=useRef(null);
 
@@ -3969,7 +4021,10 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   // no re-attempting it for score later, even if points were left on it.
   const pastSkipped = !!(pastResult && pastResult.skipped);
   const pastSpent = !!(pastResult && !pastWon && !pastSkipped && (pastResult.reward||0) <= 0);
-  const viewOnly = rewindIdx!==null && (pastWon || pastSpent || pastSkipped);
+  // A card lost by using up every wrong guess is finished too: it can't take more guesses.
+  const pastOutOfGuesses = !!(pastResult && !pastWon && !pastSkipped &&
+    (pastResult.guessList||[]).filter(g=>guessClassification(g, card)==="miss").length >= mode.maxGuesses);
+  const viewOnly = rewindIdx!==null && (pastWon || pastSpent || pastSkipped || pastOutOfGuesses);
   const isRewound = rewindIdx!==null;
   const found=checkGuesses(guesses,card.movies,card.aliases||[[],[]],card.mashedTitle||"");
   const titleFullyRevealed = areAllMashedTitleWordsGuessed(guesses, card.mashedTitle || "");
@@ -3994,7 +4049,9 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     );
     return count + (matched ? 1 : 0);
   }, 0);
-  const currentReward=calcReward(hintsRevealed,filmFoundByIndividualGuessCount,wrongGuessCount);
+  // Each wrong guess uses one of the card's guesses; each wrong word in it costs a point.
+  const wrongWordPenalty=guesses.reduce((sum,g)=>sum+guessPenalty(g, card),0);
+  const currentReward=calcReward(hintsRevealed,filmFoundByIndividualGuessCount,wrongWordPenalty);
   const rewardSpent = !both && currentReward <= 0;
   const cardLost=!both&&(guessesRemainingForCard===0 || rewardSpent);
   const over=both||cardLost;
@@ -4006,8 +4063,9 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     : hintCount===1
       ? "/design-reference/Guess%20button-1.svg" // 1/2
       : "/design-reference/Guess%20button.svg"; // 0/2
+  // A finished card shows the points it actually scored (0 if lost or skipped).
   const liveCardPts = viewOnly && pastResult
-    ? (typeof pastResult.reward === "number" ? pastResult.reward : (both ? (pastResult.pts ?? BASE_REWARD) : 0))
+    ? (typeof pastResult.pts === "number" ? pastResult.pts : (pastWon ? BASE_REWARD : 0))
     : currentReward;
   const maxPossibleReward=BASE_REWARD;
   const pointsLost=maxPossibleReward-currentReward;
@@ -4116,7 +4174,10 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       speedrunRafRef.current = null;
     }
 
-    if(phase!=="playing" || both || lives<=0){
+    // Only solving the current card stops its clock. Viewing an earlier card
+    // (rewind) must not pause it, or players get unlimited thinking time.
+    const currentCardSolved = both && rewindIdx===null;
+    if(phase!=="playing" || currentCardSolved || lives<=0){
       speedrunDeadlineRef.current = null;
       return;
     }
@@ -4137,6 +4198,8 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
 
       if(nextSeconds<=0){
         speedrunDeadlineRef.current = null;
+        // Time ran out on the current card: bring the player back to it first.
+        if(rewindIdx!==null) goToCard(cardIdx);
         setTimedOut(true);
         setPhase("result");
         return;
@@ -4152,7 +4215,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
         speedrunRafRef.current = null;
       }
     };
-  },[phase,both,lives,mode.timeLimit,timeLeft,cardIdx]);
+  },[phase,both,lives,mode.timeLimit,timeLeft,cardIdx,rewindIdx]);
 
   const goToCard=(target)=>{
     setCardStates(prev=>({...prev,[activeIdx]:{guesses,hintsRevealed}}));
@@ -4188,14 +4251,20 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     setShowSkipConfirm(true);
   };
 
+  useEffect(()=>{
+    if(phase==="result") resultAppliedRef.current=false;
+  },[phase]);
+
   const handleResultNext=()=>{
+    if(resultAppliedRef.current) return;
+    resultAppliedRef.current=true;
     if(skipped){
       const skipResult={card,found:[false,false],solved:false,guesses:guesses.length,hints:hintsRevealed.length,guessList:[...guesses],hintList:[...hintsRevealed],pts:0,reward:currentReward,skipped:true};
       const nextResults = upsertRoundResult(results, cardIdx, skipResult);
       if(isLast||lives<=0){
         clearSession(mode.id);
-        if(mode.isDaily) markDailyDone(totalScore);
-        onComplete(nextResults,totalScore,streak);
+        const dailyReplay = mode.isDaily && !markDailyDone(totalScore, buildShareText(mode, nextResults, totalScore));
+        onComplete(nextResults,totalScore,streak,{dailyReplay});
         return;
       }
       runCardSwap(() => {
@@ -4248,8 +4317,8 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
 
     if(isLast||livesAfterLoss+heartBonus<=0){
       clearSession(mode.id);
-      if(mode.isDaily) markDailyDone(newTotal);
-      onComplete(nextResults,newTotal,newStreak);
+      const dailyReplay = mode.isDaily && !markDailyDone(newTotal, buildShareText(mode, nextResults, newTotal));
+      onComplete(nextResults,newTotal,newStreak,{dailyReplay});
       return;
     }
     runCardSwap(() => {
@@ -4270,8 +4339,8 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     const nextResults = upsertRoundResult(results, activeIdx, roundResult);
     if(isLast){
       clearSession(mode.id);
-      if(mode.isDaily) markDailyDone(totalScore);
-      onComplete(nextResults,totalScore,streak);
+      const dailyReplay = mode.isDaily && !markDailyDone(totalScore, buildShareText(mode, nextResults, totalScore));
+      onComplete(nextResults,totalScore,streak,{dailyReplay});
       return;
     }
     runCardSwap(() => {
@@ -4468,6 +4537,8 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
         <img src="/design-reference/Exit.svg" alt="" aria-hidden="true" draggable="false"
           style={{display:"block",width:"100%",height:"100%",pointerEvents:"none",userSelect:"none"}}/>
       </button>
+
+      <SoundToggle style={{position:"absolute",top:22,right:20,zIndex:400}}/>
 
       {/* Out of lives — run is over, Home is the only exit */}
       {lives<=0&&phase!=="result"&&(()=>{
@@ -4681,16 +4752,25 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
 
 
 
-function EndScreen({mode,results,totalScore,onMenu,onPlayAgain}) {
+function EndScreen({mode,results,totalScore,dailyReplay=false,onMenu,onPlayAgain}) {
   const [copied,setCopied]=useState(false);
   const correct=results.filter(r=>isRoundSolved(r)).length;
   const skippedCount=results.filter(r=>r.skipped).length;
   const missed=results.length-correct-skippedCount-results.filter(r=>!r.skipped&&!isRoundSolved(r)&&r.found[0]!==r.found[1]).length;
   const displayStreakValue = getRunBestStreak(results);
 
-  const shareText=buildShareText(mode,results,totalScore);
+  // On a Daily replay, the day's first result is the one shown in the note and shared.
+  const officialDaily = dailyReplay ? getDailyResult() : null;
+  const shareText = officialDaily?.shareText || buildShareText(mode,results,totalScore);
+  // Phones (and some desktops) have a share menu; elsewhere the result is copied.
+  const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
   const handleShare=()=>{
     const done=()=>{setCopied(true);setTimeout(()=>setCopied(false),2600);};
+    if(canNativeShare){
+      // Closing the share menu without sharing is not an error; anything else falls back to copying.
+      navigator.share({text:shareText}).catch((err)=>{ if(err?.name!=="AbortError") fallbackCopy(shareText,done); });
+      return;
+    }
     if(navigator.clipboard&&window.isSecureContext){
       navigator.clipboard.writeText(shareText).then(done).catch(()=>fallbackCopy(shareText,done));
     } else {
@@ -4724,6 +4804,11 @@ function EndScreen({mode,results,totalScore,onMenu,onPlayAgain}) {
 
         <div style={{...WHITE_STICKER_TEXT,fontSize:"clamp(30px, 8.8vw, 40px)",lineHeight:1.02,marginBottom:10,textTransform:"uppercase"}}>The End</div>
         <div style={{...YELLOW_STICKER_TEXT,fontSize:"clamp(17px, 5.1vw, 24px)",lineHeight:1.04,marginBottom:24,textTransform:"uppercase"}}>Share Your Results</div>
+        {officialDaily && (
+          <div style={{...WHITE_STICKER_TEXT,fontSize:12,lineHeight:1.3,margin:"-12px 0 18px",letterSpacing:"0.02em"}}>
+            Replay — today's first result is kept: {officialDaily.score} ⭐
+          </div>
+        )}
 
         <div style={{display:"flex",justifyContent:"center",marginBottom:24,minHeight:198,alignItems:"center"}}>
           <img
@@ -4745,7 +4830,7 @@ function EndScreen({mode,results,totalScore,onMenu,onPlayAgain}) {
         </div>
 
         <button onClick={handleShare} style={{...BTN.cyan,width:"100%",padding:"16px 0",marginBottom:18}}>
-          <span style={{...WHITE_STICKER_TEXT,fontSize:"clamp(18px, 5.2vw, 24px)",lineHeight:1.02,letterSpacing:"0.03em",textTransform:"uppercase"}}>{copied?"Copied ✓":"Copy"}</span>
+          <span style={{...WHITE_STICKER_TEXT,fontSize:"clamp(18px, 5.2vw, 24px)",lineHeight:1.02,letterSpacing:"0.03em",textTransform:"uppercase"}}>{canNativeShare?"Share":(copied?"Copied ✓":"Copy")}</span>
         </button>
 
         <div style={{marginTop:"auto",display:"flex",gap:10}}>
@@ -4767,7 +4852,22 @@ function EndScreen({mode,results,totalScore,onMenu,onPlayAgain}) {
 // 
 // ROOT
 // 
+// Follows the operating system's "reduce motion" accessibility setting.
+function usePrefersReducedMotion() {
+  const query = "(prefers-reduced-motion: reduce)";
+  const [reduced,setReduced]=useState(()=>typeof window!=="undefined" && !!window.matchMedia && window.matchMedia(query).matches);
+  useEffect(()=>{
+    if(!window.matchMedia) return;
+    const mql=window.matchMedia(query);
+    const onChange=()=>setReduced(mql.matches);
+    mql.addEventListener?.("change",onChange);
+    return ()=>mql.removeEventListener?.("change",onChange);
+  },[]);
+  return reduced;
+}
+
 function PlotMixApp() {
+  const reducedMotion=usePrefersReducedMotion();
   // Inject background into document.head immediately — before React renders anything
   // This prevents Android WebView from showing its default dark background
   useEffect(()=>{
@@ -4825,8 +4925,8 @@ function PlotMixApp() {
   };
 
   const [finalStreak,setFinalStreak]=useState(null);
-  const handleComplete=(r,score,streak)=>{
-    setCompletedRun({mode,results:r,totalScore:score,streak:streak||null});
+  const handleComplete=(r,score,streak,{dailyReplay=false}={})=>{
+    setCompletedRun({mode,results:r,totalScore:score,streak:streak||null,dailyReplay});
     setResults([]); setTotalScore(0); setDeck([]); setResumeState(null); setFinalStreak(streak||null); setShowHelp(false); setScreen("end");
   };
 
@@ -4954,11 +5054,12 @@ function PlotMixApp() {
       {screen==="intro"&&<IntroVideoScreen onDone={()=>setScreen(hasOnboarded()?"menu":"onboarding")}/>}
       {screen==="onboarding"&&<Onboarding onDone={()=>{markOnboarded();setScreen("menu");}} onSkip={()=>{markOnboarded();setScreen("menu");}} showSkip/>}
       {screen==="menu"&&<ModeSelect onSelect={handleModeSelect}/>}
-      {screen==="game"&&mode&&<GameScreen mode={mode} deck={deck} initialState={resumeState} onQuit={goMenu} onComplete={handleComplete} reducedMotion={false}/>}
-      {screen==="end"&&completedRun&&<EndScreen mode={completedRun.mode} results={completedRun.results} totalScore={completedRun.totalScore} onMenu={goMenu} onPlayAgain={handlePlayAgain}/>}
+      {screen==="game"&&mode&&<GameScreen mode={mode} deck={deck} initialState={resumeState} onQuit={goMenu} onComplete={handleComplete} reducedMotion={reducedMotion}/>}
+      {screen==="end"&&completedRun&&<EndScreen mode={completedRun.mode} results={completedRun.results} totalScore={completedRun.totalScore} dailyReplay={completedRun.dailyReplay} onMenu={goMenu} onPlayAgain={handlePlayAgain}/>}
       {/* Not during play: it overlaps the Skip button and swallows its clicks,
           and the Figma gameplay frame has no floating help button. */}
       {screen==="menu"&&<HelpButton onClick={()=>setShowHelp(true)}/>}
+      {screen==="menu"&&<SoundToggle style={{position:"fixed",bottom:26,left:24,zIndex:100}}/>}
       {showHelp&&<HowToPlayModal onClose={()=>setShowHelp(false)}/>}
     </div>
   );

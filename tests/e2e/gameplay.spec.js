@@ -1,7 +1,7 @@
 // Regression tests for critical gameplay behaviour, written against the
 // current rules in PlotMix.jsx (they describe what the game does today):
 //   - each card starts at 10 points
-//   - wrong guess -1, "Year & Genre" hint -1, "Lead Actors" hint -3
+//   - each wrong word in a guess -1 (a one-word wrong guess costs 1), "Year & Genre" hint -1, "Lead Actors" hint -3
 //   - guessing each film separately is not penalised
 //   - 6 wrong guesses lose the card; a lost or skipped card costs 1 heart
 import { test, expect } from '@playwright/test'
@@ -10,7 +10,8 @@ import {
 } from './helpers.js'
 
 // Clearly not a film title and not a word from any mashed title.
-const WRONG_GUESS = 'zzqx wrong guess'
+// One made-up word: not a film title and not a word in any mashed title, so it costs exactly 1 point.
+const WRONG_GUESS = 'zzqxwrong'
 
 async function finishRound(page, label) {
   const button = page.getByRole('button', { name: label })
@@ -75,7 +76,7 @@ test.describe('guessing and scoring', () => {
     await startMode(page, 'standard')
 
     for (let i = 0; i < 6; i++) {
-      await submitGuess(page, `${WRONG_GUESS} ${i}`)
+      await submitGuess(page, `${WRONG_GUESS}${i}`)
     }
     await expect(guessInput(page)).toBeDisabled()
     await finishRound(page, 'Next')
@@ -183,5 +184,7 @@ test.describe('sharing', () => {
     expect(lines[1]).toMatch(/^📅 /)
     // solved / failed / skipped / best streak / score
     expect(lines[2]).toBe('1✅ 0❌ 0⏭️ 1🔥 10⭐')
+    expect(lines[3]).toBe('Play: https://plotmix-app.vercel.app')
+    expect(lines).toHaveLength(4)
   })
 })
