@@ -1741,7 +1741,15 @@ function updateStreak(bothFound) {
 
 function getDailyKey() { const d=new Date(); return `${LS_DAILY_PREFIX}${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`; }
 function hasDoneDaily() { try{return !!localStorage.getItem(getDailyKey());}catch{return false;} }
-function markDailyDone(score) { try{localStorage.setItem(getDailyKey(),JSON.stringify({score,date:new Date().toISOString()}));}catch{} }
+// The first Daily result of the day is the one kept and shared; replays don't
+// overwrite it. Returns true when this call recorded the day's first result.
+function markDailyDone(score, shareText) {
+  try{
+    if(localStorage.getItem(getDailyKey())) return false;
+    localStorage.setItem(getDailyKey(),JSON.stringify({score,shareText,date:new Date().toISOString()}));
+    return true;
+  }catch{ return true; }
+}
 function getDailyResult() { try{const v=localStorage.getItem(getDailyKey()); return v?JSON.parse(v):null;}catch{return null;} }
 
 function isStaleDailySession(session) {
@@ -4217,8 +4225,8 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       const nextResults = upsertRoundResult(results, cardIdx, skipResult);
       if(isLast||lives<=0){
         clearSession(mode.id);
-        if(mode.isDaily) markDailyDone(totalScore);
-        onComplete(nextResults,totalScore,streak);
+        const dailyReplay = mode.isDaily && !markDailyDone(totalScore, buildShareText(mode, nextResults, totalScore));
+        onComplete(nextResults,totalScore,streak,{dailyReplay});
         return;
       }
       runCardSwap(() => {
@@ -4271,8 +4279,8 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
 
     if(isLast||livesAfterLoss+heartBonus<=0){
       clearSession(mode.id);
-      if(mode.isDaily) markDailyDone(newTotal);
-      onComplete(nextResults,newTotal,newStreak);
+      const dailyReplay = mode.isDaily && !markDailyDone(newTotal, buildShareText(mode, nextResults, newTotal));
+      onComplete(nextResults,newTotal,newStreak,{dailyReplay});
       return;
     }
     runCardSwap(() => {
@@ -4293,8 +4301,8 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     const nextResults = upsertRoundResult(results, activeIdx, roundResult);
     if(isLast){
       clearSession(mode.id);
-      if(mode.isDaily) markDailyDone(totalScore);
-      onComplete(nextResults,totalScore,streak);
+      const dailyReplay = mode.isDaily && !markDailyDone(totalScore, buildShareText(mode, nextResults, totalScore));
+      onComplete(nextResults,totalScore,streak,{dailyReplay});
       return;
     }
     runCardSwap(() => {
@@ -4704,14 +4712,16 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
 
 
 
-function EndScreen({mode,results,totalScore,onMenu,onPlayAgain}) {
+function EndScreen({mode,results,totalScore,dailyReplay=false,onMenu,onPlayAgain}) {
   const [copied,setCopied]=useState(false);
   const correct=results.filter(r=>isRoundSolved(r)).length;
   const skippedCount=results.filter(r=>r.skipped).length;
   const missed=results.length-correct-skippedCount-results.filter(r=>!r.skipped&&!isRoundSolved(r)&&r.found[0]!==r.found[1]).length;
   const displayStreakValue = getRunBestStreak(results);
 
-  const shareText=buildShareText(mode,results,totalScore);
+  // On a Daily replay, the day's first result is the one shown in the note and shared.
+  const officialDaily = dailyReplay ? getDailyResult() : null;
+  const shareText = officialDaily?.shareText || buildShareText(mode,results,totalScore);
   const handleShare=()=>{
     const done=()=>{setCopied(true);setTimeout(()=>setCopied(false),2600);};
     if(navigator.clipboard&&window.isSecureContext){
@@ -4747,6 +4757,11 @@ function EndScreen({mode,results,totalScore,onMenu,onPlayAgain}) {
 
         <div style={{...WHITE_STICKER_TEXT,fontSize:"clamp(30px, 8.8vw, 40px)",lineHeight:1.02,marginBottom:10,textTransform:"uppercase"}}>The End</div>
         <div style={{...YELLOW_STICKER_TEXT,fontSize:"clamp(17px, 5.1vw, 24px)",lineHeight:1.04,marginBottom:24,textTransform:"uppercase"}}>Share Your Results</div>
+        {officialDaily && (
+          <div style={{...WHITE_STICKER_TEXT,fontSize:12,lineHeight:1.3,margin:"-12px 0 18px",letterSpacing:"0.02em"}}>
+            Replay — today's first result is kept: {officialDaily.score} ⭐
+          </div>
+        )}
 
         <div style={{display:"flex",justifyContent:"center",marginBottom:24,minHeight:198,alignItems:"center"}}>
           <img
@@ -4863,8 +4878,8 @@ function PlotMixApp() {
   };
 
   const [finalStreak,setFinalStreak]=useState(null);
-  const handleComplete=(r,score,streak)=>{
-    setCompletedRun({mode,results:r,totalScore:score,streak:streak||null});
+  const handleComplete=(r,score,streak,{dailyReplay=false}={})=>{
+    setCompletedRun({mode,results:r,totalScore:score,streak:streak||null,dailyReplay});
     setResults([]); setTotalScore(0); setDeck([]); setResumeState(null); setFinalStreak(streak||null); setShowHelp(false); setScreen("end");
   };
 
@@ -4993,7 +5008,7 @@ function PlotMixApp() {
       {screen==="onboarding"&&<Onboarding onDone={()=>{markOnboarded();setScreen("menu");}} onSkip={()=>{markOnboarded();setScreen("menu");}} showSkip/>}
       {screen==="menu"&&<ModeSelect onSelect={handleModeSelect}/>}
       {screen==="game"&&mode&&<GameScreen mode={mode} deck={deck} initialState={resumeState} onQuit={goMenu} onComplete={handleComplete} reducedMotion={reducedMotion}/>}
-      {screen==="end"&&completedRun&&<EndScreen mode={completedRun.mode} results={completedRun.results} totalScore={completedRun.totalScore} onMenu={goMenu} onPlayAgain={handlePlayAgain}/>}
+      {screen==="end"&&completedRun&&<EndScreen mode={completedRun.mode} results={completedRun.results} totalScore={completedRun.totalScore} dailyReplay={completedRun.dailyReplay} onMenu={goMenu} onPlayAgain={handlePlayAgain}/>}
       {/* Not during play: it overlaps the Skip button and swallows its clicks,
           and the Figma gameplay frame has no floating help button. */}
       {screen==="menu"&&<HelpButton onClick={()=>setShowHelp(true)}/>}
