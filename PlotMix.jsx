@@ -1866,7 +1866,13 @@ const AudioCtx = typeof window !== "undefined" && (window.AudioContext || window
 let _actx = null;
 function getACtx() { if(!_actx && AudioCtx) _actx=new AudioCtx(); return _actx; }
 
+// Sound on/off (owner decision 2026-10-19), remembered between visits.
+const LS_SOUND = "plotmix_sound";
+function isSoundOn() { try { return localStorage.getItem(LS_SOUND) !== "off"; } catch { return true; } }
+function setSoundOn(on) { try { localStorage.setItem(LS_SOUND, on ? "on" : "off"); } catch {} }
+
 function playTone(frequency, type, duration, gain, delayStart=0, rampDown=true) {
+  if (!isSoundOn()) return;
   try {
     const ctx = getACtx(); if(!ctx) return;
     const o = ctx.createOscillator();
@@ -2643,6 +2649,18 @@ function HowToPlayModal({onClose}) {
     <div style={{position:"fixed",inset:0,zIndex:400,overflowY:"auto"}}>
       <Onboarding onDone={onClose} showClose finalLabel="Got It"/>
     </div>
+  );
+}
+
+// Speaker button that turns the game's sound effects on and off.
+function SoundToggle({style={}}) {
+  const [on,setOn]=useState(()=>isSoundOn());
+  const toggle=()=>{ const next=!on; setSoundOn(next); setOn(next); };
+  return (
+    <button onClick={toggle} aria-label="Sound" aria-pressed={on} title={on?"Sound on":"Sound off"}
+      style={{width:40,height:40,borderRadius:"50%",background:T.bgDeep,border:`2px solid ${T.border}`,cursor:"pointer",boxShadow:T.shadowSm,display:"flex",alignItems:"center",justifyContent:"center",padding:0,...style}}>
+      <span aria-hidden="true" style={{fontSize:18,lineHeight:1,filter:"drop-shadow(0 1px 0 #1C1D21)"}}>{on?"🔊":"🔇"}</span>
+    </button>
   );
 }
 
@@ -4520,6 +4538,8 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
           style={{display:"block",width:"100%",height:"100%",pointerEvents:"none",userSelect:"none"}}/>
       </button>
 
+      <SoundToggle style={{position:"absolute",top:22,right:20,zIndex:400}}/>
+
       {/* Out of lives — run is over, Home is the only exit */}
       {lives<=0&&phase!=="result"&&(()=>{
         const m=pickRandom("outOfLives", MSG_BANKS.outOfLives);
@@ -5039,6 +5059,7 @@ function PlotMixApp() {
       {/* Not during play: it overlaps the Skip button and swallows its clicks,
           and the Figma gameplay frame has no floating help button. */}
       {screen==="menu"&&<HelpButton onClick={()=>setShowHelp(true)}/>}
+      {screen==="menu"&&<SoundToggle style={{position:"fixed",bottom:26,left:24,zIndex:100}}/>}
       {showHelp&&<HowToPlayModal onClose={()=>setShowHelp(false)}/>}
     </div>
   );
