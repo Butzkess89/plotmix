@@ -824,18 +824,6 @@ const MASTER_DECK = [
     hintData: {"films":[{"year":2011,"genre":"Family Drama","actors":["Matt Damon","Scarlett Johansson"]},{"year":2001,"genre":"Comedy","actors":["Ben Stiller","Owen Wilson"]}]}
   },
   {
-    id: 69,
-    mashedTitle: "The Fault in Our Star Wars",
-    mashedPlot: "Two teenagers meet at a cancer support group in Indianapolis and fall deeply in love. When they travel to Amsterdam to meet a reclusive author, they discover he has secretly been recruited by the Rebel Alliance — and that the only way to save their relationship is to destroy the Death Star.",
-    movies: ["The Fault in Our Stars", "Star Wars"],
-    aliases: [["Fault in Our Stars", "The Fault In Our Stars"], ["Star Wars A New Hope", "Star Wars Episode 4", "Episode IV", "A New Hope"]],
-    hints: ["One is a 2014 teen romance based on a John Green novel. The other is a 1977 space opera that changed cinema forever.", "One stars Shailene Woodley and Ansel Elgort. The other stars Mark Hamill, Harrison Ford and Carrie Fisher.", "A terminal cancer diagnosis meets the Force, lightsabers, and a galaxy far, far away."],
-    difficulty: "Easy",
-    difficultyReason: "Both films are massively well-known and the title mashup writes itself — players will laugh the moment they see the answer",
-    connection: "Both films are fundamentally about young people confronting impossible odds — one against illness, one against an evil empire — and choosing love and hope anyway.",
-    hintData: {"films":[{"year":2014,"genre":"Romantic Drama","actors":["Shailene Woodley","Ansel Elgort"]},{"year":1977,"genre":"Sci-Fi Adventure","actors":["Mark Hamill","Harrison Ford","Carrie Fisher"]}]}
-  },
-  {
     id: 70,
     mashedTitle: "Independence Groundhog Day",
     mashedPlot: "A cocky fighter pilot wakes up on July 4th to find Earth under attack by a massive alien invasion fleet. He joins the resistance, helps destroy an alien mothership — then wakes up on July 4th again. And again. Every time he dies fighting the aliens, the day resets, and he has to find a new way to save humanity from scratch.",
@@ -1449,7 +1437,9 @@ function levenshtein(a, b) {
   return dp[b.length];
 }
 
-const STOPWORDS = new Set(["the","a","an","and","of","in","on","at","to","for","with","is","it","or","from","by","there","will","day","being"]);
+// Grammar words a player never has to type to complete a title word by word.
+// Real title words ("day", "will", "there", "being", ...) must not be listed here.
+const STOPWORDS = new Set(["the","a","an","and","of","in","on","at","to","for","with","is","it","or","from","by"]);
 const GENERIC_TITLE_WORDS = new Set(["life","man","men","woman","women","world","story","time","night","home","love","boy","girl"]);
 
 function fuzzy(guess, answer, aliases = []) {
@@ -1558,19 +1548,14 @@ function areAllMashedTitleWordsGuessed(guesses, mashedTitle = "") {
   const guessed = new Set();
 
   guesses.forEach((g) => {
-    // Only single-word guesses contribute to this fallback completion path.
-    // Multi-word guesses are validated by isMashedTitleGuess instead, so
-    // connector words like "of" vs "and" cannot be bypassed here.
-    const tokens = normWord(g)
+    // Every title word in any guess counts, however many words the guess had.
+    // This is the same rule HangmanTitle uses to reveal tiles, so a title that
+    // is fully shown on screen is also solved.
+    normWord(g)
       .split(" ")
       .filter(Boolean)
       .map(normalizeToken)
-      .filter(Boolean);
-
-    if (tokens.length !== 1) return;
-
-    const token = tokens[0];
-    if (required.has(token)) guessed.add(token);
+      .forEach((token) => { if (required.has(token)) guessed.add(token); });
   });
 
   return Array.from(required).every((token) => guessed.has(token));
@@ -2122,9 +2107,9 @@ const STICKER_ASSETS = {
   ],
   hintAnimation: { src: "/stickers/hint.mp4", width: 320, aboveGap: 8, liftY: -120 },
   trex: {
-    sad: "/stickers/Sad.png",
-    happy: "/stickers/Happy.png",
-    veryHappy: "/stickers/Very-happy.png",
+    sad: "/stickers/Sad.webp",
+    happy: "/stickers/Happy.webp",
+    veryHappy: "/stickers/Very-happy.webp",
   },
 };
 
@@ -3047,7 +3032,7 @@ function ModeSelect({onSelect}) {
           }}
         >
           <img
-            src="/stickers/Happy.png"
+            src="/stickers/Happy.webp"
             alt=""
             draggable="false"
             style={{
@@ -3944,6 +3929,9 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   const [streak,setStreak]=useState(()=>loadStreak());
   const [perfectSolveStreak,setPerfectSolveStreak]=useState(0);
   const prevFoundRef=useRef([false,false]);
+  // Set once a round's result has been applied, so a double tap on Next
+  // (the button stays on screen during the card transition) can't apply it twice.
+  const resultAppliedRef=useRef(false);
   const speedrunDeadlineRef=useRef(null);
   const speedrunRafRef=useRef(null);
 
@@ -3969,7 +3957,10 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   // no re-attempting it for score later, even if points were left on it.
   const pastSkipped = !!(pastResult && pastResult.skipped);
   const pastSpent = !!(pastResult && !pastWon && !pastSkipped && (pastResult.reward||0) <= 0);
-  const viewOnly = rewindIdx!==null && (pastWon || pastSpent || pastSkipped);
+  // A card lost by using up every wrong guess is finished too: it can't take more guesses.
+  const pastOutOfGuesses = !!(pastResult && !pastWon && !pastSkipped &&
+    (pastResult.guessList||[]).filter(g=>guessClassification(g, card)==="miss").length >= mode.maxGuesses);
+  const viewOnly = rewindIdx!==null && (pastWon || pastSpent || pastSkipped || pastOutOfGuesses);
   const isRewound = rewindIdx!==null;
   const found=checkGuesses(guesses,card.movies,card.aliases||[[],[]],card.mashedTitle||"");
   const titleFullyRevealed = areAllMashedTitleWordsGuessed(guesses, card.mashedTitle || "");
@@ -4006,8 +3997,9 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     : hintCount===1
       ? "/design-reference/Guess%20button-1.svg" // 1/2
       : "/design-reference/Guess%20button.svg"; // 0/2
+  // A finished card shows the points it actually scored (0 if lost or skipped).
   const liveCardPts = viewOnly && pastResult
-    ? (typeof pastResult.reward === "number" ? pastResult.reward : (both ? (pastResult.pts ?? BASE_REWARD) : 0))
+    ? (typeof pastResult.pts === "number" ? pastResult.pts : (pastWon ? BASE_REWARD : 0))
     : currentReward;
   const maxPossibleReward=BASE_REWARD;
   const pointsLost=maxPossibleReward-currentReward;
@@ -4116,7 +4108,10 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       speedrunRafRef.current = null;
     }
 
-    if(phase!=="playing" || both || lives<=0){
+    // Only solving the current card stops its clock. Viewing an earlier card
+    // (rewind) must not pause it, or players get unlimited thinking time.
+    const currentCardSolved = both && rewindIdx===null;
+    if(phase!=="playing" || currentCardSolved || lives<=0){
       speedrunDeadlineRef.current = null;
       return;
     }
@@ -4137,6 +4132,8 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
 
       if(nextSeconds<=0){
         speedrunDeadlineRef.current = null;
+        // Time ran out on the current card: bring the player back to it first.
+        if(rewindIdx!==null) goToCard(cardIdx);
         setTimedOut(true);
         setPhase("result");
         return;
@@ -4152,7 +4149,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
         speedrunRafRef.current = null;
       }
     };
-  },[phase,both,lives,mode.timeLimit,timeLeft,cardIdx]);
+  },[phase,both,lives,mode.timeLimit,timeLeft,cardIdx,rewindIdx]);
 
   const goToCard=(target)=>{
     setCardStates(prev=>({...prev,[activeIdx]:{guesses,hintsRevealed}}));
@@ -4188,7 +4185,13 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     setShowSkipConfirm(true);
   };
 
+  useEffect(()=>{
+    if(phase==="result") resultAppliedRef.current=false;
+  },[phase]);
+
   const handleResultNext=()=>{
+    if(resultAppliedRef.current) return;
+    resultAppliedRef.current=true;
     if(skipped){
       const skipResult={card,found:[false,false],solved:false,guesses:guesses.length,hints:hintsRevealed.length,guessList:[...guesses],hintList:[...hintsRevealed],pts:0,reward:currentReward,skipped:true};
       const nextResults = upsertRoundResult(results, cardIdx, skipResult);
@@ -4767,7 +4770,22 @@ function EndScreen({mode,results,totalScore,onMenu,onPlayAgain}) {
 // 
 // ROOT
 // 
+// Follows the operating system's "reduce motion" accessibility setting.
+function usePrefersReducedMotion() {
+  const query = "(prefers-reduced-motion: reduce)";
+  const [reduced,setReduced]=useState(()=>typeof window!=="undefined" && !!window.matchMedia && window.matchMedia(query).matches);
+  useEffect(()=>{
+    if(!window.matchMedia) return;
+    const mql=window.matchMedia(query);
+    const onChange=()=>setReduced(mql.matches);
+    mql.addEventListener?.("change",onChange);
+    return ()=>mql.removeEventListener?.("change",onChange);
+  },[]);
+  return reduced;
+}
+
 function PlotMixApp() {
+  const reducedMotion=usePrefersReducedMotion();
   // Inject background into document.head immediately — before React renders anything
   // This prevents Android WebView from showing its default dark background
   useEffect(()=>{
@@ -4954,7 +4972,7 @@ function PlotMixApp() {
       {screen==="intro"&&<IntroVideoScreen onDone={()=>setScreen(hasOnboarded()?"menu":"onboarding")}/>}
       {screen==="onboarding"&&<Onboarding onDone={()=>{markOnboarded();setScreen("menu");}} onSkip={()=>{markOnboarded();setScreen("menu");}} showSkip/>}
       {screen==="menu"&&<ModeSelect onSelect={handleModeSelect}/>}
-      {screen==="game"&&mode&&<GameScreen mode={mode} deck={deck} initialState={resumeState} onQuit={goMenu} onComplete={handleComplete} reducedMotion={false}/>}
+      {screen==="game"&&mode&&<GameScreen mode={mode} deck={deck} initialState={resumeState} onQuit={goMenu} onComplete={handleComplete} reducedMotion={reducedMotion}/>}
       {screen==="end"&&completedRun&&<EndScreen mode={completedRun.mode} results={completedRun.results} totalScore={completedRun.totalScore} onMenu={goMenu} onPlayAgain={handlePlayAgain}/>}
       {/* Not during play: it overlaps the Skip button and swallows its clicks,
           and the Figma gameplay frame has no floating help button. */}
