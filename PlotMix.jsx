@@ -1253,14 +1253,6 @@ function LottieOverlay({src, loop=false, autoplay=true, speed=1, style={}, onCom
 }
 
 // 
-// SCORING
-// Max 1000 pts per card:
-//   500 base for getting both films
-//   250 bonus if 0 hints used
-//   up to 250 for guess efficiency (fewer guesses = more pts)
-//   Partial (1 film): 200 base
-// 
-// 
 // SCORING & HINT SYSTEM
 //
 // Base reward per card: 10 points
