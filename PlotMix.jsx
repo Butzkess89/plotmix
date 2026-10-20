@@ -1289,8 +1289,6 @@ const HINT_TIERS = [
 const INDIVIDUAL_FILM_PENALTY = 0;
 const WRONG_GUESS_REWARD_PENALTY = 1;
 
-// Confidence levels
-const CONFIDENCE_WRONG_MULT  = { sure:0.7, maybe:1.0, hailmary:0.5 };
 
 // Live reward calculation — called every render so player sees it drop in real time
 // hintsRevealed = array of tier IDs revealed so far
@@ -1450,7 +1448,6 @@ function levenshtein(a, b) {
 // Grammar words a player never has to type to complete a title word by word.
 // Real title words ("day", "will", "there", "being", ...) must not be listed here.
 const STOPWORDS = new Set(["the","a","an","and","of","in","on","at","to","for","with","is","it","or","from","by"]);
-const GENERIC_TITLE_WORDS = new Set(["life","man","men","woman","women","world","story","time","night","home","love","boy","girl"]);
 
 function fuzzy(guess, answer, aliases = []) {
   const g = norm(guess);
@@ -1491,43 +1488,7 @@ function normalizeToken(w) {
   return w;
 }
 
-// Near guess: shares meaningful title words with either movie, but isn't fully correct.
-function isNearMovieGuess(guess, card) {
-  const gWords = normWord(guess).split(" ").filter(Boolean).map(normalizeToken);
-  if (gWords.length === 0) return false;
 
-  const meaningfulGuessWords = gWords.filter((w) => w.length >= 3 && !STOPWORDS.has(w));
-  if (meaningfulGuessWords.length === 0) return false;
-
-  return card.movies.some((m, i) => {
-    const aliases = (card.aliases || [[], []])[i] || [];
-    const titleWords = [normWord(m), ...aliases.map(a => normWord(a))]
-      .join(" ")
-      .split(" ")
-      .filter(Boolean)
-      .map(normalizeToken);
-    const titleSet = new Set(titleWords);
-
-    const overlap = meaningfulGuessWords.filter((w) => titleSet.has(w));
-    return overlap.length >= 1;
-  });
-}
-
-function isExactMashedTitleWordGuess(guess, card) {
-  const tokens = normWord(guess).split(" ").filter(Boolean).map(normalizeToken);
-  if (tokens.length !== 1) return false;
-  const token = tokens[0];
-  const hasDigit = /\d/.test(token);
-  if ((!hasDigit && token.length < 3) || (hasDigit && token.length < 2) || STOPWORDS.has(token)) return false;
-
-  const mashedWords = new Set(
-    normWord(card.mashedTitle || "")
-      .split(" ")
-      .filter(Boolean)
-      .map(normalizeToken)
-  );
-  return mashedWords.has(token);
-}
 
 // Words in a guess that are neither in the mashed title nor grammar words.
 // Each one costs a point (owner rule, 2026-10-19); correct words are free.
@@ -1818,9 +1779,6 @@ function clearSession(modeId) {
     localStorage.setItem(LS_SAVE, JSON.stringify(all));
   } catch {}
 }
-function clearAllSessions() {
-  try { localStorage.removeItem(LS_SAVE); } catch {}
-}
 function loadAllSessionsList() {
   // Returns array of saved sessions, sorted by most recently played
   const all = loadAllSessions();
@@ -1936,10 +1894,6 @@ function buildShareText(mode, results, totalScore) {
   return lines.join("\n");
 }
 
-// 
-// SHARED UI ATOMS
-// 
-const GOLD="linear-gradient(90deg,#F6A507,#FFC94D,#F6A507)";
 
 // DESIGN SYSTEM — PlotMix Candy / Sticker (from Figma yCSX9051ErfAjLH41PI6MD)
 // Bold purple stage, white sticker cards, thick black outlines, hard offset shadows.
@@ -2267,16 +2221,6 @@ function ChromaKeyVideo({
 
 
 
-function FilmStrip({side}) {
-  const perfs = Array.from({length:30});
-  return (
-    <div style={{position:"fixed",top:0,[side]:0,width:20,height:"100%",background:"#1C1D21",borderRight:side==="left"?"1px solid #000":"none",borderLeft:side==="right"?"1px solid #000":"none",zIndex:50,pointerEvents:"none",display:"flex",flexDirection:"column",alignItems:"center",paddingTop:12,gap:9,overflow:"hidden"}}>
-      {perfs.map((_,i)=>(
-        <div key={i} style={{width:8,height:10,borderRadius:2,background:"#0A0905",border:"1px solid #141210",flexShrink:0}}/>
-      ))}
-    </div>
-  );
-}
 
 // 
 // ICONS — hand-redrawn in the Figma sticker style (solid fill, black stroke).
@@ -2351,78 +2295,7 @@ function IconSkip({size=24,flip=false}) {
   );
 }
 
-function IconSearch({size=23}) {
-  const id = useId();
-  return (
-    <svg width={size} height={size} viewBox="38 800 26 27" xmlns="http://www.w3.org/2000/svg">
-      <mask id={`search-mask-${id}`} maskUnits="userSpaceOnUse" x="38.314" y="801.13" width="26" height="26" fill="black">
-        <rect fill="white" x="38.314" y="801.13" width="26" height="26"/>
-        <path d="M54.6314 802.13C59.0798 802.131 62.6859 805.738 62.6861 810.186C62.6859 814.634 59.0798 818.24 54.6314 818.241C52.8774 818.241 51.256 817.678 49.9332 816.726C50.0373 817.07 49.9802 817.455 49.7516 817.76L49.2877 818.378L49.235 818.326C47.2535 821.132 43.343 826.133 41.9693 825.859C40.1884 825.503 38.4069 824.79 39.8316 822.296C40.9528 820.334 45.1533 817.524 47.2115 816.302L47.151 816.242L47.5562 815.971C47.9659 815.698 48.4908 815.665 48.9312 815.885L48.9351 815.881C47.4775 814.424 46.5759 812.41 46.5758 810.186C46.576 805.737 50.1828 802.13 54.6314 802.13ZM54.942 804.139L54.943 804.138C54.8398 804.133 54.7359 804.13 54.6314 804.13H54.6305C54.7349 804.13 54.8389 804.134 54.942 804.139Z"/>
-      </mask>
-      <path d="M49.4492 818.022L47.3121 816.241C45.2936 817.429 40.9718 820.302 39.832 822.297C38.4072 824.79 40.1882 825.502 41.9691 825.859C43.3939 826.144 47.5495 820.753 49.4492 818.022Z" fill="#A45F1E"/>
-      <path d="M46.3927 822.054C45.9489 822.592 45.4996 823.114 45.0616 823.59L41.1505 820.722C41.693 820.201 42.3332 819.667 43.004 819.15L46.3927 822.054Z" fill="#FDAF0A"/>
-      <path d="M40.591 822.297C40.8759 821.727 44.9841 818.972 47.0025 817.666L47.7149 818.022C45.6965 819.922 41.4459 823.721 40.591 823.721C39.5224 823.721 40.2348 823.009 40.591 822.297Z" fill="#D9D9D9" fillOpacity="0.3"/>
-      <path d="M49.7518 817.76L49.2877 818.378L47.1505 816.241L47.5564 815.971C47.9662 815.698 48.491 815.665 48.9315 815.885L50.0001 814.817L50.7125 815.173L49.6439 816.241C50.0526 816.65 50.0986 817.297 49.7518 817.76Z" fill="#FDAF0A"/>
-      <circle cx="53.2058" cy="810.898" r="6.05532" fill="#C4F2F0"/>
-      <circle cx="54.6306" cy="810.186" r="7.05532" fill="#C4F2F0" stroke="#18B9FF" strokeWidth="2"/>
-      <path d="M54.6314 802.13C59.0798 802.131 62.6859 805.738 62.6861 810.186C62.6859 814.634 59.0798 818.24 54.6314 818.241C52.8774 818.241 51.256 817.678 49.9332 816.726C50.0373 817.07 49.9802 817.455 49.7516 817.76L49.2877 818.378L49.235 818.326C47.2535 821.132 43.343 826.133 41.9693 825.859C40.1884 825.503 38.4069 824.79 39.8316 822.296C40.9528 820.334 45.1533 817.524 47.2115 816.302L47.151 816.242L47.5562 815.971C47.9659 815.698 48.4908 815.665 48.9312 815.885L48.9351 815.881C47.4775 814.424 46.5759 812.41 46.5758 810.186C46.576 805.737 50.1828 802.13 54.6314 802.13ZM54.942 804.139L54.943 804.138C54.8398 804.133 54.7359 804.13 54.6314 804.13H54.6305C54.7349 804.13 54.8389 804.134 54.942 804.139Z" fill="black" mask={`url(#search-mask-${id})`}/>
-    </svg>
-  );
-}
 
-// Magnifying glass over a magenta filmstrip, styled to match the provided
-// reference icon (gold ring, purple handle, pink strip, dark outline).
-function IconHintGlass({size=26}) {
-  return (
-    <svg width={size} height={size*(58/80)} viewBox="0 0 80 58" xmlns="http://www.w3.org/2000/svg">
-      {/* film strip behind lens */}
-      <rect x="4" y="15" width="63" height="19" rx="3" fill="#5D38B6" stroke="#1D1238" strokeWidth="1.8"/>
-      <rect x="11" y="18" width="16" height="13" rx="1.5" fill="#E248A8"/>
-      <rect x="29" y="18" width="16" height="13" rx="1.5" fill="#E248A8"/>
-      <rect x="47" y="18" width="16" height="13" rx="1.5" fill="#E248A8"/>
-
-      {/* sprocket holes */}
-      <g fill="#2A1851">
-        <rect x="6" y="16.5" width="2.2" height="3" rx="1"/>
-        <rect x="10" y="16.5" width="2.2" height="3" rx="1"/>
-        <rect x="14" y="16.5" width="2.2" height="3" rx="1"/>
-        <rect x="18" y="16.5" width="2.2" height="3" rx="1"/>
-        <rect x="22" y="16.5" width="2.2" height="3" rx="1"/>
-        <rect x="58" y="16.5" width="2.2" height="3" rx="1"/>
-        <rect x="62" y="16.5" width="2.2" height="3" rx="1"/>
-        <rect x="66" y="16.5" width="2.2" height="3" rx="1"/>
-        <rect x="6" y="29.5" width="2.2" height="3" rx="1"/>
-        <rect x="10" y="29.5" width="2.2" height="3" rx="1"/>
-        <rect x="14" y="29.5" width="2.2" height="3" rx="1"/>
-        <rect x="18" y="29.5" width="2.2" height="3" rx="1"/>
-        <rect x="22" y="29.5" width="2.2" height="3" rx="1"/>
-        <rect x="58" y="29.5" width="2.2" height="3" rx="1"/>
-        <rect x="62" y="29.5" width="2.2" height="3" rx="1"/>
-        <rect x="66" y="29.5" width="2.2" height="3" rx="1"/>
-      </g>
-
-      {/* tiny symbols in the two center frames */}
-      <g stroke="#2A1851" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" fill="none">
-        <circle cx="34" cy="22" r="1.7" fill="#2A1851"/>
-        <path d="M34 24.2L31.6 26.8L34.2 26.8L36.8 25"/>
-        <path d="M34.2 26.8L32.6 29.1"/>
-        <path d="M34.2 26.8L36.3 29"/>
-      </g>
-      <path d="M45 27.8C45 25.9 46.6 24.5 48.5 24.5C49.6 24.5 50.6 25 51.2 25.8C52 25.1 53.1 24.7 54.2 24.7C56.4 24.7 58.1 26.1 58.1 28C58.1 29.6 56.8 30.9 55.2 30.9H47.8C46.2 30.9 45 29.5 45 27.8Z" fill="#A45F1E" stroke="#2A1851" strokeWidth="1.5"/>
-
-      {/* ferrule and handle */}
-      <rect x="52.5" y="35" width="5" height="3.8" rx="1" fill="#FDAF0A" stroke="#1D1238" strokeWidth="1.2" transform="rotate(45 55 36.9)"/>
-      <rect x="55.5" y="36.8" width="21" height="8.5" rx="4.2" fill="#6941C6" stroke="#1D1238" strokeWidth="1.8" transform="rotate(45 66 41)"/>
-      <path d="M60 42.5L70.4 52.9" stroke="#8E6BE7" strokeWidth="2" strokeLinecap="round"/>
-
-      {/* lens ring */}
-      <circle cx="47" cy="25" r="18.6" fill="none" stroke="#1D1238" strokeWidth="2.2"/>
-      <circle cx="47" cy="25" r="16.2" fill="none" stroke="#FDAF0A" strokeWidth="5.2"/>
-      <path d="M44.5 12.8C47.5 13 50.1 14.2 52.2 16.5" stroke="#FFF8D9" strokeWidth="2.1" strokeLinecap="round"/>
-      <circle cx="53.8" cy="18.2" r="1" fill="#FFF8D9"/>
-    </svg>
-  );
-}
 
 function IconCheck({size=10,color="#fff"}) {
   return (
@@ -2443,50 +2316,7 @@ function IconXMark({size=10,color="#fff"}) {
 }
 
 
-function IconCalendar({size=48}) {
-  return (
-    <svg width={size} height={size*(53/62)} viewBox="43 224 62 53" xmlns="http://www.w3.org/2000/svg">
-      <path d="M44.1398 238.331L45.5 243.5L54 240L49.5 231.5L47.1803 232.392C44.8009 233.307 43.4911 235.866 44.1398 238.331Z" fill="#1B5EA7"/>
-      <path d="M94 236L48.5 240.5L47.2847 236.125C46.6161 233.718 48.2927 231.294 50.7806 231.07L87.5651 227.764C89.3105 227.607 90.9547 228.604 91.622 230.225L94 236Z" fill="#1781D5"/>
-      <path d="M55.5 236.097C53.1 235.297 53.8333 233.764 54.5 233.097C55.0168 231.897 55.5487 231.167 55.5 231C55.5 230.5 54.5 231 51.5 231C51.5 230.5 52.5 227.597 55 227.097C57.5 226.597 59.5 228 60 230C60.5 232 58.5 237.097 55.5 236.097Z" fill="#ACB7AC"/>
-      <path d="M69 235.102C66.6 234.302 67.3333 232.768 68 232.102C68.5168 230.902 69.0487 230.172 69 230.005C69 229.505 68 230.005 65 230.005C65 229.505 66 226.602 68.5 226.102C71 225.602 73 227.005 73.5 229.005C74 231.005 72 236.102 69 235.102Z" fill="#ACB7AC"/>
-      <path d="M82 234.102C79.6 233.302 80.3333 231.768 81 231.102C81.5168 229.902 82.0487 229.172 82 229.005C82 228.505 81 229 78 229C78 228.5 79 225.602 81.5 225.102C84 224.602 86 226.005 86.5 228.005C87 230.005 85 235.102 82 234.102Z" fill="#ACB7AC"/>
-      <path d="M103.85 264.654L94 236L48.5 240.5L56.8205 273.32C57.2044 274.834 58.6862 275.8 60.2267 275.541L101.511 268.588C103.338 268.28 104.452 266.406 103.85 264.654Z" fill="white"/>
-      <path d="M55.3014 256.486C55.0109 255.346 55.7634 254.202 56.9258 254.017L59.8744 253.549C60.8205 253.399 61.7402 253.941 62.0677 254.841L62.845 256.978C63.2664 258.136 62.5495 259.396 61.3384 259.626L58.1896 260.224C57.1516 260.421 56.1393 259.776 55.8786 258.753L55.3014 256.486Z" fill="#2A2A2A"/>
-      <path d="M58.2372 265.365C57.9467 264.225 58.6992 263.081 59.8616 262.896L62.8102 262.428C63.7563 262.278 64.676 262.819 65.0035 263.72L65.7808 265.857C66.2022 267.015 65.4853 268.275 64.2742 268.505L61.1254 269.103C60.0873 269.3 59.0751 268.655 58.8144 267.632L58.2372 265.365Z" fill="#2A2A2A"/>
-      <path d="M63.5906 245.634C63.3001 244.493 64.0526 243.35 65.215 243.165L68.1636 242.697C69.1097 242.546 70.0294 243.088 70.3568 243.988L71.1342 246.125C71.5556 247.284 70.8387 248.544 69.6276 248.774L66.4788 249.372C65.4407 249.569 64.4285 248.924 64.1678 247.9L63.5906 245.634Z" fill="#2A2A2A"/>
-      <path d="M66.5265 254.513C66.236 253.372 66.9885 252.229 68.1509 252.044L71.0995 251.576C72.0456 251.425 72.9653 251.967 73.2928 252.867L74.0701 255.004C74.4915 256.163 73.7746 257.423 72.5635 257.653L69.4147 258.25C68.3767 258.447 67.3644 257.803 67.1037 256.779L66.5265 254.513Z" fill="#ED292A"/>
-      <path d="M69.4623 263.392C69.1718 262.251 69.9243 261.108 71.0867 260.923L74.0353 260.455C74.9814 260.304 75.9011 260.846 76.2285 261.746L77.0059 263.883C77.4273 265.042 76.7104 266.302 75.4993 266.532L72.3505 267.129C71.3124 267.326 70.3002 266.682 70.0395 265.658L69.4623 263.392Z" fill="#2A2A2A"/>
-      <path d="M80.6874 261.418C80.3969 260.278 81.1494 259.134 82.3118 258.95L85.2604 258.481C86.2065 258.331 87.1262 258.873 87.4536 259.773L88.231 261.91C88.6524 263.068 87.9355 264.329 86.7244 264.558L83.5756 265.156C82.5375 265.353 81.5253 264.709 81.2646 263.685L80.6874 261.418Z" fill="#2A2A2A"/>
-      <path d="M74.8157 243.66C74.5252 242.52 75.2777 241.376 76.4401 241.192L79.3887 240.723C80.3348 240.573 81.2545 241.115 81.5819 242.015L82.3593 244.152C82.7807 245.31 82.0638 246.571 80.8527 246.801L77.7039 247.398C76.6658 247.595 75.6536 246.951 75.3928 245.927L74.8157 243.66Z" fill="#2A2A2A"/>
-      <path d="M84.9099 241.771C84.6194 240.631 85.3719 239.487 86.5344 239.302L89.483 238.834C90.429 238.684 91.3487 239.226 91.6762 240.126L92.4535 242.263C92.8749 243.421 92.158 244.681 90.9469 244.911L87.7981 245.509C86.7601 245.706 85.7478 245.061 85.4871 244.038L84.9099 241.771Z" fill="#2A2A2A"/>
-      <path d="M87.8457 250.65C87.5552 249.51 88.3077 248.366 89.4702 248.181L92.4188 247.713C93.3648 247.563 94.2845 248.105 94.612 249.005L95.3893 251.142C95.8107 252.3 95.0938 253.56 93.8827 253.79L90.7339 254.388C89.6959 254.585 88.6836 253.94 88.4229 252.917L87.8457 250.65Z" fill="#2A2A2A"/>
-      <path d="M77.7516 252.539C77.4611 251.399 78.2136 250.255 79.376 250.071L82.3246 249.602C83.2707 249.452 84.1904 249.994 84.5179 250.894L85.2952 253.031C85.7166 254.189 84.9997 255.45 83.7886 255.679L80.6398 256.277C79.6018 256.474 78.5895 255.83 78.3288 254.806L77.7516 252.539Z" fill="#2A2A2A"/>
-    </svg>
-  );
-}
 
-function IconClapper({size=48}) {
-  return (
-    <svg width={size} height={size*(66/66)} viewBox="42 353 66 66" xmlns="http://www.w3.org/2000/svg">
-      <path d="M51.9163 384.801C52.8685 389.932 57.6928 411.716 59.2163 414.636C60.2437 416.605 61.2151 417.236 62.0551 417.471C56.6857 417.124 54.8054 414.064 54.4554 412.414L47.4728 384.008L51.9163 384.801Z" fill="#750FA6"/>
-      <path d="M100.953 405.59C94.9865 407.495 72.4761 414.297 62.0551 417.471L62.2316 416.382L98.8904 372.423L103.493 393.529C104.921 399.56 106.92 403.686 100.953 405.59Z" fill="#B93EF5"/>
-      <path d="M99.0491 372.581L62.0728 417.493C60.1685 417.493 58.6344 415.482 58.1054 414.477L51.9163 385.436L99.0491 372.581Z" fill="#B100FF"/>
-      <path d="M89.5273 375.597L59.6924 384.008L61.438 374.327L90.6382 365.758L89.5273 375.597Z" fill="#F8F8FA"/>
-      <path d="M90.6381 365.916L63.1837 373.851L61.2793 372.105L84.2903 365.44L90.6381 365.916Z" fill="#ACB7AC"/>
-      <path d="M71.912 371.312L70.1664 380.992L79.8469 378.612L81.2751 368.931L74.6099 368.297L66.199 370.677L71.912 371.312Z" fill="black"/>
-      <path d="M88.099 358.934L62.3902 372.74L53.0271 367.979L79.5294 354.331L88.099 358.934Z" fill="#F8F8FA"/>
-      <path d="M79.5295 354.649L53.662 367.979L50.488 366.868L75.086 354.173L79.5295 354.649Z" fill="#ACB7AC"/>
-      <path d="M59.6924 383.849L52.3923 386.071L55.2489 375.279L62.2315 372.74L63.1837 373.375L59.6924 383.849Z" fill="black"/>
-      <path d="M50.0712 385.618L52.3924 386.071L56.3598 375.755L62.2316 372.74L53.9793 367.662L50.6467 366.868C49.0598 367.556 45.6954 369.185 44.9336 370.201C43.9815 371.471 43.0293 372.423 43.3467 374.803C43.4982 375.94 44.1093 378.376 44.7349 380.695C45.417 383.224 47.5007 385.116 50.0712 385.618Z" fill="black" stroke="black"/>
-      <path d="M57.1983 383.4L55.6452 384.165C53.5308 385.206 50.9797 384.203 50.1772 381.987C49.3657 379.746 48.4775 377.207 47.8952 375.315C46.6256 371.189 50.2757 370.395 51.7039 371.03C53.8418 371.98 56.2996 374.393 58.4327 376.68C60.3295 378.713 59.6927 382.171 57.1983 383.4Z" fill="#ACB7AC"/>
-      <circle cx="51.1229" cy="374.01" r="1.90436" fill="#858585"/>
-      <circle cx="53.9793" cy="381.945" r="1.58696" fill="#858585"/>
-      <path d="M61.9142 363.377L70.0077 368.614L78.736 364.012L70.6425 358.616L67.1512 358.14L57.7881 363.06L61.9142 363.377Z" fill="black"/>
-      <path d="M83.2241 396.399C82.9828 397.591 82.4841 398.858 81.3211 399.214L80.3478 399.511C78.6473 400.031 76.6034 399.085 76.6542 397.307C76.6554 397.266 76.6571 397.225 76.6594 397.183C76.6956 396.452 76.8635 395.745 77.1629 395.063C77.4731 394.377 78.2413 393.103 79.4673 391.24C80.1245 390.259 80.3622 389.472 80.1806 388.878C79.999 388.284 79.6803 387.879 79.2247 387.664C78.7766 387.435 78.1961 387.429 77.483 387.647C76.716 387.881 76.1562 388.33 75.8036 388.993C75.0432 390.461 74.3292 392.176 72.7011 392.462L72.328 392.527C70.5489 392.839 68.7529 391.658 68.9511 389.863C69.0737 388.751 69.4041 387.712 69.9421 386.745C70.9788 384.88 73.0097 383.486 76.0347 382.561C78.3899 381.841 80.4416 381.752 82.1899 382.292C84.5623 383.02 86.0871 384.491 86.7641 386.706C87.0448 387.624 87.0617 388.588 86.8148 389.596C86.568 390.605 85.8495 391.965 84.6594 393.675C83.8325 394.873 83.354 395.781 83.2241 396.399ZM78.4477 405.062C77.9566 403.456 78.8609 401.755 80.4674 401.264L81.2455 401.026C82.8519 400.535 84.5523 401.439 85.0433 403.046C85.5344 404.652 84.6302 406.353 83.0237 406.844L82.2456 407.082C80.6391 407.573 78.9388 406.669 78.4477 405.062Z" fill="#FFBF38"/>
-    </svg>
-  );
-}
 
 function IconStopwatch({size=48}) {
   return (
@@ -2505,34 +2335,7 @@ function IconStopwatch({size=48}) {
     </svg>
   );
 }
-function IconChevronRight({size=18,color="#fff"}) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <path fill="none" d="M9 5l7 7-7 7" stroke={color} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  );
-}
 
-function Logo({small}) {
-  return (
-    <div style={{textAlign:small?"left":"center"}}>
-      <div style={{display:"inline-flex",alignItems:"baseline",gap:small?3:6,position:"relative"}}>
-        <h1 style={{
-          margin:0, fontFamily:FONT_FIGMA_STICKER,
-          fontSize:small?22:44, fontWeight:400, letterSpacing:"0.02em", lineHeight:1,
-          ...YELLOW_STICKER_TEXT,
-        }}>PLOT</h1>
-        <h1 style={{
-          margin:0, fontFamily:FONT_FIGMA_STICKER,
-          fontSize:small?22:44, fontWeight:400, letterSpacing:"0.02em", lineHeight:1,
-          color:"#fff",
-          textShadow:"0 2px 0 #1C1D21",
-        }}>MIX</h1>
-      </div>
-      {!small&&<p style={{margin:"8px 0 0",fontFamily:FONT_FIGMA_STICKER,fontSize:11,color:"rgba(255,255,255,0.7)",letterSpacing:"0.28em",textTransform:"uppercase"}}>Find the mashed title</p>}
-    </div>
-  );
-}
 
 function DiffBadge({level, reason}) {
   const s={
@@ -2578,34 +2381,8 @@ function DiffBadge({level, reason}) {
   );
 }
 
-function TensionBar({tension}) {
-  if(tension<=0) return null;
-  const hue=Math.round(20-tension*20);
-  return (
-    <div style={{width:"100%",height:6,background:T.surfaceAlt,borderRadius:3,overflow:"hidden"}}>
-      <div style={{height:"100%",width:`${tension*100}%`,background:`hsl(${hue},80%,50%)`,transition:"width 1.2s ease,background 1.2s ease",borderRadius:3}}/>
-    </div>
-  );
-}
 
-function ProgressBar({current,total}) {
-  return (
-    <div style={{display:"flex",gap:3}}>
-      {Array.from({length:total}).map((_,i)=>(
-        <div key={i} style={{flex:1,height:6,borderRadius:3,background:i<current?T.gold:T.border,transition:"background 0.4s"}}/>
-      ))}
-    </div>
-  );
-}
 
-function ScoreChip({pts,label,color}) {
-  return (
-    <div style={{textAlign:"center"}}>
-      <div style={{fontFamily:FONT_FIGMA_STICKER,fontSize:T.xl,color:color||T.gold,lineHeight:1,fontWeight:700}}>{pts}</div>
-      <div style={{fontFamily:FONT_FIGMA_STICKER,fontSize:T.xs,color:T.textMuted,letterSpacing:"0.1em",textTransform:"uppercase",marginTop:4}}>{label}</div>
-    </div>
-  );
-}
 
 // Confidence mode picker
 const GuessInput = forwardRef(function GuessInput({onSubmit,disabled,allowSingleLetterY=false},fref) {
@@ -2670,27 +2447,9 @@ function HelpButton({onClick}) {
   );
 }
 
-// Onboarding wrapper — shows modal on first visit, then marks done
-// Chevron arrow used by the carousel nav buttons — exact path from carousel_2.svg
-function IconCarouselArrow({size=14,flip=false}) {
-  return (
-    <svg width={size} height={size} viewBox="347 813 8 12" style={{transform:flip?"scaleX(-1)":"none"}} xmlns="http://www.w3.org/2000/svg">
-      <path d="M347.5 824.086V814.914C347.5 814.023 348.577 813.577 349.207 814.207L353.793 818.793C354.183 819.183 354.183 819.817 353.793 820.207L349.207 824.793C348.577 825.423 347.5 824.977 347.5 824.086Z" fill="white" stroke="black" strokeLinejoin="round"/>
-    </svg>
-  );
-}
 
-function LabelAsset({src,height=11}) {
-  return <img src={src} alt="" aria-hidden="true" draggable="false" style={{display:"block",height,width:"auto",pointerEvents:"none"}}/>;
-}
 
-function GuessLabelSvg() {
-  return <LabelAsset src="/design-reference/label-guess.svg" height={10}/>;
-}
 
-function SkipLabelSvg() {
-  return <LabelAsset src="/design-reference/label-skip.svg" height={10}/>;
-}
 
 function IntroVideoScreen({onDone}) {
   const [didFinish, setDidFinish] = useState(false);
@@ -3120,78 +2879,7 @@ function ModeSelect({onSelect}) {
 
 
 
-// 
-// TITLE REVEAL — cinematic mash animation
-// 
-function TitleReveal({card,found,onDone}) {
-  const [phase,setPhase]=useState("enter"); // enter | collide | hold
-  const [impact,setImpact]=useState(false);
-  const title=card.mashedTitle||card.movies.join(" + ");
-  const [f1,...f1rest]=card.movies[0].split(" ");
-  const [f2,...f2rest]=card.movies[1].split(" ");
 
-  useEffect(()=>{
-    const t1=setTimeout(()=>setPhase("collide"),900);
-    const tImpact=setTimeout(()=>setImpact(true),1180);
-    const tImpactOff=setTimeout(()=>setImpact(false),1460);
-    const t2=setTimeout(()=>setPhase("hold"),1600);
-    const t3=setTimeout(()=>{ SFX.complete(); onDone(); },3200);
-    return()=>{clearTimeout(t1);clearTimeout(tImpact);clearTimeout(tImpactOff);clearTimeout(t2);clearTimeout(t3);};
-  },[]);
-
-  return (
-    <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:280,textAlign:"center",gap:20,padding:"24px 0",overflow:"hidden",background:T.bg,position:"relative",animation:impact?"impactShake 0.22s ease":"none"}}>
-      {impact && <div style={{position:"absolute",inset:0,background:"radial-gradient(circle at 50% 45%, rgba(255,239,145,0.65) 0%, rgba(255,239,145,0) 55%)",pointerEvents:"none",animation:"impactFlash 0.3s ease"}}/>}
-      {phase!=="hold" ? (
-        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:phase==="collide"?4:56,transition:"gap 0.5s cubic-bezier(.68,-0.55,.27,1.55)",overflow:"hidden",width:"100%",padding:"0 24px",position:"relative",zIndex:2}}>
-          <div style={{fontFamily:"'Outfit',sans-serif",fontSize:22,fontStyle:"italic",color:T.blue,opacity:phase==="enter"?0:1,transform:phase==="enter"?"translateX(-60px)":"translateX(0)",transition:"all 0.6s cubic-bezier(.68,-0.55,.27,1.55)",textAlign:"right",flex:1,lineHeight:1.3,fontWeight:700}}>
-            {card.movies[0]}
-          </div>
-          <div style={{fontFamily:FONT_FIGMA_STICKER,fontSize:18,color:T.border,flexShrink:0,transition:"opacity 0.3s",opacity:phase==="collide"?0:1,fontWeight:700}}>x</div>
-          <div style={{fontFamily:"'Outfit',sans-serif",fontSize:22,fontStyle:"italic",color:T.orange,opacity:phase==="enter"?0:1,transform:phase==="enter"?"translateX(60px)":"translateX(0)",transition:"all 0.6s cubic-bezier(.68,-0.55,.27,1.55)",textAlign:"left",flex:1,lineHeight:1.3,fontWeight:700}}>
-            {card.movies[1]}
-          </div>
-        </div>
-      ) : (
-        <div style={{animation:"titlePop 0.4s cubic-bezier(.68,-0.55,.27,1.55)",textAlign:"center",padding:"0 24px",position:"relative",zIndex:2}}>
-          <div style={{fontFamily:FONT_FIGMA_STICKER,fontSize:T.sm,color:T.textMuted,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:10,fontWeight:600}}>The Mashed Title Was...</div>
-          <div style={{...YELLOW_STICKER_TEXT,fontSize:44,lineHeight:1.2,letterSpacing:"0.04em",marginBottom:18}}>
-            {title}
-          </div>
-          <div style={{fontFamily:FONT_FIGMA_STICKER,fontSize:10,color:T.textMuted,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:6}}>Hidden films</div>
-          <div style={{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap"}}>
-            {card.movies.map((m,i)=>(
-              <span key={i} style={{background:T.surfaceAlt,color:T.textSecondary,border:`1px solid ${T.border}`,borderRadius:T.r,padding:"4px 12px",fontSize:13,fontFamily:"'Outfit',sans-serif",fontStyle:"italic"}}>{m}</span>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-function clamp(min,vwVal,max){ return `clamp(${min}px,${vwVal}vw,${max}px)`; }
-
-// 
-// INTERMISSION CARD
-// 
-function Intermission({card,found,score,onContinue}) {
-  return (
-    <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:24,padding:"32px 0",textAlign:"center",animation:"fadeIn 0.5s ease"}}>
-      <div style={{background:T.surface,color:T.textPrimary,border:`1px solid ${T.border}`,borderRadius:T.rXl,padding:"28px 32px",maxWidth:500,width:"100%",boxShadow:T.shadow}}>
-        <p style={{margin:"0 0 4px",fontFamily:FONT_FIGMA_STICKER,fontSize:T.sm,color:T.textMuted,letterSpacing:"0.12em",textTransform:"uppercase",fontWeight:600}}>The Connection</p>
-        <div style={{width:40,height:3,background:T.gold,margin:"10px auto 18px",borderRadius:2}}/>
-        <p style={{margin:0,fontFamily:"'Outfit',sans-serif",fontSize:T.lg,color:T.textSecondary,lineHeight:1.8,fontStyle:"italic"}}>"{card.connection}"</p>
-        <div style={{marginTop:20,display:"flex",justifyContent:"center",gap:10,flexWrap:"wrap"}}>
-          {card.movies.map((m,i)=>(
-            <span key={i} style={{background:found[i]?T.greenBg:T.redBg,color:found[i]?T.green:T.red,border:`1.5px solid ${found[i]?"#86EFAC":"#FECACA"}`,borderRadius:T.r,padding:"6px 16px",fontSize:T.md,fontFamily:"'Outfit',sans-serif",fontStyle:"italic",fontWeight:600}}>{m}</span>
-          ))}
-        </div>
-      </div>
-      <div style={{...YELLOW_STICKER_TEXT,fontSize:T.xxl}}>+{score.toLocaleString()} pts this round</div>
-      <button onClick={onContinue} style={{...BTN.primary,fontSize:T.lg,padding:"15px 36px"}}>Next Round →</button>
-    </div>
-  );
-}
 
 
 
