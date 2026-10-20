@@ -25,6 +25,11 @@ export default defineConfig({
       // The game is designed for a 402x874 phone frame.
       use: { ...devices['Desktop Chrome'], viewport: { width: 402, height: 874 }, hasTouch: true },
     },
+    // Safari's engine (iPhones). Runs in CI (PW_WEBKIT=1); locally only if WebKit is installed.
+    ...(process.env.PW_WEBKIT ? [{
+      name: 'mobile-webkit',
+      use: { ...devices['Desktop Safari'], viewport: { width: 402, height: 874 }, hasTouch: true },
+    }] : []),
   ],
   webServer: {
     command: `npm run build && npm run preview -- --port ${PORT} --strictPort`,

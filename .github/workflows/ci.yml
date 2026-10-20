@@ -34,11 +34,13 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
+      - name: Install Playwright browsers (Chrome and Safari engines)
+        run: npx playwright install --with-deps chromium webkit
 
       - name: Run end-to-end tests
         run: npm run test:e2e
+        env:
+          PW_WEBKIT: '1'
 
       - name: Upload test report
         if: failure()

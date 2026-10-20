@@ -164,7 +164,8 @@ test.describe('saving', () => {
 })
 
 test.describe('sharing', () => {
-  test('Copy puts the result summary on the clipboard', async ({ page, context }) => {
+  test('Copy puts the result summary on the clipboard', async ({ page, context, browserName }) => {
+    test.skip(browserName === 'webkit', 'Playwright cannot grant clipboard permission in WebKit')
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
     await pinDailyDate(page)
     await openMenu(page)

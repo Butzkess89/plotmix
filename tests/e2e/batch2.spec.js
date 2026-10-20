@@ -12,7 +12,8 @@ const LEGACY_CARD_2026_10_14 = 13
 const nextButton = (page) => page.getByRole('button', { name: 'Next' })
 
 test.describe('#1 share text links back to the game', () => {
-  test('the copied result ends with a link to the game', async ({ page, context }) => {
+  test('the copied result ends with a link to the game', async ({ page, context, browserName }) => {
+    test.skip(browserName === 'webkit', 'Playwright cannot grant clipboard permission in WebKit')
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
     await pinDailyDate(page)
     await openMenu(page)
@@ -103,7 +104,8 @@ test.describe('#5 each wrong word costs a point; correct guesses are free', () =
 })
 
 test.describe('#6 the first Daily result of the day is the one kept', () => {
-  test('replaying the Daily does not overwrite or change the shared result', async ({ page, context }) => {
+  test('replaying the Daily does not overwrite or change the shared result', async ({ page, context, browserName }) => {
+    test.skip(browserName === 'webkit', 'Playwright cannot grant clipboard permission in WebKit')
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
     await pinDailyDate(page)
     await openMenu(page)
@@ -205,7 +207,8 @@ test.describe('#10 fonts come from the game itself', () => {
     // Fonts load when text needs them, so request each one and check it comes from /fonts/.
     const loaded = await page.evaluate(async () => {
       const faces = [...await document.fonts.load('16px "Rubik Mono One"', 'A'), ...await document.fonts.load('16px "Outfit"', 'A')]
-      return faces.map((f) => `${f.family}:${f.status}`)
+      // Safari reports family names with quotes ("Rubik Mono One"), Chrome without.
+      return faces.map((f) => `${f.family.replace(/["']/g, '')}:${f.status}`)
     })
     expect(loaded).toEqual(expect.arrayContaining(['Rubik Mono One:loaded', 'Outfit:loaded']))
     expect(fontFiles.some((u) => u.includes('/fonts/rubik-mono-one-latin.woff2'))).toBe(true)
