@@ -45,12 +45,21 @@ test.describe('Clapperboard on a wrong guess', () => {
 test.describe('Popcorn streak meter', () => {
   test('fills as cards are solved in a row', async ({ page }) => {
     await resumeStandardWithCards(page, [77, 1])
-    await expect(page.getByLabel('Streak: 0')).toBeAttached()
+    await expect(page.getByLabel(/^Streak:/)).toHaveCount(0) // hidden until a streak starts
     await submitGuess(page, 'The Nightmare Before Christmas')
     await submitGuess(page, 'A Christmas Story')
     await nextButton(page).click()
     await waitForSave(page, 'standard', (s) => s.cardIdx === 1)
-    await expect(page.getByLabel('Streak: 1')).toBeAttached()
+    await expect(page.getByLabel('Streak: 1')).toBeVisible()
+    await expect(page.getByText('1 in a row')).toBeVisible()
+  })
+})
+
+test.describe('Typing box on phones', () => {
+  test('is not flagged as a password field and the page resizes above the keyboard', async ({ page }) => {
+    await resumeStandardWithCards(page, [77])
+    await expect(guessInput(page)).toHaveAttribute('autocomplete', 'off')
+    expect(await page.locator('meta[name="viewport"]').getAttribute('content')).toContain('interactive-widget=resizes-content')
   })
 })
 

@@ -2429,7 +2429,7 @@ const GuessInput = forwardRef(function GuessInput({onSubmit,disabled,allowSingle
       <input ref={ref} value={val} onChange={e=>setVal(e.target.value)}
         onKeyDown={e=>e.key==="Enter"&&go()} disabled={disabled}
         placeholder="Type your guess..." aria-label="Movie title guess" className="guess-input"
-        autoComplete="new-password" autoCorrect="off" autoCapitalize="none" spellCheck={false}
+        autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false}
         name="plotmix-guess-input"
         data-lpignore="true"
         data-1p-ignore="true"
@@ -3601,6 +3601,8 @@ function ClapperTake({take, note, reducedMotion=false}) {
 
 // Run streak shown as a popcorn bucket that fills up; kernels pop on every film found.
 function PopcornMeter({streak, popKey, reducedMotion=false}) {
+  // Hidden until there is a streak, so an empty bucket never needs explaining.
+  if (streak < 1) return null;
   const level = Math.min(5, streak);
   const kernels = [[-26,-30],[-12,-42],[4,-46],[18,-38],[28,-24]];
   return (
@@ -3616,9 +3618,7 @@ function PopcornMeter({streak, popKey, reducedMotion=false}) {
         <path d="M9 14 L11 39 M17 14 V39 M25 14 L23 39" stroke="#E4444F" strokeWidth="4"/>
         <path d="M2 14 H32 L28 39 H6 Z" fill="none" stroke="#1C1D21" strokeWidth="1.6" strokeLinejoin="round"/>
       </svg>
-      {streak > 0 && (
-        <span style={{position:"absolute",right:-6,bottom:-4,minWidth:18,height:18,padding:"0 4px",borderRadius:9,background:"#FFD84D",border:"1.5px solid #1C1D21",fontFamily:FONT_FIGMA_STICKER,fontSize:10,color:"#1C1D21",display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>{streak}</span>
-      )}
+      <span style={{position:"absolute",left:"calc(100% + 2px)",bottom:6,height:20,padding:"0 7px",borderRadius:10,background:"#FFD84D",border:"1.5px solid #1C1D21",fontFamily:FONT_FIGMA_STICKER,fontSize:9,color:"#1C1D21",display:"flex",alignItems:"center",whiteSpace:"nowrap",boxSizing:"border-box",animation:reducedMotion?"none":"titlePop 0.35s ease both"}}>{streak} in a row</span>
       {!reducedMotion && popKey > 0 && kernels.map(([dx,dy],i)=>(
         <span key={`${popKey}-${i}`} style={{position:"absolute",left:21,top:14,width:9,height:9,borderRadius:"50%",background:"#FFF6D8",border:"1px solid #1C1D21",
           "--dx":`${dx}px`,"--dy":`${dy}px`,animation:`kernelPop 0.7s cubic-bezier(.2,.8,.3,1) ${i*30}ms both`}}/>
