@@ -1856,6 +1856,28 @@ const SFX = {
     // Soft click
     playTone(880,"sine",0.08,0.06);
   },
+  // Cinema extras: every sound is generated here, no audio files.
+  clap: () => {
+    playTone(1800,"square",0.03,0.08);
+    playTone(240,"triangle",0.08,0.1,0.01);
+  },
+  pop: () => {
+    [0,0.05,0.11].forEach((d,i)=>playTone(1150+i*260,"sine",0.04,0.06,d));
+  },
+  projector: () => {
+    // Projector clatter: quick low ticks
+    for(let i=0;i<6;i++) playTone(90,"square",0.025,0.035,i*0.07);
+  },
+  leaderBeep: (go=false) => {
+    playTone(go?1320:880,"sine",go?0.32:0.12,0.12);
+  },
+  curtain: () => {
+    playTone(160,"triangle",0.6,0.04);
+    playTone(220,"sine",0.5,0.025,0.15);
+  },
+  badge: () => {
+    [[784,0],[988,0.09],[1319,0.18]].forEach(([f,d])=>playTone(f,"triangle",0.22,0.1,d));
+  },
 };
 function marathonTension(i,n) { return Math.min(1,i/Math.max(1,n*0.75)); }
 
@@ -2933,7 +2955,7 @@ const MSG_BANKS = {
     { headline:"The Academy Will Hear About This.", sub:"First guess, zero hints. Your Oscars speech is already written.", emoji:"🏆" },
     { headline:"Auteur.", sub:"You didn't guess — you knew. There is a difference.", emoji:"🎭" },
     { headline:"Print It.", sub:"First take. No hints. Crew is going home early.", emoji:"🎥" },
-    { headline:"Criterion Tier.", sub:"First guess, no lifelines. This goes straight to the Criterion Collection.", emoji:"🏆" },
+    { headline:"Restored In 4K.", sub:"First guess, no lifelines. This one goes in the deluxe box set.", emoji:"🏆" },
   ],
   perfect2: [
     { headline:"That's a Wrap.", sub:"Two guesses, no hints. The craft services table is applauding.", emoji:"🎬" },
@@ -2942,7 +2964,7 @@ const MSG_BANKS = {
     { headline:"Second Guess, First Class.", sub:"Took one warm-up shot and nailed it. Zero hints. Respect.", emoji:"🎞️" },
   ],
   perfectFew: [
-    { headline:"Roger Ebert Would Be Proud.", sub:"Got there without a single hint. Two thumbs so far up they are in orbit.", emoji:"👍" },
+    { headline:"The Critics Are Raving.", sub:"Got there without a single hint. Five stars, and they are out of stars.", emoji:"👍" },
     { headline:"No Training Wheels.", sub:"A few guesses but zero hints. You did this entirely on film knowledge.", emoji:"🎓" },
     { headline:"Methodical.", sub:"Took your time, used no lifelines, got both. The slow burn wins.", emoji:"🎬" },
     { headline:"Director's Cut. No Notes.", sub:"Studio greenlit the sequel. No changes requested.", emoji:"🎥" },
@@ -2973,7 +2995,7 @@ const MSG_BANKS = {
     { headline:"Fully Scaffolded.", sub:"Three hints deep and you still needed a moment. Respect for not giving up.", emoji:"🏗️" },
   ],
   failClean: [
-    { headline:"Development Hell.", sub:"This script has been in turnaround since 2003. The studio passed. Netflix passed. Your dog passed.", emoji:"💀" },
+    { headline:"Development Hell.", sub:"This script has been in turnaround since 2003. The studio passed. The streamers passed. Your dog passed.", emoji:"💀" },
     { headline:"Shelved.", sub:"Every major streaming platform declined. This one goes in a box marked DO NOT OPEN.", emoji:"📦" },
     { headline:"Direct to Oblivion.", sub:"No theatrical run. No streaming. No DVD. No one will speak of this.", emoji:"🚫" },
     { headline:"The Test Screening Was Rough.", sub:"Audiences walked out. The director disowned it. The lead is doing podcasts now.", emoji:"😬" },
@@ -2985,8 +3007,8 @@ const MSG_BANKS = {
     { headline:"The Hint Did Not Help.", sub:"You peeked and still could not place it. These two films are apparently strangers to you.", emoji:"🤷" },
   ],
   failHints: [
-    { headline:"Straight to VHS.", sub:"Head to Blockbuster. Pay your overdue fines. This is going in the bargain bin next to Battlefield Earth.", emoji:"📼" },
-    { headline:"The Weinstein Cut.", sub:"Too long, too confusing, nobody wanted it. Three hints and still no answer.", emoji:"📼" },
+    { headline:"Straight to VHS.", sub:"Be kind, rewind, and pay your late fees. This is going in the bargain bin with the cautionary tales.", emoji:"📼" },
+    { headline:"The Studio Recut.", sub:"Too long, too confusing, nobody wanted it. Three hints and still no answer.", emoji:"📼" },
     { headline:"Deleted Scene.", sub:"Not even the director wants to talk about this one. All three hints used. No result.", emoji:"🗑️" },
     { headline:"The Extended Cut Nobody Asked For.", sub:"Three hints revealed, still could not place it. This one goes straight to the vault.", emoji:"💿" },
   ],
@@ -3109,6 +3131,24 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
         }
   );
 
+  // Title smash: the two films slide in from opposite sides and the mashed title slams down.
+  const smashIn = (delayMs, dx) => (
+    reducedMotion
+      ? undefined
+      : {
+          opacity: entered ? 1 : 0,
+          transform: entered ? "translateX(-50%)" : `translateX(-50%) translateX(${dx}px)`,
+          transition: `opacity 240ms ease ${delayMs}ms, transform 460ms cubic-bezier(.2,1.35,.4,1) ${delayMs}ms`,
+        }
+  );
+  const titleSlam = reducedMotion
+    ? undefined
+    : {
+        opacity: entered ? 1 : 0,
+        transform: entered ? "scale(1)" : "scale(1.4)",
+        transition: "opacity 180ms ease 520ms, transform 360ms cubic-bezier(.3,1.7,.5,1) 520ms",
+      };
+
   useEffect(() => {
     if (reducedMotion) {
       setScoreDisplay(roundScore);
@@ -3222,7 +3262,7 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
     const idealTitleY = bottomChipY + bottomChip.height + titleGap;
     const titleY = Math.min(Math.max(248, idealTitleY), 296);
     return (
-      <div style={{position:"fixed",inset:0,zIndex:300,display:"flex",justifyContent:"center",alignItems:"flex-end",overflowY:"auto",background:"rgba(0,0,0,0.35)",backdropFilter:reducedMotion?"none":"blur(5px)",animation:reducedMotion?"none":transitionFamily.popupBackdropIn}}
+      <div style={{position:"fixed",inset:0,zIndex:300,display:"flex",justifyContent:"center",alignItems:"flex-end",overflowY:"auto",overflowX:"hidden",background:"rgba(0,0,0,0.35)",backdropFilter:reducedMotion?"none":"blur(5px)",animation:reducedMotion?"none":transitionFamily.popupBackdropIn}}
         onClick={e => e.target === e.currentTarget && !showConnection && onNext()}>
 
         {showConnection&&card.connection&&(
@@ -3277,11 +3317,11 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
             <div style={{...POPUP_YELLOW_TEXT,fontSize:"clamp(13px, 4vw, 16px)",textTransform:"uppercase",lineHeight:1.06,letterSpacing:"0",position:"absolute",left:rx(26),right:rx(26),top:ry(29),...stagedRise(20, 8)}}>{msg.headline}</div>
             <div style={{...POPUP_PLAIN_WHITE_TEXT,fontSize:"clamp(10.5px, 3.2vw, 12.8px)",lineHeight:1.23,textTransform:"none",letterSpacing:"0.01em",position:"absolute",left:rx(30),right:rx(30),top:ry(72),...stagedRise(70, 8)}}>{msg.sub}</div>
 
-            <div style={{...movieChipStyle(topChip),position:"absolute",left:rx(movieStackCenterX),top:ry(topChipY),transform:"translateX(-50%)",...stagedRise(120, 10, "translateX(-50%)")}}>{topChip.lines.join(" ")}</div>
+            <div style={{...movieChipStyle(topChip),position:"absolute",left:rx(movieStackCenterX),top:ry(topChipY),transform:"translateX(-50%)",...smashIn(120, -280)}}>{topChip.lines.join(" ")}</div>
             <div style={{position:"absolute",left:rx(movieStackCenterX),top:ry(plusY),transform:"translateX(-50%)",width:rx(plusWidth),height:ry(plusHeight),borderRadius:9,background:"#F6A507",border:"2px solid #1C1D21",boxShadow:"0 1px 0 #1C1D21",boxSizing:"border-box",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:FONT_FIGMA_STICKER,fontSize:"clamp(12px, 3.7vw, 16px)",lineHeight:1,color:"#1C1D21",...stagedRise(170, 10, "translateX(-50%)")}}>+</div>
-            <div style={{...movieChipStyle(bottomChip),position:"absolute",left:rx(movieStackCenterX),top:ry(bottomChipY),transform:"translateX(-50%)",...stagedRise(210, 10, "translateX(-50%)")}}>{bottomChip.lines.join(" ")}</div>
+            <div style={{...movieChipStyle(bottomChip),position:"absolute",left:rx(movieStackCenterX),top:ry(bottomChipY),transform:"translateX(-50%)",...smashIn(240, 280)}}>{bottomChip.lines.join(" ")}</div>
 
-            <div style={{position:"absolute",left:rx(25),top:ry(titleY),width:rx(352),height:ry(78),background:"#342698",border:"2px solid #F6A507",borderRadius:11,boxShadow:"0 4px 0 #1C1D21",padding:"10px 12px",boxSizing:"border-box",display:"flex",alignItems:"center",justifyContent:"center",...stagedRise(260, 12)}}>
+            <div style={{position:"absolute",left:rx(25),top:ry(titleY),width:rx(352),height:ry(78),background:"#342698",border:"2px solid #F6A507",borderRadius:11,boxShadow:"0 4px 0 #1C1D21",padding:"10px 12px",boxSizing:"border-box",display:"flex",alignItems:"center",justifyContent:"center",...titleSlam}}>
               <div style={popupTitleStyle}>{title}</div>
             </div>
 
@@ -3452,6 +3492,236 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
   }
 
 }
+
+//
+// CINEMA EXTRAS — film-themed animations and jokes (owner request 2026-10-21).
+// Original wording and generic cinema imagery only: no posters, logos, real quotes
+// or award names. Everything decorative ignores taps and respects reduce-motion.
+//
+const DIRECTOR_NOTES = [
+  "Cut! From the top.",
+  "Less drama, more title.",
+  "The audience is getting restless.",
+  "Again, with feeling.",
+  "Close-ish. Go again.",
+  "Hold for sound… and go again.",
+  "Check the gate. Going again.",
+];
+
+const TRAILER_OPENERS = [
+  "In a world… where two films collide…",
+  "This season… one plot… two movies…",
+  "From the people who brought you yesterday's card…",
+  "One mashup. One day. One chance.",
+  "Coming soon to a phone near you…",
+];
+
+// Spoof ratings in our own style (not the official rating-box design).
+function getSpoofRating(ratio) {
+  if (ratio >= 1)   return { code:"G",  label:"Got 'Em All",   color:"#6AE89D" };
+  if (ratio >= 0.7) return { code:"PG", label:"Pretty Good",   color:"#FFD84D" };
+  if (ratio >= 0.4) return { code:"M",  label:"Mixed Reviews", color:"#FFB347" };
+  return                   { code:"R",  label:"Rough Night",   color:"#F08D87" };
+}
+
+// Made-up publications and quotes.
+const CRITIC_OUTLETS = ["The Daily Plot", "Popcorn Quarterly", "Reel Talk Weekly", "The Mashup Monitor", "Sprocket & Spool"];
+const CRITIC_QUOTES = {
+  top:   ["I laughed, I cried, I named both films.", "A tour de force of knowing things.", "Flawless. I demand a sequel."],
+  good:  ["Mostly brilliant, occasionally confused. Like the films.", "A crowd-pleaser with only minor plot holes."],
+  mixed: ["Bold choices. Some of them were even right.", "Uneven, but the second act really found its feet."],
+  low:   ["I have seen worse. Not recently.", "The popcorn was excellent.", "Walked in confident. Walked out humbled."],
+};
+function getCriticReview(ratio) {
+  const tier = ratio >= 1 ? "top" : ratio >= 0.7 ? "good" : ratio >= 0.4 ? "mixed" : "low";
+  const stars = { top:5, good:4, mixed:3, low: ratio > 0 ? 2 : 1 }[tier];
+  const pool = CRITIC_QUOTES[tier];
+  return {
+    stars,
+    quote: pool[Math.floor(Math.random() * pool.length)],
+    outlet: CRITIC_OUTLETS[Math.floor(Math.random() * CRITIC_OUTLETS.length)],
+  };
+}
+
+// Badges, remembered between visits.
+const LS_BADGES = "plotmix_badges";
+const BADGES = [
+  { id:"directorsCut",    name:"Director's Cut",    emoji:"🎬", desc:"Solved a card with no hints" },
+  { id:"plotTwist",       name:"Plot Twist",        emoji:"🌀", desc:"Solved a card on its last guess" },
+  { id:"boxOfficeSmash",  name:"Box Office Smash",  emoji:"💥", desc:"Solved 5 cards in a row" },
+  { id:"goldenPopcorn",   name:"Golden Popcorn",    emoji:"🍿", desc:"Solved every card in a full run" },
+  { id:"straightToVideo", name:"Straight to Video", emoji:"📼", desc:"Finished a run with 0 points" },
+];
+function loadBadges() {
+  try { const v = JSON.parse(localStorage.getItem(LS_BADGES) || "[]"); return Array.isArray(v) ? v : []; } catch { return []; }
+}
+// Records badges and returns the ones earned for the first time.
+function earnBadges(ids) {
+  const have = loadBadges();
+  const fresh = ids.filter((id, i) => !have.includes(id) && ids.indexOf(id) === i);
+  if (fresh.length) { try { localStorage.setItem(LS_BADGES, JSON.stringify([...have, ...fresh])); } catch {} }
+  return fresh;
+}
+
+// Solved cards in a row at the end of the results so far.
+function trailingSolvedStreak(results, upto) {
+  let n = 0;
+  for (let i = Math.min(upto, results.length) - 1; i >= 0; i--) {
+    if (results[i] && isRoundSolved(results[i])) n++; else break;
+  }
+  return n;
+}
+
+// Wrong guess: a clapperboard snaps shut on the next take, with a note from the director.
+function ClapperTake({take, note, reducedMotion=false}) {
+  const stripes = [6, 18, 30, 42];
+  return (
+    <div role="status" style={{position:"fixed",left:"50%",top:"34%",zIndex:320,pointerEvents:"none",
+      transform:"translateX(-50%)",animation:reducedMotion?"none":"clapperIn 1.4s ease both"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"#1C1D21",border:"2px solid #F3F4FF",borderRadius:12,boxShadow:"0 4px 0 #000"}}>
+        <svg width="46" height="42" viewBox="0 0 46 42" aria-hidden="true" style={{overflow:"visible",flexShrink:0}}>
+          <g style={{transformOrigin:"3px 14px",transformBox:"view-box",animation:reducedMotion?"none":"clapSnap 0.45s ease-out both"}}>
+            <rect x="1" y="5" width="44" height="9" rx="1.5" fill="#F3F4FF"/>
+            {stripes.map(x=><polygon key={x} points={`${x},5 ${x+6},5 ${x+2},14 ${x-4},14`} fill="#1C1D21"/>)}
+          </g>
+          <rect x="1" y="15" width="44" height="26" rx="2" fill="#F3F4FF"/>
+          <rect x="1" y="15" width="44" height="7" fill="#1C1D21"/>
+          {stripes.map(x=><polygon key={x} points={`${x},15 ${x+6},15 ${x+2},22 ${x-4},22`} fill="#F3F4FF"/>)}
+          <line x1="6" y1="29" x2="40" y2="29" stroke="#1C1D21" strokeWidth="1.5"/>
+          <line x1="6" y1="35" x2="28" y2="35" stroke="#1C1D21" strokeWidth="1.5"/>
+        </svg>
+        <div style={{textAlign:"left"}}>
+          <div style={{...YELLOW_STICKER_TEXT,fontSize:16,lineHeight:1.1,textTransform:"uppercase"}}>Take {take}</div>
+          <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:12.5,color:"#F3F4FF",marginTop:3,whiteSpace:"nowrap"}}>{note}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Run streak shown as a popcorn bucket that fills up; kernels pop on every film found.
+function PopcornMeter({streak, popKey, reducedMotion=false}) {
+  const level = Math.min(5, streak);
+  const kernels = [[-26,-30],[-12,-42],[4,-46],[18,-38],[28,-24]];
+  return (
+    <div aria-label={`Streak: ${streak}`} style={{position:"absolute",top:20,left:"50%",transform:"translateX(-50%)",zIndex:250,width:48,height:44,pointerEvents:"none",display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+      <svg width="34" height="40" viewBox="0 0 34 40" aria-hidden="true" style={{overflow:"visible"}}>
+        {Array.from({length:level}).map((_,i)=>(
+          <g key={i} transform={`translate(${5 + (i%3)*8 + (i>2?4:0)}, ${14 - (i>2?7:0)})`}>
+            <circle r="5.5" fill="#FFF6D8" stroke="#1C1D21" strokeWidth="1.2"/>
+            <circle r="2" cx="1.5" cy="-1" fill="#FFD84D"/>
+          </g>
+        ))}
+        <path d="M2 14 H32 L28 39 H6 Z" fill="#F3F4FF" stroke="#1C1D21" strokeWidth="1.6" strokeLinejoin="round"/>
+        <path d="M9 14 L11 39 M17 14 V39 M25 14 L23 39" stroke="#E4444F" strokeWidth="4"/>
+        <path d="M2 14 H32 L28 39 H6 Z" fill="none" stroke="#1C1D21" strokeWidth="1.6" strokeLinejoin="round"/>
+      </svg>
+      {streak > 0 && (
+        <span style={{position:"absolute",right:-6,bottom:-4,minWidth:18,height:18,padding:"0 4px",borderRadius:9,background:"#FFD84D",border:"1.5px solid #1C1D21",fontFamily:FONT_FIGMA_STICKER,fontSize:10,color:"#1C1D21",display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>{streak}</span>
+      )}
+      {!reducedMotion && popKey > 0 && kernels.map(([dx,dy],i)=>(
+        <span key={`${popKey}-${i}`} style={{position:"absolute",left:21,top:14,width:9,height:9,borderRadius:"50%",background:"#FFF6D8",border:"1px solid #1C1D21",
+          "--dx":`${dx}px`,"--dy":`${dy}px`,animation:`kernelPop 0.7s cubic-bezier(.2,.8,.3,1) ${i*30}ms both`}}/>
+      ))}
+    </div>
+  );
+}
+
+// Speed Run starts with an old film-leader countdown; the clock starts on "GO".
+function FilmLeaderCountdown({onDone, reducedMotion=false}) {
+  const [n,setN]=useState(3);
+  const doneRef=useRef(onDone);
+  doneRef.current=onDone;
+  useEffect(()=>{
+    SFX.leaderBeep(n===0);
+    const id=setTimeout(()=>{ if(n===0) doneRef.current(); else setN(n-1); }, n===0 ? 450 : 700);
+    return ()=>clearTimeout(id);
+  },[n]);
+  return (
+    <div role="status" aria-label="Countdown" style={{position:"fixed",inset:0,zIndex:460,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(28,22,12,0.82)"}}>
+      <div style={{position:"relative",width:220,height:220,borderRadius:"50%",border:"4px solid #F3F4FF",background:"#3A3226",overflow:"hidden",boxShadow:"0 0 0 10px rgba(243,244,255,0.12)"}}>
+        {!reducedMotion && n>0 && (
+          <div key={n} style={{position:"absolute",inset:0,background:"conic-gradient(rgba(243,244,255,0.28) 0deg, rgba(243,244,255,0.28) 90deg, transparent 90deg)",animation:"leaderSweep 0.7s linear both"}}/>
+        )}
+        <div style={{position:"absolute",left:0,right:0,top:"50%",height:2,background:"rgba(243,244,255,0.55)"}}/>
+        <div style={{position:"absolute",top:0,bottom:0,left:"50%",width:2,background:"rgba(243,244,255,0.55)"}}/>
+        <div style={{position:"absolute",inset:26,borderRadius:"50%",border:"2px solid rgba(243,244,255,0.55)"}}/>
+        <div key={`num-${n}`} style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",...WHITE_STICKER_TEXT,fontSize:n===0?52:96,lineHeight:1,animation:reducedMotion?"none":"titlePop 0.3s ease both"}}>
+          {n===0 ? "GO!" : n}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Red curtains that part to reveal the screen, with an optional trailer-voice line.
+function CurtainReveal({line=null, zIndex=600, reducedMotion=false}) {
+  const [visible,setVisible]=useState(true);
+  useEffect(()=>{
+    if(reducedMotion) return;
+    SFX.curtain();
+    const id=setTimeout(()=>setVisible(false), line ? 2600 : 1700);
+    return ()=>clearTimeout(id);
+  },[reducedMotion, line]);
+  if(reducedMotion || !visible) return null;
+  const delay = line ? 1.3 : 0.25;
+  const velvet = "repeating-linear-gradient(90deg, #8E0F1F 0px, #C21E32 14px, #8E0F1F 28px)";
+  return (
+    <div aria-hidden="true" style={{position:"fixed",inset:0,zIndex,pointerEvents:"none",overflow:"hidden"}}>
+      <div style={{position:"absolute",top:0,bottom:0,left:0,width:"51%",background:velvet,boxShadow:"inset -10px 0 18px rgba(0,0,0,0.45)",animation:`curtainLeft 1.1s ease-in-out ${delay}s both`}}/>
+      <div style={{position:"absolute",top:0,bottom:0,right:0,width:"51%",background:velvet,boxShadow:"inset 10px 0 18px rgba(0,0,0,0.45)",animation:`curtainRight 1.1s ease-in-out ${delay}s both`}}/>
+      <div style={{position:"absolute",top:0,left:0,right:0,height:34,background:"linear-gradient(#6E0A17,#A3192B)",borderBottom:"3px solid #F6A507",animation:`curtainValance 1.1s ease-in-out ${delay+0.2}s both`}}/>
+      {line && (
+        <div style={{position:"absolute",left:24,right:24,top:"42%",textAlign:"center",...YELLOW_STICKER_TEXT,fontSize:"clamp(16px, 5vw, 22px)",lineHeight:1.3,textTransform:"uppercase",animation:"trailerLine 1.6s ease both"}}>
+          {line}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// A losing card's frame "burns" in the projector before the result appears.
+function FilmBurn() {
+  return (
+    <div aria-hidden="true" style={{position:"fixed",inset:0,zIndex:310,pointerEvents:"none",overflow:"hidden"}}>
+      <div style={{position:"absolute",left:"62%",top:"26%",width:160,height:160,marginLeft:-80,marginTop:-80,borderRadius:"50%",
+        background:"radial-gradient(circle, rgba(255,247,214,0.95) 0%, rgba(255,166,48,0.85) 22%, rgba(122,40,4,0.7) 44%, rgba(0,0,0,0) 70%)",
+        animation:"filmBurn 0.9s ease-out both"}}/>
+      <div style={{position:"absolute",left:"30%",top:"62%",width:120,height:120,marginLeft:-60,marginTop:-60,borderRadius:"50%",
+        background:"radial-gradient(circle, rgba(255,247,214,0.9) 0%, rgba(255,166,48,0.8) 22%, rgba(122,40,4,0.65) 44%, rgba(0,0,0,0) 70%)",
+        animation:"filmBurn 0.9s ease-out 0.12s both"}}/>
+    </div>
+  );
+}
+
+function BadgeToast({badges}) {
+  return (
+    <div role="status" style={{position:"fixed",top:74,left:"50%",transform:"translateX(-50%)",zIndex:520,pointerEvents:"none",display:"flex",flexDirection:"column",gap:6,alignItems:"center",animation:"badgeToast 2.8s ease both"}}>
+      {badges.map(b=>(
+        <div key={b.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 14px",background:"#FFD84D",border:"2px solid #1C1D21",borderRadius:12,boxShadow:"0 3px 0 #1C1D21",whiteSpace:"nowrap"}}>
+          <span style={{fontSize:18,lineHeight:1}}>{b.emoji}</span>
+          <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:11,color:"#1C1D21",textTransform:"uppercase"}}>Badge unlocked: {b.name}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const CINEMA_KEYFRAMES = `
+  @keyframes clapperIn { 0%{opacity:0; transform:translateX(-50%) translateY(10px) scale(0.9)} 12%{opacity:1; transform:translateX(-50%) translateY(0) scale(1)} 82%{opacity:1; transform:translateX(-50%) translateY(0) scale(1)} 100%{opacity:0; transform:translateX(-50%) translateY(-8px) scale(0.98)} }
+  @keyframes clapSnap { 0%{transform:rotate(-30deg)} 55%{transform:rotate(0deg)} 70%{transform:rotate(-5deg)} 100%{transform:rotate(0deg)} }
+  @keyframes kernelPop { 0%{opacity:1; transform:translate(0,0) scale(0.4)} 70%{opacity:1} 100%{opacity:0; transform:translate(var(--dx),var(--dy)) scale(1)} }
+  @keyframes leaderSweep { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+  @keyframes curtainLeft { from{transform:translateX(0)} to{transform:translateX(-102%)} }
+  @keyframes curtainRight { from{transform:translateX(0)} to{transform:translateX(102%)} }
+  @keyframes curtainValance { from{transform:translateY(0)} to{transform:translateY(-110%)} }
+  @keyframes trailerLine { 0%{opacity:0; transform:scale(0.96)} 25%{opacity:1; transform:scale(1)} 80%{opacity:1} 100%{opacity:0; transform:scale(1.04)} }
+  @keyframes filmBurn { 0%{opacity:0; transform:scale(0.2)} 30%{opacity:1} 100%{opacity:0; transform:scale(3.2)} }
+  @keyframes badgeToast { 0%{opacity:0; transform:translateX(-50%) translateY(-12px)} 10%{opacity:1; transform:translateX(-50%) translateY(0)} 85%{opacity:1} 100%{opacity:0; transform:translateX(-50%) translateY(-6px)} }
+  @keyframes reelAdvance { from{background-position:center 0} to{background-position:center 168px} }
+  @keyframes projectorFlicker { 0%,100%{opacity:0} 15%{opacity:0.2} 28%{opacity:0.05} 42%{opacity:0.16} 60%{opacity:0.04} 75%{opacity:0.12} }
+  @keyframes creditsRoll { from{transform:translateY(118px)} to{transform:translateY(-100%)} }
+`;
 
 // 
 // HANGMAN TITLE — dashes that reveal as films are found
@@ -3687,6 +3957,14 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   const resultAppliedRef=useRef(false);
   const speedrunDeadlineRef=useRef(null);
   const speedrunRafRef=useRef(null);
+  // Cinema extras: Speed Run countdown, clapperboard takes, popcorn meter, badges, Daily curtains.
+  const [countingDown,setCountingDown]=useState(()=>!!mode.timeLimit && !initialState);
+  const [clapper,setClapper]=useState(null);
+  const clapperTimerRef=useRef(null);
+  const [popKey,setPopKey]=useState(0);
+  const [badgeToast,setBadgeToast]=useState(null);
+  const badgeToastTimerRef=useRef(null);
+  const [dailyLine]=useState(()=>mode.isDaily && !initialState ? pickRandom("trailer", TRAILER_OPENERS) : null);
 
   useEffect(() => {
     const invalidDeck = !Array.isArray(deck) || deck.length !== mode.roundCount;
@@ -3743,6 +4021,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   const tension=mode.difficultyPacing==="escalating"?marathonTension(cardIdx,deck.length):0;
   const accent=tension>0.6?`hsl(${Math.round(20-tension*20)},88%,56%)`:mode.accentColor;
   const isLast=cardIdx===deck.length-1;
+  const runStreak=trailingSolvedStreak(results, cardIdx) + (both && !isRewound ? 1 : 0);
   const hintButtonSrc = hintCount===0
     ? "/design-reference/Guess%20button-2.svg" // 2/2
     : hintCount===1
@@ -3770,7 +4049,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   useEffect(()=>{
     const prev=prevFoundRef.current;
     const newFind=found.some((f,i)=>f&&!prev[i]);
-    if(newFind) SFX.correct();
+    if(newFind){ SFX.correct(); SFX.pop(); setPopKey(k=>k+1); }
     prevFoundRef.current=found;
   },[found[0],found[1]]);
 
@@ -3794,6 +4073,13 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     const state = guessClassification(g, card);
     if(state==="miss"){
       SFX.wrong();
+      // The next take, unless this miss used the card's last guess.
+      if(wrongGuessCount+1 < mode.maxGuesses){
+        SFX.clap();
+        setClapper({key:Date.now(), take:wrongGuessCount+2, note:pickRandom("directorNote", DIRECTOR_NOTES)});
+        if (clapperTimerRef.current) clearTimeout(clapperTimerRef.current);
+        clapperTimerRef.current = setTimeout(() => setClapper(null), 1400);
+      }
       if (!reducedMotion) {
         setShowMissShake(false);
         if (missShakeTimerRef.current) clearTimeout(missShakeTimerRef.current);
@@ -3809,6 +4095,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       commit();
       return;
     }
+    SFX.projector();
     const transitionMeta = GENRE_TRANSITION_META[transitionFamily.name] || GENRE_TRANSITION_META.punchy;
     setGenreTransition({
       nonce: Date.now(),
@@ -3862,7 +4149,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     // Only solving the current card stops its clock. Viewing an earlier card
     // (rewind) must not pause it, or players get unlimited thinking time.
     const currentCardSolved = both && rewindIdx===null;
-    if(phase!=="playing" || currentCardSolved || lives<=0){
+    if(phase!=="playing" || currentCardSolved || lives<=0 || countingDown){
       speedrunDeadlineRef.current = null;
       return;
     }
@@ -3900,7 +4187,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
         speedrunRafRef.current = null;
       }
     };
-  },[phase,both,lives,mode.timeLimit,timeLeft,cardIdx,rewindIdx]);
+  },[phase,both,lives,mode.timeLimit,timeLeft,cardIdx,rewindIdx,countingDown]);
 
   const goToCard=(target)=>{
     setCardStates(prev=>({...prev,[activeIdx]:{guesses,hintsRevealed}}));
@@ -4080,8 +4367,25 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       if (genreTransitionTimerRef.current) {
         clearTimeout(genreTransitionTimerRef.current);
       }
+      if (clapperTimerRef.current) clearTimeout(clapperTimerRef.current);
+      if (badgeToastTimerRef.current) clearTimeout(badgeToastTimerRef.current);
     };
   }, []);
+
+  // Badges for this card, announced the first time each is earned.
+  useEffect(()=>{
+    if(phase!=="result" || isRewound || skipped || timedOut || !both) return;
+    const ids=[];
+    if(hintCount===0) ids.push("directorsCut");
+    if(wrongGuessCount===mode.maxGuesses-1) ids.push("plotTwist");
+    if(runStreak>=5) ids.push("boxOfficeSmash");
+    const fresh=earnBadges(ids);
+    if(!fresh.length) return;
+    SFX.badge();
+    setBadgeToast(BADGES.filter(b=>fresh.includes(b.id)));
+    if (badgeToastTimerRef.current) clearTimeout(badgeToastTimerRef.current);
+    badgeToastTimerRef.current = setTimeout(() => setBadgeToast(null), 2900);
+  },[phase]);
 
   useEffect(() => {
     if (phase !== "result" || !both || skipped || timedOut) {
@@ -4202,6 +4506,25 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
         </div>
       )}
 
+      <PopcornMeter streak={runStreak} popKey={popKey} reducedMotion={reducedMotion}/>
+      {clapper && <ClapperTake key={clapper.key} take={clapper.take} note={clapper.note} reducedMotion={reducedMotion}/>}
+      {badgeToast && <BadgeToast badges={badgeToast}/>}
+      {countingDown && <FilmLeaderCountdown reducedMotion={reducedMotion} onDone={()=>setCountingDown(false)}/>}
+      {dailyLine && <CurtainReveal line={dailyLine} reducedMotion={reducedMotion}/>}
+      {showingResult && !both && !skipped && !reducedMotion && <FilmBurn/>}
+
+      {/* Film-reel change: sprocket strips advance and the projector flickers */}
+      {!!genreTransition && (
+        <div key={`reel-${genreTransition.nonce}`} aria-hidden="true" style={{position:"fixed",inset:0,zIndex:305,pointerEvents:"none"}}>
+          {["left","right"].map(side=>(
+            <div key={side} style={{position:"absolute",top:0,bottom:0,[side]:0,width:24,background:"#1C1D21",
+              backgroundImage:"linear-gradient(to bottom, transparent 0 9px, #F3F4FF 9px 19px, transparent 19px 28px)",
+              backgroundSize:"11px 28px",backgroundRepeat:"repeat-y",backgroundPosition:"center 0",animation:"reelAdvance 520ms steps(6) both"}}/>
+          ))}
+          <div style={{position:"absolute",inset:0,background:"#FFF8E7",animation:"projectorFlicker 520ms linear both"}}/>
+        </div>
+      )}
+
       {/*  AUTO POPUP when round ends (never while rewinding/view-only)  */}
       {showingResult&&(
         <RoundResultPopup
@@ -4258,6 +4581,11 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:390,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}
           onClick={e=>e.target===e.currentTarget&&setShowSkipConfirm(false)}>
           <div style={{position:"relative",width:"100%",maxWidth:358,aspectRatio:"358 / 184"}}>
+            <div style={{position:"absolute",left:0,right:0,bottom:"calc(100% + 10px)",display:"flex",justifyContent:"center",pointerEvents:"none"}}>
+              <div style={{...YELLOW_STICKER_TEXT,fontSize:12,lineHeight:1.3,textTransform:"uppercase",textAlign:"center",background:"#1C1D21",border:"2px solid #F3F4FF",borderRadius:10,boxShadow:"0 3px 0 #000",padding:"8px 12px"}}>
+                Walk out of the theatre? No refunds.
+              </div>
+            </div>
             <img src="/design-reference/Skip%20modal.svg" alt="" aria-hidden="true" draggable="false"
               style={{position:"absolute",inset:0,width:"100%",height:"100%",display:"block",pointerEvents:"none",userSelect:"none"}}/>
             <button onClick={()=>{setShowSkipConfirm(false);handleSkip();}} aria-label="Skip It"
@@ -4336,7 +4664,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
                 // Padding cancelled by negative margins: same layout as before, room for a backdrop.
                 margin:"-8px -20px",padding:"8px 20px",
                 ...(guessDocked?{...CHECKER_BG,boxShadow:"0 -6px 12px rgba(0,0,0,0.22)"}:{})}}>
-                <GuessInput ref={guessInputRef} onSubmit={handleGuess} disabled={both||cardLost||viewOnly} allowSingleLetterY={allowSingleLetterY}/>
+                <GuessInput ref={guessInputRef} onSubmit={handleGuess} disabled={both||cardLost||viewOnly||countingDown} allowSingleLetterY={allowSingleLetterY}/>
               </div>
 
 
@@ -4458,7 +4786,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
 
 
 
-function EndScreen({mode,results,totalScore,dailyReplay=false,onMenu,onPlayAgain}) {
+function EndScreen({mode,results,totalScore,dailyReplay=false,onMenu,onPlayAgain,reducedMotion=false}) {
   const [copied,setCopied]=useState(false);
   const correct=results.filter(r=>isRoundSolved(r)).length;
   const skippedCount=results.filter(r=>r.skipped).length;
@@ -4497,6 +4825,34 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,onMenu,onPlayAgain
     ? "veryHappy"
     : (correctRatio >= 0.5 ? "happy" : "sad");
   const trexSrc = STICKER_ASSETS.trex[trexMood];
+
+  // Cinema extras: spoof rating, a made-up critic, the badge shelf and end credits.
+  const rating = getSpoofRating(correctRatio);
+  const [review] = useState(()=>getCriticReview(correctRatio));
+  const [runBadges] = useState(()=>{
+    const ids=[];
+    if(!mode.isDaily && results.length>0 && correct===results.length) ids.push("goldenPopcorn");
+    if(totalScore===0) ids.push("straightToVideo");
+    const fresh=earnBadges(ids);
+    if(fresh.length) SFX.badge();
+    return fresh;
+  });
+  const ownedBadges = loadBadges();
+  const [badgeInfo,setBadgeInfo]=useState(()=>runBadges[0]||null);
+  const shownBadge = BADGES.find(b=>b.id===badgeInfo);
+  const filmsFound = results.reduce((n,r)=>n+(isRoundSolved(r)?2:(r.found||[]).filter(Boolean).length),0);
+  const takes = results.reduce((n,r)=>n+(r.guesses||0),0);
+  const hintsUsed = results.reduce((n,r)=>n+(r.hints||0),0);
+  const credits = [
+    ["", "A PlotMix Production"],
+    ["Starring", "You"],
+    ["Films identified", String(filmsFound)],
+    ["Takes", String(takes)],
+    ["Hints supplied by", hintsUsed>0 ? "Your Wallet of Points" : "Nobody. You did it alone."],
+    ["Catering", "One Large Popcorn"],
+    ["Best Boy", "Still Unsure What That Is"],
+    ["", "No films were harmed in the making of this mashup."],
+  ];
   const trexMotion = trexMood === "veryHappy"
     ? "trexBounce 1.25s ease-in-out infinite"
     : trexMood === "sad"
@@ -4505,6 +4861,7 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,onMenu,onPlayAgain
 
   return (
     <div style={{position:"absolute",inset:0,zIndex:700,overflowY:"auto",...CHECKER_BG,backgroundColor:T.bg,color:T.textOnDark,animation:"fadeIn 0.5s ease"}}>
+      <CurtainReveal zIndex={720} reducedMotion={reducedMotion}/>
       <div style={{width:"min(402px, 100vw)",minHeight:"100dvh",margin:"0 auto",padding:"14px 0 24px",boxSizing:"border-box"}}>
       <div style={{width:"100%",minHeight:"calc(100dvh - 38px)",...WIN_RESULT_BG,backgroundColor:T.bgDeep,border:`2px solid ${T.border}`,borderRadius:20,boxShadow:T.shadowLg,padding:"56px 22px 24px",textAlign:"center",boxSizing:"border-box",display:"flex",flexDirection:"column",position:"relative"}}>
 
@@ -4533,6 +4890,51 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,onMenu,onPlayAgain
               <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:16,color:T.textPrimary,lineHeight:1,display:"inline-block",transform:"translateY(1px)"}}>{c.value}</span>
             </div>
           ))}
+        </div>
+
+        {/* Spoof rating and review */}
+        <div style={{display:"flex",alignItems:"stretch",gap:10,marginBottom:16,textAlign:"left"}}>
+          <div aria-label={`Rated ${rating.code}: ${rating.label}`} style={{flex:"0 0 86px",background:rating.color,border:`2px solid ${T.border}`,borderRadius:12,boxShadow:"0 3px 0 #1C1D21",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"8px 4px",boxSizing:"border-box",transform:"rotate(-3deg)",animation:reducedMotion?"none":"titlePop 0.5s ease 0.5s both"}}>
+            <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:9,color:T.textPrimary}}>RATED</span>
+            <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:30,lineHeight:1,color:T.textPrimary,margin:"2px 0"}}>{rating.code}</span>
+            <span style={{fontFamily:"'Outfit',sans-serif",fontWeight:800,fontSize:11,color:T.textPrimary,textAlign:"center",lineHeight:1.15}}>{rating.label}</span>
+          </div>
+          <div style={{flex:1,minWidth:0,background:"rgba(14,10,44,0.45)",border:`1.5px solid ${T.border}`,borderRadius:12,padding:"10px 12px",boxSizing:"border-box"}}>
+            <div aria-label={`${review.stars} out of 5 stars`} style={{color:"#FFD84D",fontSize:15,letterSpacing:2,lineHeight:1}}>{"★".repeat(review.stars)}<span style={{opacity:0.3}}>{"★".repeat(5-review.stars)}</span></div>
+            <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:14,color:"#fff",lineHeight:1.35,margin:"6px 0 4px"}}>“{review.quote}”</div>
+            <div style={{fontFamily:"'Outfit',sans-serif",fontSize:12,color:"rgba(255,255,255,0.75)"}}>— {review.outlet}</div>
+          </div>
+        </div>
+
+        {/* Badge shelf: tap a badge to see what it is for */}
+        <div style={{display:"flex",justifyContent:"center",gap:8,marginBottom:8}}>
+          {BADGES.map(b=>{
+            const has=ownedBadges.includes(b.id);
+            const isNew=runBadges.includes(b.id);
+            return (
+              <button key={b.id} onClick={()=>setBadgeInfo(b.id)} aria-label={`Badge: ${b.name}${has?"":" (locked)"}`}
+                style={{width:44,height:44,borderRadius:"50%",padding:0,cursor:"pointer",background:has?"#FFD84D":"rgba(255,255,255,0.12)",border:`2px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,lineHeight:1,position:"relative",
+                  filter:has?"none":"grayscale(1)",opacity:has?1:0.5,animation:isNew&&!reducedMotion?"titlePop 0.5s ease 0.9s both":"none"}}>
+                {b.emoji}
+                {isNew&&<span style={{position:"absolute",top:-8,right:-12,padding:"2px 4px",borderRadius:5,background:"#FF4A6E",border:"1.5px solid #1C1D21",fontFamily:FONT_FIGMA_STICKER,fontSize:7,color:"#fff"}}>NEW</span>}
+              </button>
+            );
+          })}
+        </div>
+        <div style={{minHeight:18,marginBottom:14,fontFamily:"'Outfit',sans-serif",fontSize:12.5,color:"rgba(255,255,255,0.85)",lineHeight:1.4}}>
+          {shownBadge ? <><b>{shownBadge.name}</b>: {shownBadge.desc}{ownedBadges.includes(shownBadge.id)?" ✓":" (not yet)"}</> : `Badges: ${ownedBadges.length}/${BADGES.length}. Tap one to see how to earn it.`}
+        </div>
+
+        {/* End credits */}
+        <div aria-label="Credits" style={{height:118,overflow:reducedMotion?"auto":"hidden",marginBottom:18,borderTop:"1px solid rgba(255,255,255,0.2)",borderBottom:"1px solid rgba(255,255,255,0.2)",position:"relative"}}>
+          <div style={{display:"flex",flexDirection:"column",gap:8,padding:"8px 0",animation:reducedMotion?"none":"creditsRoll 14s linear 0.6s infinite"}}>
+            {credits.map(([role,name],i)=>(
+              <div key={i} style={{fontFamily:"'Outfit',sans-serif",fontSize:12.5,lineHeight:1.3,color:"#fff"}}>
+                {role && <div style={{fontSize:10,letterSpacing:"0.12em",textTransform:"uppercase",color:"rgba(255,255,255,0.65)"}}>{role}</div>}
+                <div style={{fontWeight:700}}>{name}</div>
+              </div>
+            ))}
+          </div>
         </div>
 
         <button onClick={handleShare} style={{...BTN.cyan,width:"100%",padding:"16px 0",marginBottom:18}}>
@@ -4755,13 +5157,14 @@ function PlotMixApp() {
         @keyframes homeTrexFloat { 0%,100%{transform:translateY(0) rotate(0deg)} 50%{transform:translateY(-7px) rotate(-1.2deg)} }
         @keyframes skipStickerDrop { 0%{opacity:0; transform:translateY(-22px) scale(0.86) rotate(-6deg)} 55%{opacity:1; transform:translateY(4px) scale(1.03) rotate(1.5deg)} 100%{opacity:1; transform:translateY(0) scale(1) rotate(0deg)} }
         @keyframes skipSadFloat { 0%,100%{transform:translateY(0) rotate(0deg)} 50%{transform:translateY(-4px) rotate(-1.5deg)} }
+        ${CINEMA_KEYFRAMES}
         .pmtc { display:inline-block !important; width:32px !important; height:20px !important; min-width:32px !important; min-height:20px !important; border-radius:5px !important; flex-shrink:0 !important; vertical-align:middle !important; }
       `}</style>
       {screen==="intro"&&<IntroVideoScreen onDone={()=>setScreen(hasOnboarded()?"menu":"onboarding")}/>}
       {screen==="onboarding"&&<Onboarding onDone={()=>{markOnboarded();setScreen("menu");}} onSkip={()=>{markOnboarded();setScreen("menu");}} showSkip/>}
       {screen==="menu"&&<ModeSelect onSelect={handleModeSelect}/>}
       {screen==="game"&&mode&&<GameScreen mode={mode} deck={deck} initialState={resumeState} onQuit={goMenu} onComplete={handleComplete} reducedMotion={reducedMotion}/>}
-      {screen==="end"&&completedRun&&<EndScreen mode={completedRun.mode} results={completedRun.results} totalScore={completedRun.totalScore} dailyReplay={completedRun.dailyReplay} onMenu={goMenu} onPlayAgain={handlePlayAgain}/>}
+      {screen==="end"&&completedRun&&<EndScreen mode={completedRun.mode} results={completedRun.results} totalScore={completedRun.totalScore} dailyReplay={completedRun.dailyReplay} onMenu={goMenu} onPlayAgain={handlePlayAgain} reducedMotion={reducedMotion}/>}
       {/* Not during play: it overlaps the Skip button and swallows its clicks,
           and the Figma gameplay frame has no floating help button. */}
       {screen==="menu"&&<HelpButton onClick={()=>setShowHelp(true)}/>}
