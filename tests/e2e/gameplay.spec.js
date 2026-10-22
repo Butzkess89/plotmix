@@ -181,11 +181,13 @@ test.describe('sharing', () => {
 
     const text = await page.evaluate(() => navigator.clipboard.readText())
     const lines = text.split('\n')
-    expect(lines[0]).toBe('🎬 PLOTMIX Daily Challenge')
+    // Changed 2026-10-22 (owner-approved): Daily number and a spoiler-free journey row.
+    expect(lines[0]).toBe('🎬 PLOTMIX Daily Challenge #14') // 2026-10-14
     expect(lines[1]).toMatch(/^📅 /)
+    expect(lines[2]).toBe('🟩') // one guess that found something
     // solved / failed / skipped / best streak / score
-    expect(lines[2]).toBe('1✅ 0❌ 0⏭️ 1🔥 10⭐')
-    expect(lines[3]).toBe('Play: https://plotmix-app.vercel.app')
-    expect(lines).toHaveLength(4)
+    expect(lines[3]).toBe('1✅ 0❌ 0⏭️ 1🔥 10⭐')
+    expect(lines[4]).toBe('Play: https://plotmix-app.vercel.app')
+    expect(lines).toHaveLength(5)
   })
 })

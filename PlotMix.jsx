@@ -1901,6 +1901,24 @@ function getRunBestStreak(results) {
 // The game's public address, added to shared results (owner decision 2026-10-19).
 const PLAY_URL = "https://plotmix-app.vercel.app";
 
+// Daily numbers count from 1 October 2026 (Daily #1).
+const DAILY_NUMBER_START = new Date(2026, 9, 1);
+function getDailyNumber(date = new Date()) { return localDayNumber(date) - localDayNumber(DAILY_NUMBER_START) + 1; }
+
+// Spoiler-free "journey" (owner request 2026-10-22, after Wordle's grid): the Daily shows
+// every guess (🟩 found something, 🟥 missed) and hints (💡); longer runs show one mark per card.
+function shareJourney(mode, results) {
+  if (mode.isDaily) {
+    return results.map((r) => {
+      if (r.skipped) return "⏭️";
+      const marks = (r.guessList || []).map((g) => (r.card && guessClassification(g, r.card) === "match") ? "🟩" : "🟥").join("");
+      const hints = "💡".repeat(r.hints || 0);
+      return [marks || "⏱️", hints].filter(Boolean).join(" ");
+    });
+  }
+  return [results.map((r) => r.skipped ? "⏭️" : isRoundSolved(r) ? "🟩" : "🟥").join("")];
+}
+
 function buildShareText(mode, results, totalScore) {
   const correct=results.filter(r=>isRoundSolved(r)).length;
   const skipped=results.filter(r=>r.skipped).length;
@@ -1908,9 +1926,11 @@ function buildShareText(mode, results, totalScore) {
   const dateLine = mode.isDaily ? `📅 ${getTodayLabel()}\n` : "";
   const streakValue = getRunBestStreak(results);
   const summaryLine = `${correct}✅ ${failed}❌ ${skipped}⏭️ ${streakValue}🔥 ${totalScore.toLocaleString()}⭐`;
+  const title = mode.isDaily ? `🎬 PLOTMIX ${mode.label} #${getDailyNumber()}` : `🎬 PLOTMIX ${mode.label}`;
   const lines = [
-    `🎬 PLOTMIX ${mode.label}`,
-    `${dateLine}${summaryLine}`,
+    title,
+    `${dateLine}${shareJourney(mode, results).join("\n")}`,
+    summaryLine,
     `Play: ${PLAY_URL}`,
   ];
   return lines.join("\n");
