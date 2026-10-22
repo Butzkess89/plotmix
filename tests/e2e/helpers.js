@@ -41,6 +41,8 @@ export async function pinDailyDate(page) {
 export async function startMode(page, modeId) {
   await page.getByRole('button', { name: MODES[modeId].label }).click()
   await expect(guessInput(page)).toBeVisible()
+  // Speed Run opens with a 3-2-1 countdown; typing is possible once it ends.
+  await expect(guessInput(page)).toBeEnabled()
 }
 
 export const guessInput = (page) => page.getByRole('textbox', { name: 'Movie title guess' })
