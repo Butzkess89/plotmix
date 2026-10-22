@@ -3946,6 +3946,8 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   // (short screens); it then gets a backdrop so the plot scrolls cleanly behind it.
   const guessDockRef=useRef(null);
   const footerBarRef=useRef(null);
+  // The letter tiles: after each guess the page scrolls them into view (owner request 2026-10-22).
+  const hangmanRef=useRef(null);
   const [guessDocked,setGuessDocked]=useState(false);
   const [results,setResults]=useState(initialState?.results||[]);
   const [totalScore,setTotalScore]=useState(initialState?.totalScore||0);
@@ -4088,6 +4090,17 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       }
     }
     setGuesses(p=>[...p,g]);
+    // After the tiles update, bring them into view if they are off screen or hidden
+    // behind the pinned typing box, so the player sees what the guess revealed.
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      const el=hangmanRef.current; if(!el) return;
+      const r=el.getBoundingClientRect();
+      const viewH=window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      const dock=guessDockRef.current ? guessDockRef.current.getBoundingClientRect().top : viewH;
+      const visibleBottom=Math.min(viewH, dock);
+      if(r.top>=8 && r.bottom<=visibleBottom) return;
+      window.scrollBy({top:r.top-12, behavior:reducedMotion?"auto":"smooth"});
+    }));
   };
 
   const runCardSwap = (commit) => {
@@ -4654,7 +4667,9 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
               </div>
 
               {/*  HANGMAN TILES — bare on the purple background, no card wrapper  */}
-              <HangmanTitle card={card} found={pastWon?[true,true]:found} guesses={guesses}/>
+              <div ref={hangmanRef} role="group" aria-label="Title letters">
+                <HangmanTitle card={card} found={pastWon?[true,true]:found} guesses={guesses} reducedMotion={reducedMotion}/>
+              </div>
 
               {/*  GUESS INPUT — stays in place when it fits; on short screens (small phones,
                   landscape, keyboard open) it stays pinned just above the bottom button bar
