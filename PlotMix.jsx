@@ -3645,6 +3645,11 @@ function trailingSolvedStreak(results, upto) {
   return n;
 }
 
+// Film strip tiles drawn as small SVGs: dark film, sprocket holes on both edges, a lighter frame.
+const svgUrl = (svg) => `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+const FILM_STRIP_BG = svgUrl('<svg xmlns="http://www.w3.org/2000/svg" width="54" height="72"><rect width="54" height="72" fill="#1C1D21"/><rect x="3" y="12" width="8" height="11" rx="2" fill="#F3F4FF"/><rect x="3" y="48" width="8" height="11" rx="2" fill="#F3F4FF"/><rect x="43" y="12" width="8" height="11" rx="2" fill="#F3F4FF"/><rect x="43" y="48" width="8" height="11" rx="2" fill="#F3F4FF"/><rect x="15" y="5" width="24" height="62" rx="2" fill="#8F86C4"/><rect x="15" y="5" width="24" height="62" rx="2" fill="url(#g)" opacity="0.5"/><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFF"/><stop offset="1" stop-color="#3D3A55"/></linearGradient></defs></svg>');
+const FILM_STRIP_BG_H = svgUrl('<svg xmlns="http://www.w3.org/2000/svg" width="72" height="72"><rect width="72" height="72" fill="#1C1D21"/><rect x="12" y="3" width="11" height="8" rx="2" fill="#F3F4FF"/><rect x="48" y="3" width="11" height="8" rx="2" fill="#F3F4FF"/><rect x="12" y="61" width="11" height="8" rx="2" fill="#F3F4FF"/><rect x="48" y="61" width="11" height="8" rx="2" fill="#F3F4FF"/><rect x="5" y="15" width="62" height="42" rx="2" fill="#8F86C4"/></svg>');
+
 // Wrong guess: a clapperboard snaps shut on the next take, with a note from the director.
 // Points counter: rolls to the new value and shakes harder the more points were lost.
 function RollingPoints({value, reducedMotion=false, style}) {
@@ -3701,8 +3706,7 @@ function ClapperTake({take, note, reducedMotion=false}) {
 
 // Run streak shown as a popcorn bucket that fills up; kernels pop on every film found.
 function PopcornMeter({streak, popKey, reducedMotion=false}) {
-  // Hidden until there is a streak, so an empty bucket never needs explaining.
-  if (streak < 1) return null;
+  // Shown from the start (empty at 0), with its "N in a row" label underneath.
   const level = Math.min(5, streak);
   const kernels = [[-26,-30],[-12,-42],[4,-46],[18,-38],[28,-24]];
   return (
@@ -3832,6 +3836,12 @@ const CINEMA_KEYFRAMES = `
   @keyframes trailerLine { 0%{opacity:0; transform:scale(0.96)} 25%{opacity:1; transform:scale(1)} 80%{opacity:1} 100%{opacity:0; transform:scale(1.04)} }
   @keyframes filmBurn { 0%{opacity:0; transform:scale(0.2)} 30%{opacity:1} 100%{opacity:0; transform:scale(3.2)} }
   @keyframes badgeToast { 0%{opacity:0; transform:translateX(-50%) translateY(-12px)} 10%{opacity:1; transform:translateX(-50%) translateY(0)} 85%{opacity:1} 100%{opacity:0; transform:translateX(-50%) translateY(-6px)} }
+  @keyframes filmRoll { from{background-position:0 0} to{background-position:0 720px} }
+  @keyframes filmRollH { from{background-position:0 0} to{background-position:-720px 0} }
+  @keyframes filmSideInL { 0%{transform:translateX(-110%)} 18%{transform:translateX(0)} 82%{transform:translateX(0)} 100%{transform:translateX(-110%)} }
+  @keyframes filmSideInR { 0%{transform:translateX(110%)} 18%{transform:translateX(0)} 82%{transform:translateX(0)} 100%{transform:translateX(110%)} }
+  @keyframes filmFlyAcross { 0%{transform:translateX(-100%) rotate(-14deg);opacity:0} 15%{opacity:1} 85%{opacity:1} 100%{transform:translateX(100%) rotate(-8deg);opacity:0} }
+  @keyframes tileWin { 0%{transform:translateY(0)} 40%{transform:translateY(-8px) scale(1.08)} 100%{transform:translateY(0)} }
   @keyframes reelAdvance { from{background-position:center 0} to{background-position:center 168px} }
   @keyframes projectorFlicker { 0%,100%{opacity:0} 10%{opacity:0.55} 18%{opacity:0.1} 30%{opacity:0.45} 40%{opacity:0.05} 52%{opacity:0.5} 64%{opacity:0.15} 78%{opacity:0.35} 90%{opacity:0.08} }
   @keyframes filmScratch { 0%{opacity:0;background-position:0 0} 15%{opacity:1} 50%{background-position:-23px 0} 85%{opacity:1} 100%{opacity:0;background-position:31px 0} }
@@ -4444,6 +4454,14 @@ function HangmanTitle({card, found, guesses=[], reducedMotion=false, peek=false}
   const revealedKey = Array.from(title).map((_, i) => (shouldReveal(i) ? "1" : "0")).join("");
   const prevRevealRef = useRef(null);
   const [freshOrder, setFreshOrder] = useState({});
+  // Bounce wave when the card is solved while on screen (not when an already-solved card opens).
+  const [solvedWave, setSolvedWave] = useState(false);
+  const wasSolvedRef = useRef(null);
+  useEffect(() => {
+    const was = wasSolvedRef.current;
+    wasSolvedRef.current = { cardId: card.id, solved: allRevealed };
+    setSolvedWave(!!was && was.cardId === card.id && !was.solved && allRevealed);
+  }, [allRevealed, card.id]);
   useLayoutEffect(() => {
     const prev = prevRevealRef.current;
     prevRevealRef.current = { cardId: card.id, key: revealedKey };
@@ -4488,19 +4506,19 @@ function HangmanTitle({card, found, guesses=[], reducedMotion=false, peek=false}
               <div key={ci} style={{
                 width:34,height:37,flexShrink:0,
                 display:"flex",alignItems:"center",justifyContent:"center",
-                background:T.surfaceAlt,
+                background: allRevealed ? "#6AE89D" : T.surfaceAlt,
                 border:`1px solid ${T.border}`,
                 borderRadius:9,
                 boxShadow:"0 4px 0 #1C1D21",
                 fontFamily:"'Outfit',sans-serif",
                 fontSize:16,
                 fontWeight:700,
-                color: allRevealed ? T.pink : T.textPrimary,
+                color: allRevealed ? "#0B3D2C" : T.textPrimary,
                 textTransform:"uppercase",
-                transition:"color 0.25s ease",
+                transition:`background-color 0.25s ease ${allRevealed ? Math.min((word.start + ci) * 30, 700) : 0}ms, color 0.25s ease`,
                 animation: freshOrder[word.start + ci] !== undefined
                   ? `tileFlip 0.42s cubic-bezier(.2,1.3,.4,1) ${Math.min(freshOrder[word.start + ci] * 45, 900)}ms both`
-                  : "none",
+                  : (allRevealed && solvedWave && !reducedMotion ? `tileWin 0.5s ease ${Math.min((word.start + ci) * 30, 700)}ms both` : "none"),
               }}>{rev ? ch : ""}</div>
             );
           })}
@@ -4809,10 +4827,12 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   useEffect(()=>{
     if(isRewound || !over || phase!=="playing") return;
     const nextPhase = "result";
-    const delay = both ? 300 : 650;
+    // Owner request 2026-10-25: hold a solved card ~1.6 s so the green title wave can be seen
+    // (reduce-motion: shorter); a lost card ~1 s.
+    const delay = both ? (reducedMotion ? 700 : 1600) : 1000;
     const timerId = setTimeout(()=>setPhase(nextPhase), delay);
     return () => clearTimeout(timerId);
-  },[over,phase,isRewound,both]);
+  },[over,phase,isRewound,both,reducedMotion]);
 
   const handleGuess=(g)=>{
     if(cardLost||both||viewOnly) return;
@@ -4865,7 +4885,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       anim: transitionMeta.anim,
     });
     if (genreTransitionTimerRef.current) clearTimeout(genreTransitionTimerRef.current);
-    genreTransitionTimerRef.current = setTimeout(() => setGenreTransition(null), 760);
+    genreTransitionTimerRef.current = setTimeout(() => setGenreTransition(null), 950);
 
     setCardTransitionPhase("out");
     if (cardSwapTimerRef.current) clearTimeout(cardSwapTimerRef.current);
@@ -5342,16 +5362,18 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       {dailyLine && <CurtainReveal line={dailyLine} reducedMotion={reducedMotion} colors={themedWeek?.curtains || null}/>}
       {showingResult && !both && !skipped && !reducedMotion && <FilmBurn/>}
 
-      {/* Film-reel change: sprocket strips advance and the projector flickers */}
+      {/* Film-reel change (owner request 2026-10-25): wide film strips race down both sides, one
+          strip flies across the screen, and the projector flickers. */}
       {!!genreTransition && (
-        <div key={`reel-${genreTransition.nonce}`} aria-hidden="true" style={{position:"fixed",inset:0,zIndex:305,pointerEvents:"none",animation:"filmJitter 760ms steps(8) both"}}>
+        <div key={`reel-${genreTransition.nonce}`} aria-hidden="true" style={{position:"fixed",inset:0,zIndex:305,pointerEvents:"none",overflow:"hidden",animation:"filmJitter 950ms steps(10) both"}}>
           {["left","right"].map(side=>(
-            <div key={side} style={{position:"absolute",top:0,bottom:0,[side]:0,width:24,background:"#1C1D21",
-              backgroundImage:"linear-gradient(to bottom, transparent 0 9px, #F3F4FF 9px 19px, transparent 19px 28px)",
-              backgroundSize:"11px 28px",backgroundRepeat:"repeat-y",backgroundPosition:"center 0",animation:"reelAdvance 760ms steps(8) both"}}/>
+            <div key={side} style={{position:"absolute",top:"-10%",bottom:"-10%",[side]:0,width:54,backgroundImage:FILM_STRIP_BG,backgroundSize:"54px 72px",backgroundRepeat:"repeat-y",
+              boxShadow:"0 0 12px rgba(0,0,0,0.5)",animation:`filmSideIn${side==="left"?"L":"R"} 950ms ease both, filmRoll 950ms linear both`}}/>
           ))}
-          <div style={{position:"absolute",inset:0,background:"#FFF8E7",animation:"projectorFlicker 760ms linear both"}}/>
-          <div style={{position:"absolute",inset:0,background:"repeating-linear-gradient(90deg, transparent 0 37px, rgba(28,22,12,0.35) 37px 38px, transparent 38px 113px, rgba(255,255,255,0.5) 113px 114px)",animation:"filmScratch 760ms steps(6) both"}}/>
+          <div style={{position:"absolute",left:"-30%",right:"-30%",top:"42%",height:72,backgroundImage:FILM_STRIP_BG_H,backgroundSize:"72px 72px",backgroundRepeat:"repeat-x",
+            boxShadow:"0 6px 18px rgba(0,0,0,0.45)",animation:"filmFlyAcross 950ms cubic-bezier(.3,.1,.3,1) both, filmRollH 950ms linear both"}}/>
+          <div style={{position:"absolute",inset:0,background:"#FFF8E7",animation:"projectorFlicker 950ms linear both"}}/>
+          <div style={{position:"absolute",inset:0,background:"repeating-linear-gradient(90deg, transparent 0 37px, rgba(28,22,12,0.35) 37px 38px, transparent 38px 113px, rgba(255,255,255,0.5) 113px 114px)",animation:"filmScratch 950ms steps(6) both"}}/>
         </div>
       )}
 

@@ -45,7 +45,8 @@ test.describe('Clapperboard on a wrong guess', () => {
 test.describe('Popcorn streak meter', () => {
   test('fills as cards are solved in a row', async ({ page }) => {
     await resumeStandardWithCards(page, [77, 1])
-    await expect(page.getByLabel(/^Streak:/)).toHaveCount(0) // hidden until a streak starts
+    await expect(page.getByLabel('Streak: 0')).toBeVisible() // shown empty from the start (owner request 2026-10-25)
+    await expect(page.getByText('0 in a row')).toBeVisible()
     await submitGuess(page, 'The Nightmare Before Christmas')
     await submitGuess(page, 'A Christmas Story')
     await nextButton(page).click()
