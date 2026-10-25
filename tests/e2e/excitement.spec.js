@@ -493,10 +493,10 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
     await startGame(page)
     const bat = piece(page, 'Vampire bat')
     await expect(bat).toBeAttached({ timeout: 10_000 })
-    const x1 = (await bat.boundingBox()).x
-    await page.waitForTimeout(400)
-    const x2 = (await bat.boundingBox()).x
-    expect(Math.abs(x2 - x1)).toBeGreaterThan(5)
+    // Sample its position over most of a swoop (one swoop takes about 1.6 s).
+    const xs = []
+    for (let i = 0; i < 5; i++) { const b = await bat.boundingBox(); if (b) xs.push(b.x); await page.waitForTimeout(200) }
+    expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(20)
   })
 
   test('catching burnt popcorn costs a life and breaks the combo', async ({ page }) => {

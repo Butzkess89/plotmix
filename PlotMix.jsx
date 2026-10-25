@@ -4473,8 +4473,9 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
         it.y += it.vy * moveDt;
         it.angle += it.spin * moveDt;
         if (it.kind === "bat") {
-          it.baseX = Math.max(half, Math.min(W - half, it.baseX));
-          it.x = Math.max(half, Math.min(W - half, it.baseX + Math.sin((now - it.born) / 260) * 48));
+          // Keep room for the full swoop, so a bat near the edge isn't pinned against the wall.
+          it.baseX = Math.max(half + 48, Math.min(W - half - 48, it.baseX));
+          it.x = it.baseX + Math.sin((now - it.born) / 260) * 48;
         } else if (it.vx) {
           it.x += it.vx * moveDt;
           if (it.x < half || it.x > W - half) { it.vx = -it.vx; it.x = Math.max(half, Math.min(W - half, it.x)); }
