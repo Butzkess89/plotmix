@@ -487,13 +487,24 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
   })
 
   test('catching burnt popcorn costs a life and breaks the combo', async ({ page }) => {
+    // Record every lives value shown: on a slow phone several bad pieces can land between
+    // two checks, so "Lives: 2" may only be on screen for a moment.
+    await page.addInitScript(() => {
+      window.__lives = []
+      new MutationObserver(() => {
+        const el = document.querySelector('[aria-label^="Lives: "]')
+        const n = el && Number(el.getAttribute('aria-label').slice(7))
+        if (el && window.__lives[window.__lives.length - 1] !== n) window.__lives.push(n)
+      }).observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-label'] })
+    })
     await fixRandomOnLoad(page, 0.1)
     await startGame(page)
     await holdBoxUnderFirst(page, 'Popcorn')
     await expect(page.getByLabel('Combo ×2')).toBeVisible({ timeout: 15_000 })
     await fixRandom(page, 0.7)
     await holdBoxUnderFirst(page, BAD)
-    await expect(page.getByLabel('Lives: 2')).toBeVisible({ timeout: 10_000 })
+    await expect.poll(() => page.evaluate(() => window.__lives), { timeout: 10_000 }).toEqual(expect.arrayContaining([3, 2]))
+    expect((await page.evaluate(() => window.__lives)).slice(0, 2)).toEqual([3, 2]) // one life per bad piece
     await expect(page.getByLabel('Combo ×2')).toHaveCount(0)
   })
 
