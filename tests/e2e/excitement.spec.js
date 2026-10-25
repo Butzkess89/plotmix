@@ -442,3 +442,28 @@ test.describe('Win sticker clips', () => {
     }
   })
 })
+
+test.describe('Owner fixes 2026-10-25', () => {
+  test('solving word by word turns the letters green with the flip', async ({ page }) => {
+    await resumeStandardWithCards(page, [77])
+    for (const w of ['Nightmare', 'Before', 'Christmas', 'Story']) await submitGuess(page, w)
+    await expect.poll(() => page.evaluate(() => [...document.querySelectorAll('[aria-label="Title letters"] div')]
+      .filter((d) => /tileWinFlip/.test(d.style.animation)).length)).toBeGreaterThan(20)
+    await page.waitForTimeout(1300)
+    const colours = await page.evaluate(() => [...new Set([...document.querySelectorAll('[aria-label="Title letters"] div')]
+      .filter((d) => d.children.length === 0 && d.textContent).map((d) => getComputedStyle(d).color))])
+    expect(colours).toEqual(['rgb(21, 128, 61)'])
+  })
+
+  test('"in a row" drops to 0 as soon as a card is lost, then counts again', async ({ page }) => {
+    await resumeStandardWithCards(page, [77, 1, 2])
+    await submitGuess(page, 'The Nightmare Before Christmas Story')
+    await expect(page.getByLabel('Streak: 1')).toBeVisible()
+    await page.getByRole('button', { name: 'Next' }).click()
+    for (let i = 0; i < 6; i++) await submitGuess(page, `zzqxwrong${'abcdef'[i]}`)
+    await expect(page.getByLabel('Streak: 0')).toBeVisible() // already on the lost card's result
+    await page.getByRole('button', { name: 'Next' }).click()
+    await submitGuess(page, '13 Going on 30 Days of Night')
+    await expect(page.getByLabel('Streak: 1')).toBeVisible()
+  })
+})

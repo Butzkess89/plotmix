@@ -4789,7 +4789,10 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   const tension=mode.difficultyPacing==="escalating"?marathonTension(cardIdx,deck.length):0;
   const accent=tension>0.6?`hsl(${Math.round(20-tension*20)},88%,56%)`:mode.accentColor;
   const isLast=cardIdx===deck.length-1;
-  const runStreak=trailingSolvedStreak(results, cardIdx) + (both && !isRewound ? 1 : 0);
+  // "In a row" means in a row: a lost or skipped card drops it to 0 straight away.
+  const runStreak=isRewound ? trailingSolvedStreak(results, cardIdx)
+    : (cardLost || skipped) ? 0
+    : trailingSolvedStreak(results, cardIdx) + (both ? 1 : 0);
   // The button art shows the two original hints left; the Whisper is extra.
   const artHintCount = hintsRevealed.filter((id)=>id!=="whisper").length;
   const hintButtonSrc = artHintCount===0
@@ -5513,7 +5516,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
 
               {/*  HANGMAN TILES — bare on the purple background, no card wrapper  */}
               <div ref={hangmanRef} role="group" aria-label="Title letters">
-                <HangmanTitle card={card} found={pastWon?[true,true]:found} guesses={guesses} reducedMotion={reducedMotion} peek={peek}/>
+                <HangmanTitle card={card} found={pastWon?[true,true]:effectiveFound} guesses={guesses} reducedMotion={reducedMotion} peek={peek}/>
               </div>
 
               {/*  GUESS INPUT — stays in place when it fits; on short screens (small phones,
