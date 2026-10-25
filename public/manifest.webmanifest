@@ -1,0 +1,14 @@
+{
+  "name": "PlotMix",
+  "short_name": "PlotMix",
+  "description": "Two movies. One mashed-up plot. Can you name both?",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#7462FC",
+  "theme_color": "#7462FC",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
