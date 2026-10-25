@@ -3836,6 +3836,7 @@ const CINEMA_KEYFRAMES = `
   @keyframes projectorFlicker { 0%,100%{opacity:0} 15%{opacity:0.2} 28%{opacity:0.05} 42%{opacity:0.16} 60%{opacity:0.04} 75%{opacity:0.12} }
   @keyframes ptsShake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(calc(var(--amp) * -1))} 40%{transform:translateX(var(--amp))} 60%{transform:translateX(calc(var(--amp) * -0.6))} 80%{transform:translateX(calc(var(--amp) * 0.4))} }
   @keyframes tileFlip { 0%{transform:rotateX(90deg) scale(0.9)} 60%{transform:rotateX(-12deg) scale(1.06)} 100%{transform:rotateX(0) scale(1)} }
+  @keyframes itemSpin { from{transform:rotate(var(--r0))} to{transform:rotate(var(--r1))} }
   @keyframes kernelArc { 0%{transform:translateY(0) scale(0.5);opacity:0} 10%{opacity:1} 50%{transform:translateY(-46vh) scale(1)} 90%{opacity:1} 100%{transform:translateY(-6vh) scale(0.9);opacity:0} }
   @keyframes creditsRoll { from{transform:translateY(118px)} to{transform:translateY(-100%)} }
 `;
@@ -4040,25 +4041,32 @@ function pickArcadeItem() {
   return ARCADE_ITEMS[0];
 }
 
-// Drawn in code: a fluffy popped kernel, the same burnt, a hard unpopped kernel, a candy-coated chocolate.
-function ArcadeItemArt({kind, color}) {
+// Drawn in code. Popped popcorn comes in 4 shapes and burnt popcorn in 3; every piece also
+// gets its own random angle and spin (owner request 2026-10-25), so no two look alike.
+const POPCORN_SHAPES = [
+  [[17,20,10],[30,17,10.5],[34,29,9],[15,32,9],[24,27,10]],
+  [[24,14,9],[14,24,9.5],[34,24,9.5],[24,33,10],[24,24,8]],
+  [[14,18,8],[26,13,9],[36,21,8.5],[30,32,10],[17,31,9.5]],
+  [[20,16,11],[33,22,9],[28,34,8.5],[14,30,8],[22,26,9]],
+];
+const BURNT_SHAPES = [POPCORN_SHAPES[0], POPCORN_SHAPES[2], [[18,18,9],[30,20,10],[24,31,11],[12,28,7]]];
+function ArcadeItemArt({kind, color, variant=0}) {
   if (kind === "popcorn" || kind === "burnt") {
     const burnt = kind === "burnt";
-    const fill = burnt ? "#3B2416" : "#FFF8E6";
+    const shapes = burnt ? BURNT_SHAPES : POPCORN_SHAPES;
+    const blobs = shapes[variant % shapes.length];
+    const fill = burnt ? ["#3B2416", "#2A1A0E", "#4A2C18"][variant % 3] : "#FFF8E6";
     const shade = burnt ? "#1E120A" : "#F3DFAE";
     const fleck = burnt ? "#6B4A2E" : "#F6C64B";
+    const [a, b] = blobs;
     return (
       <svg viewBox="0 0 48 48" width="100%" height="100%" aria-hidden="true">
         <g stroke="#1C1D21" strokeWidth="1.6">
-          <circle cx="17" cy="20" r="10" fill={fill}/>
-          <circle cx="30" cy="17" r="10.5" fill={fill}/>
-          <circle cx="34" cy="29" r="9" fill={fill}/>
-          <circle cx="15" cy="32" r="9" fill={fill}/>
-          <circle cx="24" cy="27" r="10" fill={fill}/>
+          {blobs.map(([x, y, r], i) => <circle key={i} cx={x} cy={y} r={r} fill={fill}/>)}
         </g>
-        <circle cx="21" cy="30" r="4" fill={shade}/>
-        <circle cx="31" cy="21" r="3" fill={shade}/>
-        <path d="M22 35 q3 4 7 1" stroke={fleck} strokeWidth="3" fill="none" strokeLinecap="round"/>
+        <circle cx={(a[0] + b[0]) / 2} cy={(a[1] + b[1]) / 2 + 6} r="4" fill={shade}/>
+        <circle cx={b[0]} cy={b[1] + 2} r="3" fill={shade}/>
+        <path d={`M${a[0] + 3} ${a[1] + 13} q3 4 7 1`} stroke={fleck} strokeWidth="3" fill="none" strokeLinecap="round"/>
         {burnt && <path d="M12 14 l3 3 M33 11 l-2 3 M37 31 l-3 1" stroke="#000" strokeWidth="1.6" strokeLinecap="round"/>}
       </svg>
     );
@@ -4066,7 +4074,7 @@ function ArcadeItemArt({kind, color}) {
   if (kind === "unpopped") {
     return (
       <svg viewBox="0 0 48 48" width="100%" height="100%" aria-hidden="true">
-        <path d="M24 8 C33 14 35 28 30 37 C27 42 21 42 18 37 C13 28 15 14 24 8 Z" fill="#F2A71B" stroke="#1C1D21" strokeWidth="1.8"/>
+        <path d="M24 8 C33 14 35 28 30 37 C27 42 21 42 18 37 C13 28 15 14 24 8 Z" fill={["#F2A71B", "#E8951A", "#F5B830"][variant % 3]} stroke="#1C1D21" strokeWidth="1.8"/>
         <path d="M18 37 C21 42 27 42 30 37 C27 39 21 39 18 37 Z" fill="#8A4B0F"/>
         <ellipse cx="21" cy="20" rx="2.5" ry="5" fill="#FFD27A"/>
       </svg>
@@ -4128,7 +4136,8 @@ function ArcadeScreen({onBack, reducedMotion=false}) {
     const spawn = setInterval(() => {
       const it = pickArcadeItem();
       const item = { id: ++idRef.current, kind: it.kind, label: it.label, x: 8 + Math.random() * 76, born: Date.now(),
-        color: CANDY_COLORS[Math.floor(Math.random() * CANDY_COLORS.length)] };
+        color: CANDY_COLORS[Math.floor(Math.random() * CANDY_COLORS.length)],
+        variant: Math.floor(Math.random() * 12), angle: Math.floor(Math.random() * 360), spin: Math.round((Math.random() * 2 - 1) * 240) };
       setItems((xs) => [...xs.filter((q) => Date.now() - q.born < 1700), item]);
     }, 420);
     const clock = setInterval(() => {
@@ -4246,7 +4255,10 @@ function ArcadeScreen({onBack, reducedMotion=false}) {
               style={{position:"absolute",left:`${it.x}%`,bottom:40,width:it.kind === "unpopped" ? 40 : 52,height:it.kind === "unpopped" ? 40 : 52,marginLeft:-26,padding:0,
                 background:"transparent",border:"none",cursor:"pointer",filter:"drop-shadow(0 3px 0 rgba(28,29,33,0.6))",
                 animation:reducedMotion ? "fadeIn 0.2s ease both" : "kernelArc 1.7s cubic-bezier(.25,.9,.4,1) both"}}>
-              <ArcadeItemArt kind={it.kind} color={it.color}/>
+              <div style={{width:"100%",height:"100%","--r0":`${it.angle}deg`,"--r1":`${it.angle + it.spin}deg`,transform:`rotate(${it.angle}deg)`,
+                animation:reducedMotion ? "none" : "itemSpin 1.7s linear both"}}>
+                <ArcadeItemArt kind={it.kind} color={it.color} variant={it.variant}/>
+              </div>
             </button>
           ))}
           <div aria-hidden="true" style={{position:"absolute",left:"50%",bottom:0,transform:"translateX(-50%)",width:120,height:60,background:"repeating-linear-gradient(90deg,#F3F4FF 0 16px,#E4444F 16px 32px)",border:"2px solid #1C1D21",borderBottom:"none",borderRadius:"10px 10px 0 0"}}/>
