@@ -4020,57 +4020,157 @@ function VaultScreen({onBack, onArcade}) {
   );
 }
 
-// Arcade side-quest: "Popcorn Panic". Catch popping kernels for 20 seconds; burnt ones cost 2.
+// Arcade side-quest: "Popcorn Panic" (owner design 2026-10-25).
+// Catch popped popcorn (+1). Burnt popcorn and unpopped kernels cost a life (3 lives).
+// Chocolate candies give a boost: an extra life, a 5-second shield, or 5 seconds of double points.
 const ARCADE_SECONDS = 20;
+const ARCADE_LIVES = 3;
+const BOOST_MS = 5000;
+const ARCADE_ITEMS = [
+  { kind: "popcorn",  weight: 62, label: "Popcorn" },
+  { kind: "burnt",    weight: 13, label: "Burnt popcorn" },
+  { kind: "unpopped", weight: 13, label: "Unpopped kernel" },
+  { kind: "candy",    weight: 12, label: "Chocolate candy" },
+];
+const CANDY_COLORS = ["#E4444F", "#2F6BFF", "#20B46A", "#FF9F1C", "#FFD84D", "#8B4A2B"];
+
+function pickArcadeItem() {
+  let r = Math.random() * 100;
+  for (const it of ARCADE_ITEMS) { if ((r -= it.weight) < 0) return it; }
+  return ARCADE_ITEMS[0];
+}
+
+// Drawn in code: a fluffy popped kernel, the same burnt, a hard unpopped kernel, a candy-coated chocolate.
+function ArcadeItemArt({kind, color}) {
+  if (kind === "popcorn" || kind === "burnt") {
+    const burnt = kind === "burnt";
+    const fill = burnt ? "#3B2416" : "#FFF8E6";
+    const shade = burnt ? "#1E120A" : "#F3DFAE";
+    const fleck = burnt ? "#6B4A2E" : "#F6C64B";
+    return (
+      <svg viewBox="0 0 48 48" width="100%" height="100%" aria-hidden="true">
+        <g stroke="#1C1D21" strokeWidth="1.6">
+          <circle cx="17" cy="20" r="10" fill={fill}/>
+          <circle cx="30" cy="17" r="10.5" fill={fill}/>
+          <circle cx="34" cy="29" r="9" fill={fill}/>
+          <circle cx="15" cy="32" r="9" fill={fill}/>
+          <circle cx="24" cy="27" r="10" fill={fill}/>
+        </g>
+        <circle cx="21" cy="30" r="4" fill={shade}/>
+        <circle cx="31" cy="21" r="3" fill={shade}/>
+        <path d="M22 35 q3 4 7 1" stroke={fleck} strokeWidth="3" fill="none" strokeLinecap="round"/>
+        {burnt && <path d="M12 14 l3 3 M33 11 l-2 3 M37 31 l-3 1" stroke="#000" strokeWidth="1.6" strokeLinecap="round"/>}
+      </svg>
+    );
+  }
+  if (kind === "unpopped") {
+    return (
+      <svg viewBox="0 0 48 48" width="100%" height="100%" aria-hidden="true">
+        <path d="M24 8 C33 14 35 28 30 37 C27 42 21 42 18 37 C13 28 15 14 24 8 Z" fill="#F2A71B" stroke="#1C1D21" strokeWidth="1.8"/>
+        <path d="M18 37 C21 42 27 42 30 37 C27 39 21 39 18 37 Z" fill="#8A4B0F"/>
+        <ellipse cx="21" cy="20" rx="2.5" ry="5" fill="#FFD27A"/>
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 48 48" width="100%" height="100%" aria-hidden="true">
+      <ellipse cx="24" cy="26" rx="17" ry="13" fill="#5A2E1A"/>
+      <ellipse cx="24" cy="23" rx="17" ry="13" fill={color || CANDY_COLORS[0]} stroke="#1C1D21" strokeWidth="1.8"/>
+      <ellipse cx="18" cy="18" rx="6" ry="3" fill="rgba(255,255,255,0.55)"/>
+    </svg>
+  );
+}
+
 function ArcadeScreen({onBack, reducedMotion=false}) {
   const [phase, setPhase] = useState("lobby"); // lobby | playing | done
   const [stubs, setStubs] = useState(stubsAvailable);
   const [score, setScore] = useState(0);
+  const [lives, setLives] = useState(ARCADE_LIVES);
   const [timeLeft, setTimeLeft] = useState(ARCADE_SECONDS);
-  const [kernels, setKernels] = useState([]);
+  const [items, setItems] = useState([]);
+  const [boost, setBoost] = useState(null);   // {type: "shield"|"double", until}
+  const [flash, setFlash] = useState(null);   // {key, text, bad}
   const [result, setResult] = useState(null);
   const scoreRef = useRef(0);
+  const livesRef = useRef(ARCADE_LIVES);
+  const boostRef = useRef(null);
   const idRef = useRef(0);
+  const finishRef = useRef(null);
 
   const start = () => {
     if (!spendStubs(ARCADE_PLAY_COST)) return;
     setStubs(stubsAvailable());
-    scoreRef.current = 0; setScore(0); setTimeLeft(ARCADE_SECONDS); setKernels([]); setResult(null);
+    scoreRef.current = 0; livesRef.current = ARCADE_LIVES; boostRef.current = null;
+    setScore(0); setLives(ARCADE_LIVES); setBoost(null); setFlash(null);
+    setTimeLeft(ARCADE_SECONDS); setItems([]); setResult(null);
     setPhase("playing");
   };
 
   useEffect(() => {
     if (phase !== "playing") return;
     const endAt = Date.now() + ARCADE_SECONDS * 1000;
+    let done = false;
+    const finish = (reason) => {
+      if (done) return;
+      done = true;
+      clearInterval(spawn); clearInterval(clock);
+      const final = scoreRef.current;
+      const prize = prizeForScore(final);
+      const p = loadPrizes();
+      const isNew = !!prize && !p.won.includes(prize.id);
+      writeJSON(LS_PRIZES, { ...p, best: Math.max(p.best || 0, final), won: prize && isNew ? [...p.won, prize.id] : p.won });
+      if (prize) SFX.badge();
+      setResult({ score: final, prize, isNew, reason });
+      setItems([]);
+      setPhase("done");
+    };
+    finishRef.current = finish;
     const spawn = setInterval(() => {
-      const burnt = Math.random() < 0.18;
-      const k = { id: ++idRef.current, x: 8 + Math.random() * 76, burnt, born: Date.now() };
-      setKernels((ks) => [...ks.filter((q) => Date.now() - q.born < 1700), k]);
-    }, 430);
+      const it = pickArcadeItem();
+      const item = { id: ++idRef.current, kind: it.kind, label: it.label, x: 8 + Math.random() * 76, born: Date.now(),
+        color: CANDY_COLORS[Math.floor(Math.random() * CANDY_COLORS.length)] };
+      setItems((xs) => [...xs.filter((q) => Date.now() - q.born < 1700), item]);
+    }, 420);
     const clock = setInterval(() => {
       const left = Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
       setTimeLeft(left);
-      if (left <= 0) {
-        clearInterval(spawn); clearInterval(clock);
-        const final = scoreRef.current;
-        const prize = prizeForScore(final);
-        const p = loadPrizes();
-        const isNew = !!prize && !p.won.includes(prize.id);
-        writeJSON(LS_PRIZES, { ...p, best: Math.max(p.best || 0, final), won: prize && isNew ? [...p.won, prize.id] : p.won });
-        if (prize) SFX.badge();
-        setResult({ score: final, prize, isNew });
-        setKernels([]);
-        setPhase("done");
-      }
+      if (boostRef.current && Date.now() > boostRef.current.until) { boostRef.current = null; setBoost(null); }
+      if (left <= 0) finish("time");
     }, 200);
     return () => { clearInterval(spawn); clearInterval(clock); };
   }, [phase]);
 
-  const catchKernel = (k) => {
-    setKernels((ks) => ks.filter((q) => q.id !== k.id));
-    scoreRef.current = Math.max(0, scoreRef.current + (k.burnt ? -2 : 1));
-    setScore(scoreRef.current);
-    if (k.burnt) { SFX.wrong(); buzz([30, 50, 30]); } else { SFX.pop(); buzz(15); }
+  const showFlash = (text, bad=false) => setFlash({ key: Date.now(), text, bad });
+
+  const catchItem = (it) => {
+    if (phase !== "playing") return;
+    setItems((xs) => xs.filter((q) => q.id !== it.id));
+    const active = boostRef.current && Date.now() <= boostRef.current.until ? boostRef.current.type : null;
+    if (it.kind === "popcorn") {
+      scoreRef.current += active === "double" ? 2 : 1;
+      setScore(scoreRef.current);
+      SFX.pop(); buzz(15);
+      return;
+    }
+    if (it.kind === "candy") {
+      const options = livesRef.current < ARCADE_LIVES ? ["life", "shield", "double"] : ["shield", "double"];
+      const pick = options[Math.floor(Math.random() * options.length)];
+      if (pick === "life") { livesRef.current += 1; setLives(livesRef.current); showFlash("🍫 Extra life!"); }
+      else {
+        boostRef.current = { type: pick, until: Date.now() + BOOST_MS };
+        setBoost(boostRef.current);
+        showFlash(pick === "shield" ? "🍫 Shield: bad bits can't hurt you!" : "🍫 Sugar rush: double points!");
+      }
+      SFX.badge(); buzz([15, 30, 15]);
+      return;
+    }
+    // Burnt popcorn or an unpopped kernel
+    if (active === "shield") { showFlash("🛡️ Blocked!"); SFX.hint(); return; }
+    livesRef.current -= 1;
+    setLives(livesRef.current);
+    showFlash(it.kind === "burnt" ? "Burnt! −1 life" : "Unpopped! −1 life", true);
+    SFX.wrong(); buzz([40, 60, 40]);
+    if (livesRef.current <= 0) finishRef.current?.("lives");
   };
 
   const best = loadPrizes().best || 0;
@@ -4084,10 +4184,16 @@ function ArcadeScreen({onBack, reducedMotion=false}) {
         {phase === "lobby" && (
           <div style={{marginTop:14}}>
             <p style={{fontFamily:"'Outfit',sans-serif",fontSize:15,lineHeight:1.5,margin:"0 0 12px"}}>
-              The popcorn machine has gone rogue. Tap the kernels as they pop. Don't touch the burnt ones! You get {ARCADE_SECONDS} seconds.
+              The popcorn machine has gone rogue! Tap the popcorn as it flies. You have {ARCADE_SECONDS} seconds and {ARCADE_LIVES} lives.
             </p>
+            <div style={{display:"grid",gridTemplateColumns:"40px 1fr",gap:"6px 10px",alignItems:"center",textAlign:"left",fontFamily:"'Outfit',sans-serif",fontSize:13.5,margin:"0 auto 14px",maxWidth:320}}>
+              <div style={{width:36,height:36}}><ArcadeItemArt kind="popcorn"/></div><div><b>Popcorn</b>: +1 point</div>
+              <div style={{width:36,height:36}}><ArcadeItemArt kind="burnt"/></div><div><b>Burnt popcorn</b>: lose a life</div>
+              <div style={{width:36,height:36}}><ArcadeItemArt kind="unpopped"/></div><div><b>Unpopped kernel</b>: lose a life</div>
+              <div style={{width:36,height:36}}><ArcadeItemArt kind="candy" color="#2F6BFF"/></div><div><b>Chocolate candy</b>: extra life, shield or double points</div>
+            </div>
             <div style={{fontFamily:"'Outfit',sans-serif",fontSize:13,lineHeight:1.6,margin:"0 0 16px",opacity:0.9}}>
-              {PRIZE_TIERS.slice().reverse().map((p) => <div key={p.id}>{p.emoji} {p.min}+ kernels: {p.name} (unlocks {CURTAINS.find((c) => c.prize === p.id)?.name} curtains)</div>)}
+              {PRIZE_TIERS.slice().reverse().map((p) => <div key={p.id}>{p.emoji} {p.min}+ points: {p.name} (unlocks {CURTAINS.find((c) => c.prize === p.id)?.name} curtains)</div>)}
               <div>Best score: {best}</div>
             </div>
             <button onClick={start} disabled={stubs < ARCADE_PLAY_COST} aria-label="Play Popcorn Panic"
@@ -4100,18 +4206,30 @@ function ArcadeScreen({onBack, reducedMotion=false}) {
           </div>
         )}
         {phase !== "lobby" && (
-          <div style={{display:"flex",justifyContent:"center",gap:10,margin:"10px 0"}}>
-            <div style={HUD_STAT_PILL}><span style={HUD_COUNTER_TEXT}>🍿 {score}</span></div>
+          <div style={{display:"flex",justifyContent:"center",gap:8,margin:"10px 0",flexWrap:"wrap"}}>
+            <div style={HUD_STAT_PILL}><span aria-label={`Score: ${score}`} style={HUD_COUNTER_TEXT}>🍿 {score}</span></div>
+            <div style={HUD_STAT_PILL}><span aria-label={`Lives: ${lives}`} style={HUD_COUNTER_TEXT}>{"❤️".repeat(Math.max(0, lives))}{"🖤".repeat(Math.max(0, ARCADE_LIVES - lives))}</span></div>
             <div style={HUD_STAT_PILL}><span style={HUD_COUNTER_TEXT}>⏱ {timeLeft}</span></div>
           </div>
         )}
+        {phase === "playing" && boost && (
+          <div aria-label="Active boost" style={{...YELLOW_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>
+            {boost.type === "shield" ? "🛡️ Shield on" : "⚡ Double points"}
+          </div>
+        )}
+        {phase === "playing" && flash && (
+          <div key={flash.key} role="status" aria-label="Arcade event" style={{...WHITE_STICKER_TEXT,fontSize:14,marginTop:6,color:flash.bad?"#FFB4B4":"#fff",animation:reducedMotion?"none":"fadeIn 0.25s ease both"}}>
+            {flash.text}
+          </div>
+        )}
         {phase === "done" && result && (
-          <div role="status" style={{marginTop:12,padding:"18px 14px",background:T.bgDeep,border:"2px solid #1C1D21",borderRadius:14,boxShadow:T.shadow}}>
+          <div role="status" aria-label="Arcade result" style={{marginTop:12,padding:"18px 14px",background:T.bgDeep,border:"2px solid #1C1D21",borderRadius:14,boxShadow:T.shadow}}>
             <div style={{...YELLOW_STICKER_TEXT,fontSize:16,textTransform:"uppercase"}}>
               {result.prize ? `${result.prize.emoji} ${result.prize.name}!` : "No prize this time"}
             </div>
             <div style={{fontFamily:"'Outfit',sans-serif",fontSize:14,margin:"8px 0 14px"}}>
-              You caught {result.score} kernel{result.score === 1 ? "" : "s"}.
+              {result.reason === "lives" ? "Out of lives! " : "Time's up! "}
+              You scored {result.score} point{result.score === 1 ? "" : "s"}.
               {result.prize && result.isNew ? ` New curtains unlocked: ${CURTAINS.find((c) => c.prize === result.prize.id)?.name}. Pick them in the Vault.` : ""}
               {!result.prize ? ` ${PRIZE_TIERS[2].min} gets you a prize.` : ""}
             </div>
@@ -4122,13 +4240,14 @@ function ArcadeScreen({onBack, reducedMotion=false}) {
         )}
       </div>
       {phase === "playing" && (
-        <div style={{position:"absolute",left:0,right:0,top:170,bottom:0}}>
-          {kernels.map((k) => (
-            <button key={k.id} aria-label={k.burnt ? "Burnt kernel" : "Catch popcorn"} onPointerDown={() => catchKernel(k)}
-              style={{position:"absolute",left:`${k.x}%`,bottom:40,width:48,height:48,marginLeft:-24,borderRadius:"50%",padding:0,cursor:"pointer",
-                background:k.burnt ? "radial-gradient(circle at 40% 35%, #6B4A2E, #2A1A0E)" : "radial-gradient(circle at 40% 35%, #FFFBEA, #FFD84D)",
-                border:"2px solid #1C1D21",boxShadow:"0 3px 0 #1C1D21",
-                animation:reducedMotion ? "fadeIn 0.2s ease both" : "kernelArc 1.7s cubic-bezier(.25,.9,.4,1) both"}}/>
+        <div style={{position:"absolute",left:0,right:0,top:200,bottom:0}}>
+          {items.map((it) => (
+            <button key={it.id} aria-label={it.label} onPointerDown={() => catchItem(it)}
+              style={{position:"absolute",left:`${it.x}%`,bottom:40,width:it.kind === "unpopped" ? 40 : 52,height:it.kind === "unpopped" ? 40 : 52,marginLeft:-26,padding:0,
+                background:"transparent",border:"none",cursor:"pointer",filter:"drop-shadow(0 3px 0 rgba(28,29,33,0.6))",
+                animation:reducedMotion ? "fadeIn 0.2s ease both" : "kernelArc 1.7s cubic-bezier(.25,.9,.4,1) both"}}>
+              <ArcadeItemArt kind={it.kind} color={it.color}/>
+            </button>
           ))}
           <div aria-hidden="true" style={{position:"absolute",left:"50%",bottom:0,transform:"translateX(-50%)",width:120,height:60,background:"repeating-linear-gradient(90deg,#F3F4FF 0 16px,#E4444F 16px 32px)",border:"2px solid #1C1D21",borderBottom:"none",borderRadius:"10px 10px 0 0"}}/>
         </div>

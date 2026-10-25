@@ -256,6 +256,21 @@ test.describe("L. Director's Whisper hint", () => {
 })
 
 test.describe('Arcade side-quest: Popcorn Panic', () => {
+  // A fixed sequence of "random" numbers makes the falling items repeatable.
+  async function seedRandom(page) {
+    await page.addInitScript(() => {
+      let a = 12345
+      Math.random = () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296 }
+    })
+  }
+  async function startGame(page, stubs = 6) {
+    await page.addInitScript((n) => { if (!localStorage.getItem('plotmix_stubs')) localStorage.setItem('plotmix_stubs', JSON.stringify({ earned: n, spent: 0 })) }, stubs)
+    await openMenu(page)
+    await page.getByRole('button', { name: 'Arcade' }).click()
+    await page.getByRole('button', { name: 'Play Popcorn Panic' }).click()
+  }
+  const tap = (page, name) => page.getByRole('button', { name, exact: true }).first().dispatchEvent('pointerdown')
+
   test('locked until there are 5 stubs', async ({ page }) => {
     await openMenu(page)
     await page.getByRole('button', { name: 'Arcade' }).click()
@@ -263,19 +278,45 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
     await expect(page.getByLabel('Stubs to spend')).toHaveText('You have 1 🎟️. Solve 4 more cards to play')
   })
 
+  test('items look like popcorn, burnt popcorn, unpopped kernels and chocolate candies', async ({ page }) => {
+    await seedRandom(page)
+    await startGame(page)
+    for (const name of ['Popcorn', 'Burnt popcorn', 'Unpopped kernel', 'Chocolate candy']) {
+      await expect(page.getByRole('button', { name, exact: true }).first()).toBeAttached({ timeout: 15_000 })
+    }
+  })
+
+  test('catching burnt popcorn or an unpopped kernel costs a life; 3 lost ends the game', async ({ page }) => {
+    await seedRandom(page)
+    await startGame(page)
+    await expect(page.getByLabel('Lives: 3')).toBeVisible()
+    for (const n of [2, 1, 0]) {
+      const bad = page.getByRole('button', { name: /^(Burnt popcorn|Unpopped kernel)$/ }).first()
+      await expect(bad).toBeAttached({ timeout: 15_000 })
+      await bad.dispatchEvent('pointerdown')
+      if (n > 0) await expect(page.getByLabel(`Lives: ${n}`)).toBeVisible()
+    }
+    await expect(page.getByLabel('Arcade result')).toContainText('Out of lives!')
+  })
+
+  test('a chocolate candy gives a boost', async ({ page }) => {
+    await seedRandom(page)
+    await startGame(page)
+    await expect(page.getByRole('button', { name: 'Chocolate candy', exact: true }).first()).toBeAttached({ timeout: 15_000 })
+    await tap(page, 'Chocolate candy')
+    await expect(page.getByLabel('Arcade event')).toContainText('🍫')
+  })
+
   test('a game costs 5 stubs, lasts 20 seconds and awards a prize', async ({ page }) => {
     test.setTimeout(60_000)
-    await page.addInitScript(() => { if (!localStorage.getItem('plotmix_stubs')) localStorage.setItem('plotmix_stubs', JSON.stringify({ earned: 6, spent: 0 })) })
-    await openMenu(page)
-    await page.getByRole('button', { name: 'Arcade' }).click()
-    await page.getByRole('button', { name: 'Play Popcorn Panic' }).click()
+    await startGame(page)
     const end = Date.now() + 22_000
-    while (Date.now() < end && !(await page.getByRole('status').count())) {
-      const k = page.getByRole('button', { name: 'Catch popcorn' })
+    while (Date.now() < end && !(await page.getByLabel('Arcade result').count())) {
+      const k = page.getByRole('button', { name: 'Popcorn', exact: true })
       if (await k.count()) await k.first().dispatchEvent('pointerdown').catch(() => {})
       await page.waitForTimeout(80)
     }
-    await expect(page.getByRole('status')).toContainText(/Reel!/)
+    await expect(page.getByLabel('Arcade result')).toContainText(/Reel!/)
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('plotmix_stubs')))).toEqual({ earned: 6, spent: 5 })
     const prizes = await page.evaluate(() => JSON.parse(localStorage.getItem('plotmix_prizes')))
     expect(prizes.won.length).toBe(1)
