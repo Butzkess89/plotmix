@@ -112,31 +112,18 @@ test.describe('E. Points roll and shake', () => {
 
 const dayNumber = (y, m, d) => Math.floor(Date.UTC(y, m - 1, d) / 86400000)
 
-test.describe('F. Film Vault and ticket stubs', () => {
-  test('a solved card adds its stub to the Vault, after the welcome stub', async ({ page }) => {
-    await resumeStandardWithCards(page, [77, 1])
-    await submitGuess(page, 'The Nightmare Before Christmas Story')
-    await page.getByRole('button', { name: 'Next' }).click()
-    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('plotmix_vault') || '[]'))).toEqual([77])
-    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('plotmix_stubs')))).toEqual({ earned: 2, spent: 0 })
-    await page.getByRole('button', { name: 'Exit to menu' }).click()
-    await page.getByRole('button', { name: 'Film Vault' }).click()
-    await expect(page.getByLabel('Vault progress')).toHaveText('2/95 stubs collected')
-    await expect(page.getByLabel('Stub: The Nightmare Before Christmas Story')).toBeVisible()
-  })
-
-  test('replaying a finished Daily earns no extra stub', async ({ page }) => {
-    await pinDailyDate(page)
+test.describe('F. Popcorn Panic on the menu', () => {
+  test('sits under Speed Run as a popcorn bucket, with no Film Vault', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('plotmix_arcade_passes', '2'))
     await openMenu(page)
-    await startMode(page, 'daily')
-    const card = await currentCard(page, 'daily')
-    await submitGuess(page, card.mashedTitle)
-    await page.getByRole('button', { name: 'Finish' }).click()
-    await page.getByRole('button', { name: 'Play Again' }).click()
-    await submitGuess(page, card.mashedTitle)
-    await page.getByRole('button', { name: 'Finish' }).click()
-    await expect(page.getByText('The End')).toBeVisible()
-    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('plotmix_stubs')).earned)).toBe(2)
+    const btn = page.getByRole('button', { name: 'Popcorn Panic', exact: true })
+    await expect(btn).toContainText('2 plays')
+    const speed = await page.getByRole('button', { name: 'Speed Run' }).boundingBox()
+    const box = await btn.boundingBox()
+    expect(box.y).toBeGreaterThan(speed.y + speed.height - 1)
+    await expect(page.getByRole('button', { name: 'Film Vault' })).toHaveCount(0)
+    await btn.click()
+    await expect(page.getByLabel('Arcade passes')).toHaveText('You have 2 plays')
   })
 })
 
@@ -266,7 +253,7 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
   async function startGame(page, passes = 1) {
     await page.addInitScript((n) => { if (localStorage.getItem('plotmix_arcade_passes') === null) localStorage.setItem('plotmix_arcade_passes', String(n)) }, passes)
     await openMenu(page)
-    await page.getByRole('button', { name: 'Arcade' }).click()
+    await page.getByRole('button', { name: 'Popcorn Panic', exact: true }).click()
     await page.getByRole('button', { name: 'Play Popcorn Panic' }).click()
   }
   // Pieces fall; the player slides the popcorn box (it follows the pointer) under them.
@@ -302,9 +289,9 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
 
   test('locked until earned, with no rules or prize list up front', async ({ page }) => {
     await openMenu(page)
-    await page.getByRole('button', { name: 'Arcade' }).click()
+    await page.getByRole('button', { name: 'Popcorn Panic', exact: true }).click()
     await expect(page.getByRole('button', { name: 'Play Popcorn Panic' })).toBeDisabled()
-    await expect(page.getByLabel('Arcade passes')).toHaveText('🔒 Keep solving mashups to unlock a play')
+    await expect(page.getByLabel('Arcade passes')).toHaveText('🔒 Solve 5 mashups in a row in Standard or Speed Run to unlock a play')
     await expect(page.getByText(/Burnt popcorn|Reel|Free Hint|points:/)).toHaveCount(0)
   })
 
@@ -379,7 +366,7 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
     // No paying to play again: the only way out is Done, and the play is used up.
     await expect(page.getByRole('button', { name: /play again/i })).toHaveCount(0)
     await page.getByRole('button', { name: 'Done' }).click()
-    await page.getByRole('button', { name: 'Arcade' }).click()
+    await page.getByRole('button', { name: 'Popcorn Panic', exact: true }).click()
     await expect(page.getByRole('button', { name: 'Play Popcorn Panic' })).toBeDisabled()
   })
 
@@ -423,7 +410,7 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
     const power = await page.evaluate(() => JSON.parse(localStorage.getItem('plotmix_powerups')))
     expect(power.hint + power.peek).toBeGreaterThan(0)
     await page.getByRole('button', { name: 'Done' }).click()
-    await page.getByRole('button', { name: 'Film Vault' }).click()
+    await page.getByRole('button', { name: 'Popcorn Panic', exact: true }).click()
     await expect(page.getByRole('button', { name: /Curtains: (Midnight Blue|Emerald|Gold Lamé)$/ })).toBeEnabled()
   })
 })

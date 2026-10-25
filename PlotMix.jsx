@@ -2902,8 +2902,9 @@ const MODE_CARD_HITS = [
 ];
 const MODE_CARD_ORDER = ["daily", "standard", "speedrun"];
 
-function ModeSelect({onSelect}) {
+function ModeSelect({onSelect, onArcade}) {
   const [sessions,setSessions]=useState(()=>loadAllSessionsList());
+  const passes=arcadePasses();
   const dailyDone=hasDoneDaily();
   const mostRecentSession = sessions[0];
   const byId = Object.fromEntries(GAME_MODES.map(m=>[m.id,m]));
@@ -2933,6 +2934,17 @@ function ModeSelect({onSelect}) {
                 zIndex:3}}/>
           );
         })}
+
+        {/* Popcorn Panic sits under Speed Run (owner request 2026-10-25): plays are won by
+            solving 5 mashups in a row in Standard or Speed Run. */}
+        <button onClick={onArcade} aria-label="Popcorn Panic"
+          style={{position:"absolute",top:`${571/874*100}%`,left:"50%",transform:"translateX(-50%)",zIndex:3,
+            display:"flex",alignItems:"center",gap:8,padding:"4px 14px 4px 8px",height:42,boxSizing:"border-box",
+            background:"#FFF8E6",border:"2px solid #1C1D21",borderRadius:21,boxShadow:"0 3px 0 #1C1D21",cursor:"pointer",whiteSpace:"nowrap"}}>
+          <PopcornBucketIcon size={30}/>
+          <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:14,color:"#1C1D21",textTransform:"uppercase",letterSpacing:"0.01em"}}>Popcorn Panic</span>
+          <span style={{fontFamily:"'Outfit',sans-serif",fontSize:12,fontWeight:700,color:"#7A5C00"}}>{passes>0?`${passes} play${passes===1?"":"s"}`:"🔒"}</span>
+        </button>
 
         <div
           aria-hidden="true"
@@ -3858,31 +3870,13 @@ const CINEMA_KEYFRAMES = `
 //
 // FILM VAULT, STUBS, ARCADE, THEMED WEEKS, DAILY STREAK (owner request 2026-10-22)
 //
-// Every solved card earns a ticket stub. The Vault keeps one stub per mashup ever solved.
-// New players start with one "Admit One" stub, so the first arcade play is already underway.
-const LS_VAULT = "plotmix_vault";
-const LS_STUBS = "plotmix_stubs";
-const LS_PRIZES = "plotmix_prizes";
-const LS_DSTREAK = "plotmix_dstreak"; // not "plotmix_daily_…": that prefix is reserved for daily results
-const WELCOME_STUBS = 1;
-
+// (Ticket stubs and the Film Vault were removed, owner decision 2026-10-25.)
 function readJSON(key, fallback) {
   try { const v = JSON.parse(localStorage.getItem(key) || "null"); return v ?? fallback; } catch { return fallback; }
 }
 function writeJSON(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch {} }
-
-function loadVault() { const v = readJSON(LS_VAULT, []); return Array.isArray(v) ? v : []; }
-function loadStubs() {
-  const v = readJSON(LS_STUBS, null);
-  return v && typeof v.earned === "number" ? v : { earned: WELCOME_STUBS, spent: 0 };
-}
-// A solved card: one stub to spend, and its mashup goes into the Vault.
-function recordSolve(cardId) {
-  const s = loadStubs();
-  writeJSON(LS_STUBS, { ...s, earned: s.earned + 1 });
-  const vault = loadVault();
-  if (!vault.includes(cardId)) writeJSON(LS_VAULT, [...vault, cardId]);
-}
+const LS_PRIZES = "plotmix_prizes";
+const LS_DSTREAK = "plotmix_dstreak"; // not "plotmix_daily_…": that prefix is reserved for daily results
 
 // Single-use power-ups won in the arcade (owner request 2026-10-25), used in Standard and
 // Speed Run (not the Daily, so shared Daily results stay comparable):
@@ -3967,70 +3961,38 @@ function maskTitleWords(text, card) {
   return text.replace(/[A-Za-z0-9'’]+/g, (w) => (words.has(normWord(w)) ? "▢".repeat(Math.min(w.length, 6)) : w));
 }
 
-const STUB_STYLE = {
-  position: "relative", border: "2px solid #1C1D21", borderRadius: 8, boxShadow: "0 3px 0 #1C1D21",
-  padding: "8px 10px", boxSizing: "border-box", minHeight: 64, display: "flex", flexDirection: "column", justifyContent: "center",
-};
-
-function VaultScreen({onBack, onArcade}) {
-  const vault = loadVault();
-  const deck = uniqueCardsByMoviePair(MASTER_DECK).sort((a, b) => a.id - b.id);
-  const [prizes, setPrizes] = useState(loadPrizes);
-  const pickCurtain = (id) => { const next = { ...prizes, curtain: id }; writeJSON(LS_PRIZES, next); setPrizes(next); };
+// A popcorn box overflowing with popcorn (menu button for Popcorn Panic).
+function PopcornBucketIcon({size=34}) {
   return (
-    <div style={{minHeight:"100dvh",...CHECKER_BG,color:T.textOnDark,padding:"70px 16px 32px",boxSizing:"border-box"}}>
-      <button onClick={onBack} aria-label="Back to menu" style={{position:"absolute",top:20,left:16,...BTN.cyan,padding:"8px 14px"}}>
-        <span style={{...WHITE_STICKER_TEXT,fontSize:11,textTransform:"uppercase"}}>← Menu</span>
-      </button>
-      <div style={{maxWidth:402,margin:"0 auto"}}>
-        <div style={{...WHITE_STICKER_TEXT,fontSize:26,textAlign:"center",textTransform:"uppercase"}}>Film Vault</div>
-        <div aria-label="Vault progress" style={{...YELLOW_STICKER_TEXT,fontSize:13,textAlign:"center",margin:"8px 0 4px",textTransform:"uppercase"}}>
-          {vault.length + 1}/{deck.length + 1} stubs collected
-        </div>
-        <div style={{height:10,background:"rgba(0,0,0,0.3)",border:"1.5px solid #1C1D21",borderRadius:6,overflow:"hidden",margin:"0 0 14px"}}>
-          <div style={{height:"100%",width:`${((vault.length + 1) / (deck.length + 1)) * 100}%`,background:"#FFD84D"}}/>
-        </div>
-        <button onClick={onArcade} aria-label="Open arcade" style={{...BTN.primary,width:"100%",padding:"12px 0",marginBottom:16}}>
-          <span style={{...WHITE_STICKER_TEXT,fontSize:13,textTransform:"uppercase"}}>🕹️ Arcade · {arcadePasses()} play{arcadePasses()===1?"":"s"}</span>
-        </button>
+    <svg width={size} height={size} viewBox="0 0 40 40" aria-hidden="true">
+      {[[11,13],[18,9],[26,11],[31,15],[15,16],[23,15],[8,17]].map(([x,y],i)=>(
+        <g key={i}><circle cx={x} cy={y} r="5.2" fill="#FFF8E6" stroke="#1C1D21" strokeWidth="1.2"/><circle cx={x+1.3} cy={y-1} r="1.6" fill="#FFD84D"/></g>
+      ))}
+      <path d="M5 18 H35 L31 38 H9 Z" fill="#F7F4EE" stroke="#1C1D21" strokeWidth="1.6" strokeLinejoin="round"/>
+      <path d="M11 18 L13 38 M20 18 V38 M29 18 L27 38" stroke="#D8262F" strokeWidth="4"/>
+      <path d="M5 18 H35 L31 38 H9 Z" fill="none" stroke="#1C1D21" strokeWidth="1.6" strokeLinejoin="round"/>
+    </svg>
+  );
+}
 
-        <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:13,margin:"0 0 8px"}}>Curtain colour</div>
-        <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:18}}>
-          {CURTAINS.map((c) => {
-            const owned = !c.prize || prizes.won.includes(c.prize);
-            const tier = PRIZE_TIERS.find((p) => p.id === c.prize);
-            return (
-              <button key={c.id} onClick={() => owned && pickCurtain(c.id)} disabled={!owned} aria-pressed={prizes.curtain === c.id}
-                aria-label={`Curtains: ${c.name}${owned ? "" : " (locked)"}`}
-                style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:10,cursor:owned?"pointer":"not-allowed",
-                  background:prizes.curtain === c.id ? "#FFD84D" : "rgba(255,255,255,0.12)",border:"2px solid #1C1D21",opacity:owned?1:0.5}}>
-                <span style={{width:16,height:16,borderRadius:4,background:`linear-gradient(90deg,${c.colors[0]},${c.colors[1]})`,border:"1px solid #1C1D21"}}/>
-                <span style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:12,color:prizes.curtain === c.id ? "#1C1D21" : "#fff"}}>
-                  {c.name}{owned ? "" : ` · ${tier?.emoji} prize`}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        <div style={{display:"grid",gridTemplateColumns:"repeat(2, 1fr)",gap:10}}>
-          <div style={{...STUB_STYLE,background:"#FFD84D"}}>
-            <div style={{fontFamily:FONT_FIGMA_STICKER,fontSize:9,color:"#1C1D21"}}>WELCOME</div>
-            <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:800,fontSize:13,color:"#1C1D21"}}>Admit One</div>
-          </div>
-          {deck.map((c) => {
-            const has = vault.includes(c.id);
-            return (
-              <div key={c.id} aria-label={has ? `Stub: ${c.mashedTitle}` : "Stub: not yet solved"}
-                style={{...STUB_STYLE,background:has ? "#F3F4FF" : "rgba(255,255,255,0.08)",borderStyle:has?"solid":"dashed"}}>
-                <div style={{fontFamily:FONT_FIGMA_STICKER,fontSize:9,color:has?"#44408E":"rgba(255,255,255,0.5)"}}>#{c.id}</div>
-                <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:800,fontSize:12.5,lineHeight:1.2,color:has?"#1C1D21":"rgba(255,255,255,0.45)"}}>
-                  {has ? c.mashedTitle : "???"}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+// Curtain colours won in Popcorn Panic; shown in the arcade only once one has been won
+// (the Film Vault was removed, owner decision 2026-10-25).
+function CurtainPicker() {
+  const [prizes, setPrizes] = useState(loadPrizes);
+  if (!prizes.won.length) return null;
+  const pick = (id) => { const next = { ...prizes, curtain: id }; writeJSON(LS_PRIZES, next); setPrizes(next); };
+  return (
+    <div style={{marginTop:18}}>
+      <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:13,margin:"0 0 8px"}}>Your curtains</div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"center"}}>
+        {CURTAINS.filter((c) => !c.prize || prizes.won.includes(c.prize)).map((c) => (
+          <button key={c.id} onClick={() => pick(c.id)} aria-pressed={prizes.curtain === c.id} aria-label={`Curtains: ${c.name}`}
+            style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:10,cursor:"pointer",
+              background:prizes.curtain === c.id ? "#FFD84D" : "rgba(255,255,255,0.12)",border:"2px solid #1C1D21"}}>
+            <span style={{width:16,height:16,borderRadius:4,background:`linear-gradient(90deg,${c.colors[0]},${c.colors[1]})`,border:"1px solid #1C1D21"}}/>
+            <span style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:12,color:prizes.curtain === c.id ? "#1C1D21" : "#fff"}}>{c.name}</span>
+          </button>
+        ))}
       </div>
     </div>
   );
@@ -4374,9 +4336,10 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
               <span style={{...WHITE_STICKER_TEXT,fontSize:14,textTransform:"uppercase"}}>{passes > 0 ? "Play" : "Locked"}</span>
             </button>
             <div aria-label="Arcade passes" style={{...YELLOW_STICKER_TEXT,fontSize:12,marginTop:10,textTransform:"uppercase",lineHeight:1.5}}>
-              {passes > 0 ? `You have ${passes} play${passes === 1 ? "" : "s"}` : "🔒 Keep solving mashups to unlock a play"}
+              {passes > 0 ? `You have ${passes} play${passes === 1 ? "" : "s"}` : "🔒 Solve 5 mashups in a row in Standard or Speed Run to unlock a play"}
             </div>
             {best > 0 && <div style={{fontFamily:"'Outfit',sans-serif",fontSize:13,marginTop:8,opacity:0.85}}>Best score: {best}</div>}
+            <CurtainPicker/>
           </div>
         )}
         {phase !== "lobby" && (
@@ -4411,7 +4374,7 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
             <div style={{fontFamily:"'Outfit',sans-serif",fontSize:14,margin:"8px 0 14px"}}>
               Out of lives on level {result.level}! You scored {result.score} point{result.score === 1 ? "" : "s"}.
               {result.prize ? ` You won ${result.prize.reward} to use in Standard or Speed Run.` : " Keep popping!"}
-              {result.prize && result.isNew ? ` New curtains unlocked: ${CURTAINS.find((c) => c.prize === result.prize.id)?.name}.` : ""}
+              {result.prize && result.isNew ? ` New curtains unlocked: ${CURTAINS.find((c) => c.prize === result.prize.id)?.name} (choose them on the Popcorn Panic screen).` : ""}
             </div>
             <button onClick={onBack} style={{...BTN.cyan,width:"100%",padding:"12px 0"}}>
               <span style={{...WHITE_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>{embedded ? "Back to the game" : "Done"}</span>
@@ -5148,8 +5111,6 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
 
     const newStreak=updateStreak(both);
     setStreak(newStreak);
-    // A solved card earns a ticket stub (a replayed Daily doesn't).
-    if (both && !(isRewound && activeIdx !== cardIdx) && !(mode.isDaily && hasDoneDaily())) recordSolve(card.id);
     const newTotal=totalScore+pts;
     setTotalScore(newTotal);
     const roundResult={card,found:effectiveFound,solved:both,guesses:guesses.length,hints:hintsRevealed.length,guessList:[...guesses],hintList:[...hintsRevealed],pts,reward:currentReward};
@@ -5422,7 +5383,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
             <button onClick={()=>setArcadeOffer(null)} style={{...BTN.cyan,width:"100%",padding:"12px 0"}}>
               <span style={{...WHITE_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>Keep guessing</span>
             </button>
-            <div style={{fontFamily:"'Outfit',sans-serif",fontSize:12,opacity:0.8,marginTop:10}}>Not now? The play stays in the 🕹️ arcade on the menu.</div>
+            <div style={{fontFamily:"'Outfit',sans-serif",fontSize:12,opacity:0.8,marginTop:10}}>Not now? The play is saved: find Popcorn Panic under Speed Run on the menu.</div>
           </div>
         </div>
       )}
@@ -5873,7 +5834,7 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,onMenu,onPlayAgain
 
         {/* Stubs, Daily streak, install */}
         <div aria-label="Stubs" style={{fontFamily:"'Outfit',sans-serif",fontSize:12.5,color:"rgba(255,255,255,0.9)",marginBottom:mode.isDaily?6:14}}>
-          🎟️ Vault {loadVault().length}/{uniqueCardsByMoviePair(MASTER_DECK).length} · 🍿 {arcadePasses()} arcade play{arcadePasses()===1?"":"s"} (earn one per {ARCADE_STREAK_FOR_PASS} in a row)
+          🍿 {arcadePasses()} Popcorn Panic play{arcadePasses()===1?"":"s"} saved
         </div>
         {mode.isDaily && (()=>{
           const st=loadDailyStreak();
@@ -6130,21 +6091,12 @@ function PlotMixApp() {
       `}</style>
       {screen==="intro"&&<IntroVideoScreen onDone={()=>setScreen(hasOnboarded()?"menu":"onboarding")}/>}
       {screen==="onboarding"&&<Onboarding onDone={()=>{markOnboarded();setScreen("menu");}} onSkip={()=>{markOnboarded();setScreen("menu");}} showSkip/>}
-      {screen==="menu"&&<ModeSelect onSelect={handleModeSelect}/>}
+      {screen==="menu"&&<ModeSelect onSelect={handleModeSelect} onArcade={()=>setScreen("arcade")}/>}
       {screen==="game"&&mode&&<GameScreen mode={mode} deck={deck} initialState={resumeState} onQuit={goMenu} onComplete={handleComplete} reducedMotion={reducedMotion}/>}
       {screen==="end"&&completedRun&&<EndScreen mode={completedRun.mode} results={completedRun.results} totalScore={completedRun.totalScore} dailyReplay={completedRun.dailyReplay} onMenu={goMenu} onPlayAgain={handlePlayAgain} reducedMotion={reducedMotion}/>}
       {/* Not during play: it overlaps the Skip button and swallows its clicks,
           and the Figma gameplay frame has no floating help button. */}
       {screen==="menu"&&<HelpButton onClick={()=>setShowHelp(true)}/>}
-      {screen==="menu"&&(
-        <>
-          <button onClick={()=>setScreen("vault")} aria-label="Film Vault"
-            style={{position:"fixed",bottom:80,left:24,zIndex:100,width:44,height:44,borderRadius:"50%",background:"#FFD84D",border:`2px solid ${T.border}`,boxShadow:T.shadow,cursor:"pointer",padding:0,fontSize:20,lineHeight:1}}>🎟️</button>
-          <button onClick={()=>setScreen("arcade")} aria-label="Arcade"
-            style={{position:"fixed",bottom:80,right:24,zIndex:100,width:44,height:44,borderRadius:"50%",background:"#FF4A6E",border:`2px solid ${T.border}`,boxShadow:T.shadow,cursor:"pointer",padding:0,fontSize:20,lineHeight:1}}>🕹️</button>
-        </>
-      )}
-      {screen==="vault"&&<VaultScreen onBack={goMenu} onArcade={()=>setScreen("arcade")}/>}
       {screen==="arcade"&&<ArcadeScreen onBack={goMenu} reducedMotion={reducedMotion}/>}
       {screen==="menu"&&<SoundToggle style={{position:"fixed",bottom:26,left:24,zIndex:100}}/>}
       {showHelp&&<HowToPlayModal onClose={()=>setShowHelp(false)}/>}
