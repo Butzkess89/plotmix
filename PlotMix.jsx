@@ -4157,7 +4157,8 @@ function PopcornBox() {
   );
 }
 
-function ArcadeScreen({onBack, reducedMotion=false}) {
+// embedded: opened straight from a round (5 in a row); starts at once and returns to the game.
+function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
   const [phase, setPhase] = useState("lobby"); // lobby | playing | done
   const [passes, setPasses] = useState(arcadePasses);
   const [score, setScore] = useState(0);
@@ -4189,6 +4190,14 @@ function ArcadeScreen({onBack, reducedMotion=false}) {
     setBoost(null); setFlash(null); setItems([]); setResult(null);
     setPhase("playing");
   };
+
+  // Opened from a round: start straight away (the play was just earned).
+  const autoStartedRef = useRef(false);
+  useEffect(() => {
+    if (!embedded || autoStartedRef.current) return;
+    autoStartedRef.current = true;
+    start();
+  }, [embedded]);
 
   useEffect(() => {
     if (phase !== "playing") return;
@@ -4294,35 +4303,27 @@ function ArcadeScreen({onBack, reducedMotion=false}) {
   return (
     <div style={{minHeight:"100dvh",...CHECKER_BG,color:T.textOnDark,position:"relative",overflow:"hidden",boxSizing:"border-box",
       boxShadow:frenzy && !reducedMotion ? "inset 0 0 60px 10px rgba(255,216,77,0.55)" : "none",transition:"box-shadow 0.3s ease"}}>
-      <button onClick={onBack} aria-label="Back" style={{position:"absolute",top:20,left:16,zIndex:5,...BTN.cyan,padding:"8px 14px"}}>
-        <span style={{...WHITE_STICKER_TEXT,fontSize:11,textTransform:"uppercase"}}>← Back</span>
-      </button>
+      {phase === "lobby" && (
+        <button onClick={onBack} aria-label="Back" style={{position:"absolute",top:20,left:16,zIndex:5,...BTN.cyan,padding:"8px 14px"}}>
+          <span style={{...WHITE_STICKER_TEXT,fontSize:11,textTransform:"uppercase"}}>← Back</span>
+        </button>
+      )}
       <div style={{maxWidth:402,margin:"0 auto",padding:"72px 16px 24px",textAlign:"center"}}>
         <div style={{...WHITE_STICKER_TEXT,fontSize:24,textTransform:"uppercase"}}>Popcorn Panic</div>
         {phase === "lobby" && (
           <div style={{marginTop:14}}>
-            <p style={{fontFamily:"'Outfit',sans-serif",fontSize:15,lineHeight:1.5,margin:"0 0 12px"}}>
-              The popcorn machine has gone rogue! Tap the popcorn as it flies. It gets faster and faster. You have {ARCADE_LIVES} lives.
-            </p>
-            <div style={{display:"grid",gridTemplateColumns:"40px 1fr",gap:"6px 10px",alignItems:"center",textAlign:"left",fontFamily:"'Outfit',sans-serif",fontSize:13.5,margin:"0 auto 14px",maxWidth:320}}>
-              <div style={{width:36,height:36}}><ArcadeItemArt kind="popcorn"/></div><div><b>Popcorn</b>: +1 · don't let any fall: 5 in a row ×2, 10 in a row ×3</div>
-              <div style={{width:36,height:36}}><ArcadeItemArt kind="burnt"/></div><div><b>Burnt popcorn</b>: lose a life</div>
-              <div style={{width:36,height:36}}><ArcadeItemArt kind="unpopped"/></div><div><b>Unpopped kernel</b>: lose a life</div>
-              <div style={{width:36,height:36}}><ArcadeItemArt kind="candy" color="#2F6BFF"/></div><div><b>Chocolate candy</b>: extra life, shield or double points</div>
-            </div>
-            <div style={{fontFamily:"'Outfit',sans-serif",fontSize:13,lineHeight:1.6,margin:"0 0 16px",opacity:0.9}}>
-              <div>{FRENZY_AT} in a row starts a 🍿 Popcorn Frenzy.</div>
-              {PRIZE_TIERS.slice().reverse().map((p) => <div key={p.id}>{p.emoji} {p.min}+ points: {p.reward} (and {CURTAINS.find((c) => c.prize === p.id)?.name} curtains)</div>)}
-              <div>🎟️ Free Hint: the next hint costs no points · 🍿 Popcorn Peek: fills in every third letter</div>
-              <div>Best score: {best}</div>
-            </div>
+            {/* Owner decision 2026-10-25: no rules or prize list up front; players learn by playing
+                and prizes are revealed only when won. */}
+            <div style={{width:96,height:96,margin:"6px auto 14px"}}><ArcadeItemArt kind="popcorn" variant={1}/></div>
+            <p style={{fontFamily:"'Outfit',sans-serif",fontSize:16,fontWeight:700,margin:"0 0 16px"}}>The popcorn machine has gone rogue!</p>
             <button onClick={start} disabled={passes < 1} aria-label="Play Popcorn Panic"
               style={{...BTN.primary,width:"100%",padding:"14px 0",opacity:passes < 1 ? 0.5 : 1,cursor:passes < 1 ? "not-allowed" : "pointer"}}>
               <span style={{...WHITE_STICKER_TEXT,fontSize:14,textTransform:"uppercase"}}>{passes > 0 ? "Play" : "Locked"}</span>
             </button>
             <div aria-label="Arcade passes" style={{...YELLOW_STICKER_TEXT,fontSize:12,marginTop:10,textTransform:"uppercase",lineHeight:1.5}}>
-              {passes > 0 ? `You have ${passes} play${passes === 1 ? "" : "s"}` : `Solve ${ARCADE_STREAK_FOR_PASS} mashups in a row to earn a play`}
+              {passes > 0 ? `You have ${passes} play${passes === 1 ? "" : "s"}` : "🔒 Keep solving mashups to unlock a play"}
             </div>
+            {best > 0 && <div style={{fontFamily:"'Outfit',sans-serif",fontSize:13,marginTop:8,opacity:0.85}}>Best score: {best}</div>}
           </div>
         )}
         {phase !== "lobby" && (
@@ -4356,11 +4357,11 @@ function ArcadeScreen({onBack, reducedMotion=false}) {
             </div>
             <div style={{fontFamily:"'Outfit',sans-serif",fontSize:14,margin:"8px 0 14px"}}>
               Out of lives on level {result.level}! You scored {result.score} point{result.score === 1 ? "" : "s"}.
-              {result.prize ? ` You won ${result.prize.reward} to use in Standard or Speed Run.` : ` ${PRIZE_TIERS[2].min} points wins a power-up.`}
+              {result.prize ? ` You won ${result.prize.reward} to use in Standard or Speed Run.` : " Keep popping!"}
               {result.prize && result.isNew ? ` New curtains unlocked: ${CURTAINS.find((c) => c.prize === result.prize.id)?.name}.` : ""}
             </div>
             <button onClick={onBack} style={{...BTN.cyan,width:"100%",padding:"12px 0"}}>
-              <span style={{...WHITE_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>Done</span>
+              <span style={{...WHITE_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>{embedded ? "Back to the game" : "Done"}</span>
             </button>
           </div>
         )}
@@ -4698,6 +4699,9 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   const clapperTimerRef=useRef(null);
   const [popKey,setPopKey]=useState(0);
   const [badgeToast,setBadgeToast]=useState(null);
+  // 5 in a row earns a Popcorn Panic play; on Next the player chooses to play it now or keep guessing.
+  const arcadeOfferRef=useRef(false);
+  const [arcadeOffer,setArcadeOffer]=useState(null); // null | "ask" | "playing"
   const badgeToastTimerRef=useRef(null);
   const [themedWeek]=useState(()=>mode.isDaily ? activeThemedWeek() : null);
   const [dailyLine]=useState(()=>mode.isDaily && !initialState ? pickRandom("trailer", themedWeek ? themedWeek.lines : TRAILER_OPENERS) : null);
@@ -4997,6 +5001,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   },[phase]);
 
   const handleResultNext=()=>{
+    if(arcadeOfferRef.current && !resultAppliedRef.current){ arcadeOfferRef.current=false; setArcadeOffer("ask"); return; }
     if(resultAppliedRef.current) return;
     resultAppliedRef.current=true;
     if(skipped){
@@ -5152,10 +5157,10 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     if(runStreak>=5) ids.push("boxOfficeSmash");
     const fresh=earnBadges(ids);
     const toasts=BADGES.filter(b=>fresh.includes(b.id));
-    // Every 5 mashups in a row earns a play of Popcorn Panic.
+    // Every 5 mashups in a row earns a play of Popcorn Panic, offered when the player taps Next.
     if(runStreak>0 && runStreak % ARCADE_STREAK_FOR_PASS === 0){
       addArcadePass();
-      toasts.push({id:"arcade-pass",emoji:"🍿",title:`${runStreak} in a row! Popcorn Panic play earned`});
+      arcadeOfferRef.current=true;
     }
     if(!toasts.length) return;
     SFX.badge();
@@ -5280,6 +5285,28 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
             <span style={{fontSize:15,lineHeight:1}}>{genreTransition.emoji}</span>
             <span style={{...WHITE_STICKER_TEXT,fontSize:11,letterSpacing:"0.04em",textTransform:"uppercase",lineHeight:1}}>{genreTransition.tag}</span>
           </div>
+        </div>
+      )}
+
+      {arcadeOffer==="ask" && (
+        <div role="dialog" aria-label="Popcorn Panic offer" style={{position:"fixed",inset:0,zIndex:600,background:"rgba(0,0,0,0.55)",display:"flex",alignItems:"center",justifyContent:"center",padding:18}}>
+          <div style={{width:"100%",maxWidth:340,background:T.bgDeep,border:`2px solid ${T.border}`,borderRadius:16,boxShadow:T.shadowLg,padding:"22px 20px",textAlign:"center",animation:reducedMotion?"none":"titlePop 0.4s ease both"}}>
+            <div style={{width:84,height:84,margin:"0 auto 8px"}}><ArcadeItemArt kind="popcorn" variant={2}/></div>
+            <div style={{...YELLOW_STICKER_TEXT,fontSize:18,textTransform:"uppercase",lineHeight:1.3}}>{runStreak} in a row!</div>
+            <p style={{fontFamily:"'Outfit',sans-serif",fontSize:15,margin:"8px 0 18px"}}>You've unlocked Popcorn Panic. Play now for a chance at prizes?</p>
+            <button onClick={()=>setArcadeOffer("playing")} style={{...BTN.primary,width:"100%",padding:"13px 0",marginBottom:10}}>
+              <span style={{...WHITE_STICKER_TEXT,fontSize:13,textTransform:"uppercase"}}>🍿 Play Popcorn Panic</span>
+            </button>
+            <button onClick={()=>{ setArcadeOffer(null); handleResultNext(); }} style={{...BTN.cyan,width:"100%",padding:"12px 0"}}>
+              <span style={{...WHITE_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>Keep guessing</span>
+            </button>
+            <div style={{fontFamily:"'Outfit',sans-serif",fontSize:12,opacity:0.8,marginTop:10}}>Not now? The play stays in the 🕹️ arcade on the menu.</div>
+          </div>
+        </div>
+      )}
+      {arcadeOffer==="playing" && (
+        <div style={{position:"fixed",inset:0,zIndex:650,overflowY:"auto"}}>
+          <ArcadeScreen embedded reducedMotion={reducedMotion} onBack={()=>{ setArcadeOffer(null); handleResultNext(); }}/>
         </div>
       )}
 

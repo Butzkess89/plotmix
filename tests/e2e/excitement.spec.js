@@ -2,7 +2,7 @@
 // research-based excitement features (Tier 1-3) plus the arcade side-quest.
 import { test, expect } from '@playwright/test'
 import {
-  openMenu, startMode, submitGuess, guessInput, currentCard, pinDailyDate, resumeStandardWithCards,
+  openMenu, startMode, submitGuess, guessInput, currentCard, pinDailyDate, resumeStandardWithCards, waitForSave,
 } from './helpers.js'
 
 const LONGEST_PLOT_CARD = 57
@@ -284,24 +284,43 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
     }
   }
 
-  test('locked until earned by 5 mashups in a row', async ({ page }) => {
+  test('locked until earned, with no rules or prize list up front', async ({ page }) => {
     await openMenu(page)
     await page.getByRole('button', { name: 'Arcade' }).click()
     await expect(page.getByRole('button', { name: 'Play Popcorn Panic' })).toBeDisabled()
-    await expect(page.getByLabel('Arcade passes')).toHaveText('Solve 5 mashups in a row to earn a play')
+    await expect(page.getByLabel('Arcade passes')).toHaveText('🔒 Keep solving mashups to unlock a play')
+    await expect(page.getByText(/Burnt popcorn|Reel|Free Hint|points:/)).toHaveCount(0)
   })
 
-  test('solving 5 mashups in a row earns one play', async ({ page }) => {
+  async function solveFiveInARow(page) {
     const { readDeck } = await import('./helpers.js')
     const ids = [77, 1, 2, 3, 11]
     const deck = readDeck()
     await resumeStandardWithCards(page, ids)
-    for (const [i, id] of ids.entries()) {
+    for (const id of ids) {
       await submitGuess(page, deck.find((c) => c.id === id).mashedTitle)
-      if (i === 4) await expect(page.getByText('5 in a row! Popcorn Panic play earned')).toBeVisible()
       await page.getByRole('button', { name: 'Next' }).click()
     }
+  }
+
+  test('5 in a row offers Popcorn Panic; keep guessing saves the play for later', async ({ page }) => {
+    await solveFiveInARow(page)
+    await expect(page.getByRole('dialog', { name: 'Popcorn Panic offer' })).toBeVisible()
+    await page.getByRole('button', { name: 'Keep guessing' }).click()
+    await waitForSave(page, 'standard', (s) => s.cardIdx === 5)
     expect(await page.evaluate(() => localStorage.getItem('plotmix_arcade_passes'))).toBe('1')
+  })
+
+  test('playing from the offer starts the game at once and returns to the next card', async ({ page }) => {
+    await seedRandom(page)
+    await solveFiveInARow(page)
+    await page.getByRole('button', { name: '🍿 Play Popcorn Panic' }).click()
+    await expect(page.getByLabel('Lives: 3')).toBeVisible()
+    await loseAllLives(page)
+    await page.getByRole('button', { name: 'Back to the game' }).click()
+    await waitForSave(page, 'standard', (s) => s.cardIdx === 5)
+    await expect(guessInput(page)).toBeEnabled()
+    expect(await page.evaluate(() => localStorage.getItem('plotmix_arcade_passes'))).toBe('0')
   })
 
   test('pieces look like popcorn, burnt popcorn, unpopped kernels and chocolate candies', async ({ page }) => {
