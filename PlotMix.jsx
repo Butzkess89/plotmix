@@ -1871,6 +1871,15 @@ function buzz(pattern) {
 }
 
 const SFX = {
+  laser: () => {
+    playTone(1500, "sawtooth", 0.06, 0.05);
+    playTone(900, "sawtooth", 0.08, 0.05, 0.04);
+    playTone(500, "square", 0.08, 0.03, 0.09);
+  },
+  boom: () => {
+    playTone(120, "square", 0.22, 0.09);
+    playTone(70, "sawtooth", 0.3, 0.08, 0.03);
+  },
   correct: () => {
     // Rising chime — two bright tones
     playTone(523.25, "sine", 0.18, 0.22);        // C5
@@ -3842,6 +3851,9 @@ function BadgeToast({badges}) {
 }
 
 const CINEMA_KEYFRAMES = `
+  @keyframes boomBurst { 0%{opacity:1; transform:translate(-50%,-50%) scale(0.25)} 60%{opacity:1} 100%{opacity:0; transform:translate(-50%,-50%) scale(1.5)} }
+  @keyframes boomSpark { 0%{opacity:1; transform:translate(-50%,-50%)} 100%{opacity:0; transform:translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0.3)} }
+  @keyframes laserBeam { 0%{opacity:1; transform:scaleX(1.6)} 100%{opacity:0; transform:scaleX(0.4)} }
   @keyframes clapperIn { 0%{opacity:0; transform:translateX(-50%) translateY(10px) scale(0.9)} 12%{opacity:1; transform:translateX(-50%) translateY(0) scale(1)} 82%{opacity:1; transform:translateX(-50%) translateY(0) scale(1)} 100%{opacity:0; transform:translateX(-50%) translateY(-8px) scale(0.98)} }
   @keyframes clapSnap { 0%{transform:rotate(-30deg)} 55%{transform:rotate(0deg)} 70%{transform:rotate(-5deg)} 100%{transform:rotate(0deg)} }
   @keyframes kernelPop { 0%{opacity:1; transform:translate(0,0) scale(0.4)} 70%{opacity:1} 100%{opacity:0; transform:translate(var(--dx),var(--dy)) scale(1)} }
@@ -3899,9 +3911,9 @@ const CURTAINS = [
   { id: "gold",    name: "Gold Lamé",     colors: ["#8A5A00", "#E0A82E"], prize: "gold" },
 ];
 const PRIZE_TIERS = [
-  { id: "gold",   min: 25, name: "Gold Reel",   emoji: "🥇", powerups: { hint: 1, peek: 1 }, reward: "a Free Hint and a Popcorn Peek" },
-  { id: "silver", min: 15, name: "Silver Reel", emoji: "🥈", powerups: { peek: 1 },          reward: "a Popcorn Peek" },
-  { id: "bronze", min: 8,  name: "Bronze Reel", emoji: "🥉", powerups: { hint: 1 },          reward: "a Free Hint" },
+  { id: "gold",   min: 150, name: "Gold Reel",   emoji: "🥇", powerups: { hint: 1, peek: 1 }, reward: "a Free Hint and a Popcorn Peek" },
+  { id: "silver", min: 90,  name: "Silver Reel", emoji: "🥈", powerups: { peek: 1 },          reward: "a Popcorn Peek" },
+  { id: "bronze", min: 40, name: "Bronze Reel", emoji: "🥉", powerups: { hint: 1 },          reward: "a Free Hint" },
 ];
 function loadPrizes() {
   const v = readJSON(LS_PRIZES, null);
@@ -4010,10 +4022,16 @@ function CurtainPicker() {
 // A play is earned by solving 5 mashups in a row (no paying to replay).
 const ARCADE_LIVES = 3;
 const ARCADE_LEVEL_MS = 5000;
-const ARCADE_BASE_SPAWN = 560, ARCADE_MIN_SPAWN = 200;   // ms between pieces
-const ARCADE_BASE_FALL = 3200, ARCADE_MIN_FALL = 1300;   // ms for a piece to fall the whole way
-const BUCKET_W = 112, BUCKET_H = 80, ARCADE_ITEM = 46;
-const FRENZY_AT = 10, FRENZY_MS = 3000, FRENZY_SPAWN_MS = 140;
+const ARCADE_GAME_MS = 45000;                            // each play lasts 45 seconds at most
+const ARCADE_BASE_SPAWN = 480, ARCADE_MIN_SPAWN = 170;   // ms between pieces
+const ARCADE_BASE_FALL = 2600, ARCADE_MIN_FALL = 1050;   // ms for a piece to fall the whole way
+const BUCKET_W = 96, BUCKET_H = 80, ARCADE_ITEM = 46;
+// A Popcorn Frenzy can no longer feed itself (owner report 2026-10-25: it chained forever):
+// the next one needs another 15 regular catches in a row; frenzy popcorn doesn't count.
+const FRENZY_AT = 15, FRENZY_MS = 2500, FRENZY_SPAWN_MS = 150;
+// Laser: tap to fire straight up from the box. 3 charges; one comes back every 3 seconds.
+const LASER_MAX = 3, LASER_RECHARGE_MS = 3000, LASER_HALF_W = 26;
+const SLOWMO_MS = 4000;
 const ARCADE_STREAK_FOR_PASS = 5;
 function comboMultiplier(c) { return c >= 10 ? 3 : c >= 5 ? 2 : 1; }
 const LS_ARCADE_PASSES = "plotmix_arcade_passes";
@@ -4030,18 +4048,27 @@ function openPopcornForTesting() {
 }
 function useArcadePass() { const n = arcadePasses(); if (n < 1) return false; writeJSON(LS_ARCADE_PASSES, n - 1); return true; }
 const BOOST_MS = 5000;
+// Good pieces score (points × combo), bad ones cost a life if caught, and the rest are boosts.
+// Cinema extras are generic objects (no film's characters, logos or designs).
 const ARCADE_ITEMS = [
-  { kind: "popcorn",  weight: 62, label: "Popcorn" },
-  { kind: "burnt",    weight: 13, label: "Burnt popcorn" },
-  { kind: "unpopped", weight: 13, label: "Unpopped kernel" },
-  { kind: "candy",    weight: 12, label: "Chocolate candy" },
+  { kind: "popcorn",  weight: 44, label: "Popcorn",         good: 1 },
+  { kind: "ticket",   weight: 4,  label: "Movie ticket",    good: 5 },
+  { kind: "reel",     weight: 6,  label: "Film reel",       good: 3 },
+  { kind: "burnt",    weight: 18, label: "Burnt popcorn",   bad: true },
+  { kind: "unpopped", weight: 14, label: "Unpopped kernel", bad: true },
+  { kind: "phone",    weight: 5,  label: "Ringing phone",   bad: true },
+  { kind: "bat",      weight: 3,  label: "Vampire bat",     bad: true },
+  { kind: "candy",    weight: 3,  label: "Chocolate candy" },
+  { kind: "glasses",  weight: 1.5, label: "3D glasses" },
+  { kind: "clapper",  weight: 1.5, label: "Clapperboard" },
 ];
+const ARCADE_KIND = Object.fromEntries(ARCADE_ITEMS.map((it) => [it.kind, it]));
 const CANDY_COLORS = ["#E4444F", "#2F6BFF", "#20B46A", "#FF9F1C", "#FFD84D", "#8B4A2B"];
 
-// Higher levels bring more burnt bits and kernels (capped at level 7).
+// Higher levels bring more bad pieces (capped at level 7).
 function pickArcadeItem(level = 1) {
   const extra = Math.min(12, (level - 1) * 2);
-  const weights = ARCADE_ITEMS.map((it) => it.kind === "popcorn" ? it.weight - 2 * extra : (it.kind === "burnt" || it.kind === "unpopped") ? it.weight + extra : it.weight);
+  const weights = ARCADE_ITEMS.map((it) => it.kind === "popcorn" ? it.weight - 2 * extra : it.bad ? it.weight + extra : it.weight);
   let r = Math.random() * weights.reduce((a, b) => a + b, 0);
   for (let i = 0; i < ARCADE_ITEMS.length; i++) { if ((r -= weights[i]) < 0) return ARCADE_ITEMS[i]; }
   return ARCADE_ITEMS[0];
@@ -4164,6 +4191,82 @@ function ArcadeItemArt({kind, color, variant=0}) {
       </svg>
     );
   }
+  if (kind === "ticket") {
+    return (
+      <svg viewBox="0 0 48 48" width="100%" height="100%" aria-hidden="true">
+        <path d="M4 14 H44 V20 A4 4 0 0 0 44 28 V34 H4 V28 A4 4 0 0 0 4 20 Z" fill="#E4444F" stroke="#1C1D21" strokeWidth="1.6" strokeLinejoin="round"/>
+        <path d="M33 15 V33" stroke="#FFF3D6" strokeWidth="1.2" strokeDasharray="2 2"/>
+        <rect x="8" y="18" width="21" height="12" rx="1.5" fill="#FFF3D6"/>
+        <text x="18.5" y="23.3" textAnchor="middle" fontSize="4.6" fontWeight="800" fill="#8E0F1F" fontFamily="Arial, sans-serif">ADMIT</text>
+        <text x="18.5" y="28.3" textAnchor="middle" fontSize="4.6" fontWeight="800" fill="#8E0F1F" fontFamily="Arial, sans-serif">ONE</text>
+        <path d="M38.5 21 l1.2 2.4 2.6 .4 -1.9 1.8 .5 2.6 -2.4 -1.2 -2.4 1.2 .5 -2.6 -1.9 -1.8 2.6 -.4 Z" fill="#FFD84D"/>
+      </svg>
+    );
+  }
+  if (kind === "reel") {
+    return (
+      <svg viewBox="0 0 48 48" width="100%" height="100%" aria-hidden="true">
+        <circle cx="24" cy="24" r="20" fill="#3A3D46" stroke="#1C1D21" strokeWidth="1.8"/>
+        <circle cx="24" cy="24" r="16.5" fill="none" stroke="#5B606C" strokeWidth="1.2"/>
+        {[0, 72, 144, 216, 288].map((a) => (
+          <circle key={a} cx={24 + 10 * Math.cos((a - 90) * Math.PI / 180)} cy={24 + 10 * Math.sin((a - 90) * Math.PI / 180)} r="4.6" fill="#1C1D21"/>
+        ))}
+        <circle cx="24" cy="24" r="3.4" fill="#C9CCD3" stroke="#1C1D21" strokeWidth="1"/>
+        <path d="M40 30 Q46 38 44 46" stroke="#1C1D21" strokeWidth="4" fill="none"/>
+        <ellipse cx="17" cy="11" rx="5" ry="2" transform="rotate(-25 17 11)" fill="#fff" opacity="0.3"/>
+      </svg>
+    );
+  }
+  if (kind === "phone") {
+    return (
+      <svg viewBox="0 0 48 48" width="100%" height="100%" aria-hidden="true">
+        <path d="M5 14 Q2 24 5 34 M10 17 Q8 24 10 31 M43 14 Q46 24 43 34 M38 17 Q40 24 38 31" stroke="#FF5A5A" strokeWidth="2" fill="none" strokeLinecap="round"/>
+        <rect x="14" y="5" width="20" height="38" rx="4" fill="#1C1D21"/>
+        <rect x="16" y="9" width="16" height="28" rx="1.5" fill="#7FD6FF"/>
+        <rect x="16" y="9" width="16" height="28" rx="1.5" fill="url(#pc-hull)" opacity="0.25"/>
+        <circle cx="24" cy="19" r="4" fill="#fff"/>
+        <rect x="18.5" y="27" width="11" height="3" rx="1.5" fill="#20B46A"/>
+        <rect x="18.5" y="31.5" width="11" height="3" rx="1.5" fill="#E4444F"/>
+        <circle cx="24" cy="40" r="1.3" fill="#5B606C"/>
+        <defs>{POPCORN_DEFS}</defs>
+      </svg>
+    );
+  }
+  if (kind === "bat") {
+    return (
+      <svg viewBox="0 0 48 48" width="100%" height="100%" aria-hidden="true">
+        <path d="M24 18 C21 18 20 21 20 23 C16 18 10 16 3 18 C7 20 8 23 7 27 C10 25 13 26 14 29 C16 26 19 27 21 29 L24 33 L27 29 C29 27 32 26 34 29 C35 26 38 25 41 27 C40 23 41 20 45 18 C38 16 32 18 28 23 C28 21 27 18 24 18 Z"
+          fill="#2B1840" stroke="#0E0716" strokeWidth="1.2" strokeLinejoin="round"/>
+        <path d="M21.5 18.5 L21 15 L23 17.5 M26.5 18.5 L27 15 L25 17.5" fill="#2B1840" stroke="#0E0716" strokeWidth="1"/>
+        <circle cx="22.4" cy="22" r="1.2" fill="#FF4D4D"/><circle cx="25.6" cy="22" r="1.2" fill="#FF4D4D"/>
+        <path d="M23 25.5 l.6 1.4 .6 -1.4 M24.4 25.5 l.6 1.4 .6 -1.4" stroke="#fff" strokeWidth="0.6" fill="#fff"/>
+      </svg>
+    );
+  }
+  if (kind === "glasses") {
+    return (
+      <svg viewBox="0 0 48 48" width="100%" height="100%" aria-hidden="true">
+        <path d="M3 18 H45 V30 Q45 34 41 34 H30 Q27 34 26 30 L24 27 L22 30 Q21 34 18 34 H7 Q3 34 3 30 Z" fill="#F7F4EE" stroke="#1C1D21" strokeWidth="1.6" strokeLinejoin="round"/>
+        <rect x="7" y="21" width="14" height="10" rx="2.5" fill="#E4444F" opacity="0.9"/>
+        <rect x="27" y="21" width="14" height="10" rx="2.5" fill="#2EC4E6" opacity="0.9"/>
+        <path d="M9 23 l4 0 M29 23 l4 0" stroke="#fff" strokeWidth="1.4" strokeLinecap="round" opacity="0.7"/>
+      </svg>
+    );
+  }
+  if (kind === "clapper") {
+    return (
+      <svg viewBox="0 0 48 48" width="100%" height="100%" aria-hidden="true">
+        <rect x="6" y="19" width="36" height="23" rx="2" fill="#1C1D21"/>
+        <path d="M10 26 H38 M10 32 H38 M10 38 H30" stroke="#F7F4EE" strokeWidth="1.2"/>
+        <g transform="rotate(-14 6 17)">
+          <rect x="6" y="11" width="36" height="7" rx="1" fill="#F7F4EE" stroke="#1C1D21" strokeWidth="1.4"/>
+          {[0, 1, 2, 3].map((i) => <path key={i} d={`M${9 + i * 9} 11 l5 0 -4 7 -5 0 Z`} fill="#1C1D21"/>)}
+        </g>
+        <rect x="6" y="18" width="36" height="5" fill="#F7F4EE" stroke="#1C1D21" strokeWidth="1.4"/>
+        {[0, 1, 2, 3].map((i) => <path key={i} d={`M${10 + i * 9} 18 l5 0 -4 5 -5 0 Z`} fill="#1C1D21"/>)}
+      </svg>
+    );
+  }
   return (
     <svg viewBox="0 0 48 48" width="100%" height="100%" aria-hidden="true">
       <ellipse cx="24" cy="26" rx="17" ry="13" fill="#5A2E1A"/>
@@ -4225,15 +4328,23 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
   const [bucketX, setBucketX] = useState(null);
   const [showSlideHint, setShowSlideHint] = useState(true);
   const frenzyUntilRef = useRef(0);
-  const nextFrenzyAtRef = useRef(FRENZY_AT);
+  const frenzyRunRef = useRef(0); // regular good catches in a row toward the next frenzy
   const idRef = useRef(0);
   const finishRef = useRef(null);
+  const [timeLeft, setTimeLeft] = useState(Math.ceil(ARCADE_GAME_MS / 1000));
+  const [laser, setLaser] = useState(LASER_MAX);
+  const laserRef = useRef({ charges: LASER_MAX, nextAt: 0 });
+  const [beams, setBeams] = useState([]);   // laser shots on screen: {id, x}
+  const [booms, setBooms] = useState([]);   // explosions on screen: {id, x, y}
+  const pointerStartRef = useRef(null);
 
   const start = () => {
     if (!useArcadePass()) return;
     setPasses(arcadePasses());
     scoreRef.current = 0; livesRef.current = ARCADE_LIVES; boostRef.current = null;
-    comboRef.current = 0; frenzyUntilRef.current = 0; nextFrenzyAtRef.current = FRENZY_AT;
+    comboRef.current = 0; frenzyUntilRef.current = 0; frenzyRunRef.current = 0;
+    laserRef.current = { charges: LASER_MAX, nextAt: 0 };
+    setLaser(LASER_MAX); setBeams([]); setBooms([]); setTimeLeft(Math.ceil(ARCADE_GAME_MS / 1000));
     setScore(0); setLives(ARCADE_LIVES); setLevel(1); setCombo(0); setFrenzy(false);
     setBoost(null); setFlash(null); setItems([]); setResult(null);
     bucketXRef.current = null; setBucketX(null); setShowSlideHint(true);
@@ -4249,15 +4360,17 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
   }, [embedded]);
 
   // Catch game (owner design 2026-10-25): pieces fall from the top and the player slides the
-  // popcorn box under them. Popcorn in the box scores; burnt bits and kernels in the box cost a
-  // life and break the combo. Several pieces fall at once, so dropped popcorn only costs points.
+  // popcorn box under them. Good pieces in the box score; bad ones cost a life and break the
+  // combo. Several pieces fall at once, so dropped popcorn only costs points. Made much harder
+  // after play-testing (owner request 2026-10-25): 45-second timer, smaller box, faster and
+  // drifting pieces, more bad ones, and a laser to blast bad pieces before they land.
   useEffect(() => {
     if (phase !== "playing") return;
     const startedAt = Date.now();
     let done = false, raf = null, last = performance.now(), nextSpawnAt = Date.now() + 400;
     itemsRef.current = [];
-    const levelNow = () => 1 + Math.floor((Date.now() - startedAt) / ARCADE_LEVEL_MS);
-    const finish = () => {
+    const levelNow = () => 1 + Math.floor((Math.min(Date.now(), startedAt + ARCADE_GAME_MS) - startedAt) / ARCADE_LEVEL_MS);
+    const finish = (reason = "lives") => {
       if (done) return;
       done = true;
       if (raf) cancelAnimationFrame(raf);
@@ -4269,7 +4382,7 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
       writeJSON(LS_PRIZES, { ...p, best: Math.max(p.best || 0, final), won: prize && isNew ? [...p.won, prize.id] : p.won });
       if (prize) addPowerups(prize.powerups);
       if (prize || isRecord) SFX.complete();
-      setResult({ score: final, prize, isNew, isRecord, level: levelNow() });
+      setResult({ score: final, prize, isNew, isRecord, level: levelNow(), reason });
       itemsRef.current = [];
       setItems([]);
       setPhase("done");
@@ -4281,27 +4394,49 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
       const arena = arenaRef.current;
       const W = arena?.clientWidth || 360, H = arena?.clientHeight || 500;
       if (bucketXRef.current === null) { bucketXRef.current = W / 2; setBucketX(W / 2); }
-      const lv = levelNow();
       const now = Date.now();
+      const left = startedAt + ARCADE_GAME_MS - now;
+      if (left <= 0) { setTimeLeft(0); finish("time"); return; }
+      setTimeLeft(Math.ceil(left / 1000));
+      const lv = levelNow();
       const inFrenzy = now < frenzyUntilRef.current;
-      // Spawn: faster each level; a Popcorn Frenzy rains popcorn only.
+      const slow = boostRef.current?.type === "slow" && now <= boostRef.current.until;
+      const moveDt = slow ? dt * 0.5 : dt;
+      // The laser recharges one shot at a time.
+      const L = laserRef.current;
+      if (L.charges < LASER_MAX && now >= L.nextAt) {
+        L.charges += 1; L.nextAt = now + LASER_RECHARGE_MS; setLaser(L.charges);
+      }
+      // Spawn: faster each level; a Popcorn Frenzy rains popcorn only. From level 3 pieces
+      // drift sideways, and bats always swoop from side to side.
       if (now >= nextSpawnAt) {
         const it = inFrenzy ? ARCADE_ITEMS[0] : pickArcadeItem(lv);
-        const fall = Math.max(ARCADE_MIN_FALL, ARCADE_BASE_FALL * Math.pow(0.92, lv - 1));
-        itemsRef.current.push({ id: ++idRef.current, kind: it.kind, label: it.label,
-          x: ARCADE_ITEM / 2 + Math.random() * (W - ARCADE_ITEM), y: -ARCADE_ITEM, vy: (H + ARCADE_ITEM) / fall,
+        const fall = Math.max(ARCADE_MIN_FALL, ARCADE_BASE_FALL * Math.pow(0.9, lv - 1));
+        const drift = lv >= 3 ? (Math.random() * 2 - 1) * 0.012 * (lv - 2) : 0;
+        const x = ARCADE_ITEM / 2 + Math.random() * (W - ARCADE_ITEM);
+        itemsRef.current.push({ id: ++idRef.current, kind: it.kind, label: it.label, frenzy: inFrenzy,
+          x, baseX: x, y: -ARCADE_ITEM, vy: (H + ARCADE_ITEM) / fall, vx: drift, born: now,
           color: CANDY_COLORS[Math.floor(Math.random() * CANDY_COLORS.length)],
-          variant: Math.floor(Math.random() * 12), angle: Math.floor(Math.random() * 360), spin: (Math.random() * 2 - 1) * 0.25 });
-        nextSpawnAt = now + (inFrenzy ? FRENZY_SPAWN_MS : Math.max(ARCADE_MIN_SPAWN, ARCADE_BASE_SPAWN * Math.pow(0.88, lv - 1)));
+          variant: Math.floor(Math.random() * 12), angle: it.kind === "bat" ? 0 : Math.floor(Math.random() * 360),
+          spin: it.kind === "bat" ? 0 : (Math.random() * 2 - 1) * 0.25 });
+        nextSpawnAt = now + (inFrenzy ? FRENZY_SPAWN_MS : Math.max(ARCADE_MIN_SPAWN, ARCADE_BASE_SPAWN * Math.pow(0.86, lv - 1)));
       }
       // Move, catch, or drop.
       const catchY = H - BUCKET_H + 18;
       const bx = bucketXRef.current;
       const keep = [];
+      const half = ARCADE_ITEM / 2;
       for (const it of itemsRef.current) {
         const prevY = it.y;
-        it.y += it.vy * dt;
-        it.angle += it.spin * dt;
+        it.y += it.vy * moveDt;
+        it.angle += it.spin * moveDt;
+        if (it.kind === "bat") {
+          it.baseX = Math.max(half, Math.min(W - half, it.baseX));
+          it.x = Math.max(half, Math.min(W - half, it.baseX + Math.sin((now - it.born) / 260) * 48));
+        } else if (it.vx) {
+          it.x += it.vx * moveDt;
+          if (it.x < half || it.x > W - half) { it.vx = -it.vx; it.x = Math.max(half, Math.min(W - half, it.x)); }
+        }
         if (prevY < catchY && it.y >= catchY && Math.abs(it.x - bx) <= BUCKET_W / 2) { catchItem(it); continue; }
         if (it.y - ARCADE_ITEM / 2 > H) continue; // dropped: no points, no penalty
         keep.push(it);
@@ -4325,9 +4460,48 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
     bucketXRef.current = x; setBucketX(x);
     if (showSlideHint) setShowSlideHint(false);
   };
+  // Tap (rather than slide) to fire the laser straight up from the box.
+  const fireLaser = () => {
+    const L = laserRef.current;
+    if (phase !== "playing" || L.charges < 1) { if (phase === "playing") showFlash("🔋 Laser recharging…", true); return; }
+    if (L.charges === LASER_MAX) L.nextAt = Date.now() + LASER_RECHARGE_MS;
+    L.charges -= 1; setLaser(L.charges);
+    const bx = bucketXRef.current ?? 0;
+    const H = arenaRef.current?.clientHeight || 500;
+    const shotId = ++idRef.current;
+    setBeams((b) => [...b, { id: shotId, x: bx }]);
+    setTimeout(() => setBeams((b) => b.filter((x) => x.id !== shotId)), 220);
+    SFX.laser(); buzz(10);
+    // It hits the lowest piece in its path that is still above the box.
+    const target = itemsRef.current.filter((it) => Math.abs(it.x - bx) <= LASER_HALF_W && it.y < H - BUCKET_H + 18)
+      .sort((a, b) => b.y - a.y)[0];
+    if (!target) return;
+    itemsRef.current = itemsRef.current.filter((it) => it !== target);
+    explode(target.x, target.y);
+    if (ARCADE_KIND[target.kind]?.bad) {
+      const pts = 2 * (boostRef.current?.type === "double" && Date.now() <= boostRef.current.until ? 2 : 1);
+      scoreRef.current += pts; setScore(scoreRef.current);
+      showFlash(`💥 Zapped! +${pts}`);
+    } else {
+      showFlash(target.kind === "popcorn" ? "Oops, you zapped the popcorn!" : "Oops, wrong target!", true);
+    }
+  };
+  const explode = (x, y) => {
+    const boomId = ++idRef.current;
+    setBooms((b) => [...b, { id: boomId, x, y }]);
+    setTimeout(() => setBooms((b) => b.filter((e) => e.id !== boomId)), 600);
+    SFX.boom(); buzz([25, 20, 25]);
+  };
+  const onArenaDown = (e) => { pointerStartRef.current = { x: e.clientX, y: e.clientY, t: Date.now() }; moveBucket(e.clientX); };
+  const onArenaUp = (e) => {
+    const st = pointerStartRef.current; pointerStartRef.current = null;
+    if (st && Math.hypot(e.clientX - st.x, e.clientY - st.y) < 14 && Date.now() - st.t < 350) fireLaser();
+  };
+
   useEffect(() => {
     if (phase !== "playing") return;
     const onKey = (e) => {
+      if (e.key === " " || e.key === "ArrowUp") { fireLaser(); e.preventDefault(); return; }
       if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
       const r = arenaRef.current?.getBoundingClientRect(); if (!r) return;
       moveBucket(r.left + (bucketXRef.current ?? r.width / 2) + (e.key === "ArrowLeft" ? -36 : 36));
@@ -4341,17 +4515,21 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
 
   const catchItem = (it) => {
     const active = boostRef.current && Date.now() <= boostRef.current.until ? boostRef.current.type : null;
-    if (it.kind === "popcorn") {
+    const info = ARCADE_KIND[it.kind] || {};
+    if (info.good) {
       const now = Date.now();
       const c = comboRef.current + 1;
       comboRef.current = c;
       setCombo(c);
       const mult = comboMultiplier(c) * (active === "double" ? 2 : 1);
-      scoreRef.current += mult;
+      scoreRef.current += info.good * mult;
       setScore(scoreRef.current);
       SFX.comboNote(Math.min(c - 1, 14)); buzz(12);
-      if (c >= nextFrenzyAtRef.current) {
-        nextFrenzyAtRef.current += FRENZY_AT;
+      if (it.kind === "ticket") showFlash(`🎟️ Golden seat! +${info.good * mult}`);
+      if (it.kind === "reel") showFlash(`🎞️ Film reel! +${info.good * mult}`);
+      if (!it.frenzy && now >= frenzyUntilRef.current) frenzyRunRef.current += 1;
+      if (frenzyRunRef.current >= FRENZY_AT) {
+        frenzyRunRef.current = 0;
         frenzyUntilRef.current = now + FRENZY_MS;
         setFrenzy(true);
         showFlash("🍿 POPCORN FRENZY!");
@@ -4371,12 +4549,23 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
       SFX.badge(); buzz([15, 30, 15]);
       return;
     }
-    // Burnt popcorn or an unpopped kernel: the combo breaks, and a life is lost unless shielded.
-    comboRef.current = 0; setCombo(0);
+    if (it.kind === "glasses") {
+      boostRef.current = { type: "slow", until: Date.now() + SLOWMO_MS };
+      setBoost(boostRef.current);
+      showFlash("🕶️ 3D glasses: slow motion!"); SFX.badge(); buzz([15, 30, 15]);
+      return;
+    }
+    if (it.kind === "clapper") {
+      laserRef.current = { charges: LASER_MAX, nextAt: 0 }; setLaser(LASER_MAX);
+      showFlash("🎬 Action! Laser fully charged"); SFX.clap?.(); buzz([15, 30, 15]);
+      return;
+    }
+    // A bad piece: the combo breaks, and a life is lost unless shielded.
+    comboRef.current = 0; setCombo(0); frenzyRunRef.current = 0;
     if (active === "shield") { showFlash("🛡️ Blocked!"); SFX.hint(); return; }
     livesRef.current -= 1;
     setLives(livesRef.current);
-    showFlash(it.kind === "burnt" ? "Burnt! −1 life" : "Unpopped! −1 life", true);
+    showFlash({ burnt: "Burnt! −1 life", unpopped: "Unpopped! −1 life", phone: "📵 Phones off in the theatre! −1 life", bat: "🦇 Bitten! −1 life" }[it.kind] || "Ouch! −1 life", true);
     SFX.wrong(); buzz([40, 60, 40]);
     if (livesRef.current <= 0) finishRef.current?.();
   };
@@ -4415,12 +4604,14 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
             <div style={HUD_STAT_PILL}><span aria-label={`Score: ${score}`} style={HUD_COUNTER_TEXT}>🍿 {score}</span></div>
             <div style={HUD_STAT_PILL}><span aria-label={`Lives: ${lives}`} style={HUD_COUNTER_TEXT}>{"❤️".repeat(Math.max(0, lives))}{"🖤".repeat(Math.max(0, ARCADE_LIVES - lives))}</span></div>
             <div style={HUD_STAT_PILL}><span aria-label={`Level ${level}`} style={HUD_COUNTER_TEXT}>LV {level}</span></div>
+            {phase === "playing" && <div style={HUD_STAT_PILL}><span aria-label={`Time left: ${timeLeft}`} style={{...HUD_COUNTER_TEXT,color:timeLeft <= 10 ? "#FF6B6B" : undefined}}>⏱ {timeLeft}</span></div>}
+            {phase === "playing" && <div style={HUD_STAT_PILL}><span aria-label={`Laser charges: ${laser}`} style={HUD_COUNTER_TEXT}>🔫 {"⚡".repeat(laser)}{"·".repeat(LASER_MAX - laser)}</span></div>}
           </div>
         )}
         {phase === "playing" && (
           <div style={{minHeight:20,display:"flex",justifyContent:"center",gap:10}}>
             {mult > 1 && <span aria-label={`Combo ×${mult}`} style={{...YELLOW_STICKER_TEXT,fontSize:13}}>×{mult} combo</span>}
-            {boost && <span aria-label="Active boost" style={{...YELLOW_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>{boost.type === "shield" ? "🛡️ Shield" : "⚡ Double"}</span>}
+            {boost && <span aria-label="Active boost" style={{...YELLOW_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>{boost.type === "shield" ? "🛡️ Shield" : boost.type === "slow" ? "🕶️ Slow-mo" : "⚡ Double"}</span>}
           </div>
         )}
         {phase === "playing" && flash && (
@@ -4440,7 +4631,7 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
               {result.prize ? `${result.prize.emoji} ${result.prize.name}!` : "No prize this time"}
             </div>
             <div style={{fontFamily:"'Outfit',sans-serif",fontSize:14,margin:"8px 0 14px"}}>
-              Out of lives on level {result.level}! You scored {result.score} point{result.score === 1 ? "" : "s"}.
+              {result.reason === "time" ? `Time's up! You made it to level ${result.level}.` : `Out of lives on level ${result.level}!`} You scored {result.score} point{result.score === 1 ? "" : "s"}.
               {result.prize ? ` You won ${result.prize.reward} to use in Standard or Speed Run.` : " Keep popping!"}
               {result.prize && result.isNew ? ` New curtains unlocked: ${CURTAINS.find((c) => c.prize === result.prize.id)?.name} (choose them on the Popcorn Panic screen).` : ""}
             </div>
@@ -4452,7 +4643,7 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
       </div>
       {phase === "playing" && (
         <div ref={arenaRef} aria-label="Popcorn arena"
-          onPointerDown={(e) => moveBucket(e.clientX)} onPointerMove={(e) => moveBucket(e.clientX)}
+          onPointerDown={onArenaDown} onPointerMove={(e) => moveBucket(e.clientX)} onPointerUp={onArenaUp}
           style={{position:"absolute",left:0,right:0,top:210,bottom:0,touchAction:"none",overflow:"hidden",cursor:"grab"}}>
           {items.map((it) => (
             <div key={it.id} role="img" aria-label={it.label}
@@ -4462,10 +4653,28 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
               <ArcadeItemArt kind={it.kind} color={it.color} variant={it.variant}/>
             </div>
           ))}
+          {beams.map((b) => (
+            <div key={b.id} data-laser="" aria-hidden="true" style={{position:"absolute",left:b.x - 4,top:0,bottom:BUCKET_H - 8,width:8,borderRadius:4,
+              background:"linear-gradient(90deg, rgba(255,40,80,0.2), #FF2E63 30%, #FFF 50%, #FF2E63 70%, rgba(255,40,80,0.2))",
+              boxShadow:"0 0 14px 4px rgba(255,46,99,0.7)",pointerEvents:"none",animation:reducedMotion ? "none" : "laserBeam 0.22s ease-out both"}}/>
+          ))}
+          {booms.map((b) => (
+            <div key={b.id} data-boom="" aria-hidden="true" style={{position:"absolute",left:b.x,top:b.y,width:0,height:0,pointerEvents:"none",zIndex:4}}>
+              <svg viewBox="0 0 100 100" width="96" height="96" style={{position:"absolute",left:0,top:0,animation:reducedMotion ? "none" : "boomBurst 0.55s ease-out both",transform:"translate(-50%,-50%)"}}>
+                <polygon points="50,2 61,32 95,22 70,48 98,70 64,68 58,98 46,70 14,92 30,62 2,50 30,38 12,10 42,30" fill="#FF7A1A" stroke="#1C1D21" strokeWidth="2.5" strokeLinejoin="round"/>
+                <polygon points="50,20 57,38 78,34 64,50 80,64 60,62 54,80 46,64 26,74 36,56 20,48 38,42 28,24 46,36" fill="#FFD84D"/>
+                <circle cx="50" cy="50" r="9" fill="#FFF8E6"/>
+              </svg>
+              {!reducedMotion && [0, 45, 90, 135, 180, 225, 270, 315].map((a) => (
+                <span key={a} style={{position:"absolute",left:0,top:0,width:7,height:7,borderRadius:"50%",background:a % 90 ? "#FFD84D" : "#FF5A1F",
+                  "--dx":`${Math.cos(a * Math.PI / 180) * 54}px`,"--dy":`${Math.sin(a * Math.PI / 180) * 54}px`,animation:"boomSpark 0.5s ease-out both"}}/>
+              ))}
+            </div>
+          ))}
           {bucketX !== null && <PopcornBox x={bucketX}/>}
           {bucketX !== null && showSlideHint && (
             <div aria-hidden="true" style={{position:"absolute",left:bucketX,bottom:BUCKET_H + 14,transform:"translateX(-50%)",...WHITE_STICKER_TEXT,fontSize:13,whiteSpace:"nowrap",pointerEvents:"none",animation:reducedMotion?"none":"pulse 1.2s ease-in-out infinite"}}>
-              ← slide →
+              ← slide · tap to zap →
             </div>
           )}
         </div>

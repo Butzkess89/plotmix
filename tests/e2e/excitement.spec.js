@@ -370,7 +370,7 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
   })
 
   // Fix Math.random so every piece is the same kind and falls in the same spot
-  // (0.1 = popcorn, 0.7 = burnt popcorn, 0.95 = chocolate candy).
+  // (0.1 = popcorn, 0.7 = burnt popcorn, 0.95 = chocolate candy; others below).
   const fixRandom = (page, v) => page.evaluate((x) => { Math.random = () => x }, v)
   const fixRandomOnLoad = (page, v) => page.addInitScript((x) => { Math.random = () => x }, v)
   async function holdBoxUnderFirst(page, name) {
@@ -381,7 +381,7 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
   }
   const BAD = /^(Burnt popcorn|Unpopped kernel)$/
 
-  test('endless: it speeds up every 5 seconds and ends when the lives run out', async ({ page }) => {
+  test('it speeds up every 5 seconds and ends when the lives run out', async ({ page }) => {
     await fixRandomOnLoad(page, 0.1)
     await startGame(page)
     await holdBoxUnderFirst(page, 'Popcorn')
@@ -398,13 +398,92 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
     await expect(page.getByRole('button', { name: 'Play Popcorn Panic' })).toBeDisabled()
   })
 
-  test('popcorn caught in a row builds a combo; 10 in a row starts a Popcorn Frenzy', async ({ page }) => {
+  test('popcorn caught in a row builds a combo; 15 in a row starts a Popcorn Frenzy', async ({ page }) => {
     await fixRandomOnLoad(page, 0.1)
     await startGame(page)
     await holdBoxUnderFirst(page, 'Popcorn')
     await expect(page.getByLabel('Combo ×2')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByLabel('Combo ×3')).toBeVisible({ timeout: 15_000 })
     await expect(page.getByLabel('Arcade event')).toHaveText('🍿 POPCORN FRENZY!', { timeout: 15_000 })
-    await expect(page.getByLabel('Combo ×3')).toBeVisible()
+  })
+
+  test('a Popcorn Frenzy cannot set off the next one (owner report: it went on forever)', async ({ page }) => {
+    await fixRandomOnLoad(page, 0.1)
+    await page.addInitScript(() => {
+      window.__frenzies = 0
+      new MutationObserver(() => {
+        const el = document.querySelector('[aria-label="Arcade event"]')
+        const key = el && el.textContent.includes('FRENZY') ? el : null
+        if (key && key !== window.__lastFrenzy) { window.__frenzies++; window.__lastFrenzy = key }
+      }).observe(document, { subtree: true, childList: true })
+    })
+    await startGame(page)
+    await holdBoxUnderFirst(page, 'Popcorn')
+    await expect.poll(() => page.evaluate(() => window.__frenzies), { timeout: 20_000 }).toBe(1)
+    // The frenzy lasts 2.5 s and the next needs another 15 in a row after it ends.
+    await page.waitForTimeout(4_000)
+    expect(await page.evaluate(() => window.__frenzies)).toBe(1)
+  })
+
+  test('each play is on a 45-second timer', async ({ page }) => {
+    test.setTimeout(90_000)
+    await fixRandomOnLoad(page, 0.1) // everything falls far from the box, so no lives are lost
+    await startGame(page)
+    await expect(page.getByLabel('Time left: 45')).toBeVisible()
+    await expect(page.getByLabel('Time left: 40')).toBeVisible({ timeout: 7_000 })
+    await expect(page.getByLabel('Arcade result')).toContainText("Time's up!", { timeout: 45_000 })
+    await expect(page.getByLabel('Lives: 3')).toBeVisible()
+  })
+
+  test('tapping fires the laser: a bad piece explodes for points and a charge is used', async ({ page }) => {
+    await fixRandomOnLoad(page, 0.7)
+    await startGame(page)
+    await expect(page.getByLabel('Laser charges: 3')).toBeVisible()
+    const p = piece(page, 'Burnt popcorn')
+    await expect(p).toBeAttached({ timeout: 10_000 })
+    const box = await p.boundingBox()
+    await page.mouse.click(box.x + box.width / 2, 800)
+    await expect(page.locator('[data-boom]').first()).toBeAttached()
+    await expect(page.getByLabel('Arcade event')).toHaveText('💥 Zapped! +2')
+    await expect(page.getByLabel('Laser charges: 2')).toBeVisible()
+    await expect(page.getByLabel('Lives: 3')).toBeVisible()
+    expect(await score(page)).toBe(2)
+  })
+
+  test('the laser runs dry after 3 quick shots, then recharges', async ({ page }) => {
+    await fixRandomOnLoad(page, 0.1)
+    await startGame(page)
+    for (let i = 0; i < 4; i++) await page.mouse.click(300, 800)
+    await expect(page.getByLabel('Laser charges: 0')).toBeVisible()
+    await expect(page.getByLabel('Arcade event')).toHaveText('🔋 Laser recharging…')
+    await expect(page.getByLabel('Laser charges: 1')).toBeVisible({ timeout: 4_000 })
+  })
+
+  // Level 1 odds put each fixed random value on one kind of piece.
+  for (const [v, name, event] of [
+    [0.46, 'Movie ticket', /Golden seat! \+5/],
+    [0.5, 'Film reel', /Film reel! \+3/],
+    [0.88, 'Ringing phone', /Phones off in the theatre! −1 life/],
+    [0.975, '3D glasses', /slow motion/],
+    [0.99, 'Clapperboard', /Action! Laser fully charged/],
+  ]) {
+    test(`cinema extras: catching a ${name.toLowerCase()}`, async ({ page }) => {
+      await fixRandomOnLoad(page, v)
+      await startGame(page)
+      await holdBoxUnderFirst(page, name)
+      await expect(page.getByLabel('Arcade event')).toContainText(event, { timeout: 10_000 })
+    })
+  }
+
+  test('vampire bats swoop from side to side', async ({ page }) => {
+    await fixRandomOnLoad(page, 0.92)
+    await startGame(page)
+    const bat = piece(page, 'Vampire bat')
+    await expect(bat).toBeAttached({ timeout: 10_000 })
+    const x1 = (await bat.boundingBox()).x
+    await page.waitForTimeout(400)
+    const x2 = (await bat.boundingBox()).x
+    expect(Math.abs(x2 - x1)).toBeGreaterThan(5)
   })
 
   test('catching burnt popcorn costs a life and breaks the combo', async ({ page }) => {
@@ -429,7 +508,7 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
     await fixRandomOnLoad(page, 0.1)
     await startGame(page)
     await holdBoxUnderFirst(page, 'Popcorn')
-    await expect.poll(() => score(page), { timeout: 15_000 }).toBeGreaterThanOrEqual(8)
+    await expect.poll(() => score(page), { timeout: 25_000 }).toBeGreaterThanOrEqual(40)
     await fixRandom(page, 0.7)
     await holdBoxUnderFirst(page, BAD)
     await expect(page.getByLabel('Arcade result')).toBeVisible({ timeout: 20_000 })
