@@ -3783,6 +3783,34 @@ function FilmLeaderCountdown({onDone, reducedMotion=false}) {
   );
 }
 
+// Between cards: an old film-leader countdown, "5, 4, blip!" (owner request 2026-10-25).
+const LEADER_BLIP_MS = 1300;
+function LeaderBlip() {
+  const [step, setStep] = useState(5); // 5, 4, then 0 = the blip
+  useEffect(() => {
+    SFX.leaderBeep(step === 0);
+    if (step === 0) return;
+    const id = setTimeout(() => setStep(step === 5 ? 4 : 0), 420);
+    return () => clearTimeout(id);
+  }, [step]);
+  return (
+    <div role="status" aria-label="Next card countdown" style={{position:"fixed",inset:0,zIndex:305,pointerEvents:"none",display:"flex",alignItems:"center",justifyContent:"center",
+      background:"rgba(28,22,12,0.9)",animation:`leaderFade ${LEADER_BLIP_MS}ms linear both`}}>
+      <div style={{position:"absolute",inset:0,background:"repeating-linear-gradient(90deg, transparent 0 37px, rgba(255,255,255,0.18) 37px 38px, transparent 38px 113px, rgba(255,255,255,0.3) 113px 114px)",animation:"filmScratch 0.8s steps(6) infinite"}}/>
+      <div style={{position:"relative",width:200,height:200,borderRadius:"50%",border:"4px solid #F3F4FF",background:"#3A3226",overflow:"hidden",boxShadow:"0 0 0 10px rgba(243,244,255,0.12)"}}>
+        {step > 0 && <div key={step} style={{position:"absolute",inset:0,background:"conic-gradient(rgba(243,244,255,0.28) 0deg, rgba(243,244,255,0.28) 90deg, transparent 90deg)",animation:"leaderSweep 0.42s linear both"}}/>}
+        <div style={{position:"absolute",left:0,right:0,top:"50%",height:2,background:"rgba(243,244,255,0.55)"}}/>
+        <div style={{position:"absolute",top:0,bottom:0,left:"50%",width:2,background:"rgba(243,244,255,0.55)"}}/>
+        <div style={{position:"absolute",inset:24,borderRadius:"50%",border:"2px solid rgba(243,244,255,0.55)"}}/>
+        {step > 0 && (
+          <div key={`n${step}`} style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",...WHITE_STICKER_TEXT,fontSize:92,lineHeight:1}}>{step}</div>
+        )}
+      </div>
+      {step === 0 && <div style={{position:"absolute",inset:0,background:"#FFFDF2",animation:"leaderBlip 0.35s ease-out both"}}/>}
+    </div>
+  );
+}
+
 // Red curtains that part to reveal the screen, with an optional trailer-voice line.
 function CurtainReveal({line=null, zIndex=600, reducedMotion=false, colors=null}) {
   const [visible,setVisible]=useState(true);
@@ -3864,6 +3892,8 @@ const CINEMA_KEYFRAMES = `
   @keyframes trailerLine { 0%{opacity:0; transform:scale(0.96)} 25%{opacity:1; transform:scale(1)} 80%{opacity:1} 100%{opacity:0; transform:scale(1.04)} }
   @keyframes filmBurn { 0%{opacity:0; transform:scale(0.2)} 30%{opacity:1} 100%{opacity:0; transform:scale(3.2)} }
   @keyframes badgeToast { 0%{opacity:0; transform:translateX(-50%) translateY(-12px)} 10%{opacity:1; transform:translateX(-50%) translateY(0)} 85%{opacity:1} 100%{opacity:0; transform:translateX(-50%) translateY(-6px)} }
+  @keyframes leaderFade { 0%{opacity:0} 6%{opacity:1} 72%{opacity:1} 100%{opacity:0} }
+  @keyframes leaderBlip { 0%{opacity:0.95} 100%{opacity:0} }
   @keyframes filmRoll { from{background-position:0 0} to{background-position:0 720px} }
   @keyframes filmRollH { from{background-position:0 0} to{background-position:-720px 0} }
   @keyframes filmSideInL { 0%{transform:translateX(-110%)} 18%{transform:translateX(0)} 82%{transform:translateX(0)} 100%{transform:translateX(-110%)} }
@@ -4337,6 +4367,12 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
   const [beams, setBeams] = useState([]);   // laser shots on screen: {id, x}
   const [booms, setBooms] = useState([]);   // explosions on screen: {id, x, y}
   const pointerStartRef = useRef(null);
+  const [levelUp, setLevelUp] = useState(null); // {key, lv}: "LEVEL 3" banner
+  useEffect(() => {
+    if (!levelUp) return;
+    const t = setTimeout(() => setLevelUp(null), 1400);
+    return () => clearTimeout(t);
+  }, [levelUp]);
 
   const start = () => {
     if (!useArcadePass()) return;
@@ -4367,7 +4403,7 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
   useEffect(() => {
     if (phase !== "playing") return;
     const startedAt = Date.now();
-    let done = false, raf = null, last = performance.now(), nextSpawnAt = Date.now() + 400;
+    let done = false, raf = null, last = performance.now(), nextSpawnAt = Date.now() + 400, shownLevel = 1;
     itemsRef.current = [];
     const levelNow = () => 1 + Math.floor((Math.min(Date.now(), startedAt + ARCADE_GAME_MS) - startedAt) / ARCADE_LEVEL_MS);
     const finish = (reason = "lives") => {
@@ -4399,6 +4435,12 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
       if (left <= 0) { setTimeLeft(0); finish("time"); return; }
       setTimeLeft(Math.ceil(left / 1000));
       const lv = levelNow();
+      // Every 5 seconds survived is a new level: announce it, since it's faster from here.
+      if (lv > shownLevel) {
+        shownLevel = lv;
+        setLevelUp({ key: now, lv });
+        SFX.leaderBeep?.(); buzz([10, 40, 10]);
+      }
       const inFrenzy = now < frenzyUntilRef.current;
       const slow = boostRef.current?.type === "slow" && now <= boostRef.current.until;
       const moveDt = slow ? dt * 0.5 : dt;
@@ -4631,7 +4673,7 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
               {result.prize ? `${result.prize.emoji} ${result.prize.name}!` : "No prize this time"}
             </div>
             <div style={{fontFamily:"'Outfit',sans-serif",fontSize:14,margin:"8px 0 14px"}}>
-              {result.reason === "time" ? `Time's up! You made it to level ${result.level}.` : `Out of lives on level ${result.level}!`} You scored {result.score} point{result.score === 1 ? "" : "s"}.
+              {result.reason === "time" ? `Time's up! You lasted all 45 seconds and reached level ${result.level}.` : `Out of lives on level ${result.level}!`} You scored {result.score} point{result.score === 1 ? "" : "s"}.
               {result.prize ? ` You won ${result.prize.reward} to use in Standard or Speed Run.` : " Keep popping!"}
               {result.prize && result.isNew ? ` New curtains unlocked: ${CURTAINS.find((c) => c.prize === result.prize.id)?.name} (choose them on the Popcorn Panic screen).` : ""}
             </div>
@@ -4671,6 +4713,16 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
               ))}
             </div>
           ))}
+          {levelUp && levelUp.lv > 1 && (
+            <div key={levelUp.key} role="status" aria-label={`Level up: ${levelUp.lv}`}
+              style={{position:"absolute",left:"50%",top:"30%",textAlign:"center",whiteSpace:"nowrap",pointerEvents:"none",zIndex:5,
+                animation:reducedMotion ? "none" : "clapperIn 1.4s ease both",transform:"translateX(-50%)"}}>
+              <div style={{...YELLOW_STICKER_TEXT,fontSize:30,textTransform:"uppercase"}}>Level {levelUp.lv}</div>
+              <div style={{...WHITE_STICKER_TEXT,fontSize:13,textTransform:"uppercase",marginTop:4}}>
+                {levelUp.lv === 3 ? "Faster! Pieces start drifting" : "Faster!"}
+              </div>
+            </div>
+          )}
           {bucketX !== null && <PopcornBox x={bucketX}/>}
           {bucketX !== null && showSlideHint && (
             <div aria-hidden="true" style={{position:"absolute",left:bucketX,bottom:BUCKET_H + 14,transform:"translateX(-50%)",...WHITE_STICKER_TEXT,fontSize:13,whiteSpace:"nowrap",pointerEvents:"none",animation:reducedMotion?"none":"pulse 1.2s ease-in-out infinite"}}>
@@ -5201,7 +5253,6 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       commit();
       return;
     }
-    SFX.projector();
     const transitionMeta = GENRE_TRANSITION_META[transitionFamily.name] || GENRE_TRANSITION_META.punchy;
     setGenreTransition({
       nonce: Date.now(),
@@ -5211,7 +5262,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       anim: transitionMeta.anim,
     });
     if (genreTransitionTimerRef.current) clearTimeout(genreTransitionTimerRef.current);
-    genreTransitionTimerRef.current = setTimeout(() => setGenreTransition(null), 950);
+    genreTransitionTimerRef.current = setTimeout(() => setGenreTransition(null), LEADER_BLIP_MS);
 
     setCardTransitionPhase("out");
     if (cardSwapTimerRef.current) clearTimeout(cardSwapTimerRef.current);
@@ -5596,54 +5647,13 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   return (
     <div style={{minHeight:"100dvh",position:"relative",paddingLeft:20,paddingRight:20,paddingBottom:24,overflowX:"clip",...CHECKER_BG,color:T.textOnDark}}>
 
-      {!!genreTransition && (
-        <div
-          aria-hidden="true"
-          style={{
-            position:"fixed",
-            inset:0,
-            zIndex:280,
-            pointerEvents:"none",
-            display:"flex",
-            alignItems:"center",
-            justifyContent:"center",
-            animation:`${genreTransition.anim} 520ms ease both`,
-            background:"radial-gradient(circle at 50% 52%, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 62%)",
-            backdropFilter:"blur(1.5px)",
-          }}
-          key={genreTransition.nonce}
-        >
-          {!reducedMotion && (
-            <LottieOverlay
-              key={`genre-lottie-${genreTransition.nonce}`}
-              src={LOTTIE_ASSETS.genreByFamily[genreTransition.name] || LOTTIE_ASSETS.smashImpact}
-              loop={false}
-              speed={1.08}
-              style={{
-                position:"absolute",
-                left:"50%",
-                top:"50%",
-                width:"min(90vw, 420px)",
-                height:"min(90vw, 420px)",
-                transform:"translate(-50%, -50%)",
-                pointerEvents:"none",
-                opacity:0.68,
-              }}
-            />
-          )}
-          <div style={{padding:"10px 14px",borderRadius:12,background:"rgba(14,10,44,0.72)",border:"2px solid #1C1D21",boxShadow:"0 4px 0 #1C1D21",display:"inline-flex",alignItems:"center",gap:8}}>
-            <span style={{fontSize:15,lineHeight:1}}>{genreTransition.emoji}</span>
-            <span style={{...WHITE_STICKER_TEXT,fontSize:11,letterSpacing:"0.04em",textTransform:"uppercase",lineHeight:1}}>{genreTransition.tag}</span>
-          </div>
-        </div>
-      )}
 
       {arcadeOffer?.stage==="ask" && (
         <div role="dialog" aria-label="Popcorn Panic offer" style={{position:"fixed",inset:0,zIndex:600,background:"rgba(0,0,0,0.55)",display:"flex",alignItems:"center",justifyContent:"center",padding:18}}>
           <div style={{width:"100%",maxWidth:340,background:T.bgDeep,border:`2px solid ${T.border}`,borderRadius:16,boxShadow:T.shadowLg,padding:"22px 20px",textAlign:"center",animation:reducedMotion?"none":"titlePop 0.4s ease both"}}>
             <div style={{width:84,height:84,margin:"0 auto 8px"}}><ArcadeItemArt kind="popcorn" variant={2}/></div>
-            <div style={{...YELLOW_STICKER_TEXT,fontSize:18,textTransform:"uppercase",lineHeight:1.3}}>{runStreak} in a row!</div>
-            <p style={{fontFamily:"'Outfit',sans-serif",fontSize:15,margin:"8px 0 14px"}}>You've unlocked Popcorn Panic. Play now for a chance at prizes?</p>
+            <div style={{...YELLOW_STICKER_TEXT,fontSize:18,textTransform:"uppercase",lineHeight:1.3}}>You've solved {runStreak} PlotMixes in a row!</div>
+            <p style={{fontFamily:"'Outfit',sans-serif",fontSize:15,margin:"8px 0 14px"}}>You've earned a round of Popcorn Panic.</p>
             {arcadeOffer.badges?.length>0 && (
               <div style={{display:"flex",flexDirection:"column",gap:6,margin:"0 0 16px"}}>
                 {arcadeOffer.badges.map((b)=>(
@@ -5655,12 +5665,12 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
               </div>
             )}
             <button onClick={()=>setArcadeOffer({stage:"playing"})} style={{...BTN.primary,width:"100%",padding:"13px 0",marginBottom:10}}>
-              <span style={{...WHITE_STICKER_TEXT,fontSize:13,textTransform:"uppercase"}}>🍿 Play Popcorn Panic</span>
+              <span style={{...WHITE_STICKER_TEXT,fontSize:13,textTransform:"uppercase",lineHeight:1.35}}>🍿 Play Popcorn Panic<br/><span style={{fontSize:10.5}}>to win hidden prizes</span></span>
             </button>
-            <button onClick={()=>setArcadeOffer(null)} style={{...BTN.cyan,width:"100%",padding:"12px 0"}}>
-              <span style={{...WHITE_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>Keep guessing</span>
+            <button onClick={()=>{ setArcadeOffer(null); handleResultNext(); }} style={{...BTN.cyan,width:"100%",padding:"12px 0"}}>
+              <span style={{...WHITE_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>Continue to the next PlotMix</span>
             </button>
-            <div style={{fontFamily:"'Outfit',sans-serif",fontSize:12,opacity:0.8,marginTop:10}}>Not now? The play is saved: find Popcorn Panic under Speed Run on the menu.</div>
+            <div style={{fontFamily:"'Outfit',sans-serif",fontSize:12,opacity:0.8,marginTop:10}}>Not now? Your round is saved: find Popcorn Panic under Speed Run on the menu.</div>
           </div>
         </div>
       )}
@@ -5686,18 +5696,9 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       {dailyLine && <CurtainReveal line={dailyLine} reducedMotion={reducedMotion} colors={themedWeek?.curtains || null}/>}
       {showingResult && !both && !skipped && !reducedMotion && <FilmBurn/>}
 
-      {/* Film-reel change (owner request 2026-10-25): wide film strips race down both sides and
-          the projector flickers. */}
-      {!!genreTransition && (
-        <div key={`reel-${genreTransition.nonce}`} aria-hidden="true" style={{position:"fixed",inset:0,zIndex:305,pointerEvents:"none",overflow:"hidden",animation:"filmJitter 950ms steps(10) both"}}>
-          {["left","right"].map(side=>(
-            <div key={side} style={{position:"absolute",top:"-10%",bottom:"-10%",[side]:0,width:54,backgroundImage:FILM_STRIP_BG,backgroundSize:"54px 72px",backgroundRepeat:"repeat-y",
-              boxShadow:"0 0 12px rgba(0,0,0,0.5)",animation:`filmSideIn${side==="left"?"L":"R"} 950ms ease both, filmRoll 950ms linear both`}}/>
-          ))}
-          <div style={{position:"absolute",inset:0,background:"#FFF8E7",animation:"projectorFlicker 950ms linear both"}}/>
-          <div style={{position:"absolute",inset:0,background:"repeating-linear-gradient(90deg, transparent 0 37px, rgba(28,22,12,0.35) 37px 38px, transparent 38px 113px, rgba(255,255,255,0.5) 113px 114px)",animation:"filmScratch 950ms steps(6) both"}}/>
-        </div>
-      )}
+      {/* Card change (owner request 2026-10-25): a quick old film-leader countdown,
+          "5, 4, blip!", then the next card. About 1.3 seconds, and it never blocks typing. */}
+      {!!genreTransition && <LeaderBlip key={`leader-${genreTransition.nonce}`}/>}
 
       {/*  AUTO POPUP when round ends (never while rewinding/view-only)  */}
       {showingResult&&(

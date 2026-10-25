@@ -66,10 +66,10 @@ test.describe('3A-3 how a run ends, bonus heart, Play Again, Speed Run countdown
     await submitGuess(page, card.mashedTitle)
     const next = page.getByRole('button', { name: /^(Next|Finish)$/ })
     await expect(next).toBeVisible()
-    // Since 2026-10-25, 5 in a row offers Popcorn Panic; these tests keep guessing.
-    const offer = page.getByRole('button', { name: 'Keep guessing' })
+    // Since 2026-10-25, 5 in a row offers Popcorn Panic; these tests continue to the next card.
+    const offer = page.getByRole('button', { name: 'Continue to the next PlotMix' })
     if (await offer.isVisible().catch(() => false)) await offer.click()
-    await next.click()
+    else await next.click()
   }
 
   test('losing all 6 hearts ends the run, and Play Again starts a fresh one', async ({ page }) => {

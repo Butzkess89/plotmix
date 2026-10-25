@@ -334,24 +334,27 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
     }
   }
 
-  test('5 in a row offers Popcorn Panic; keep guessing saves the play for later', async ({ page }) => {
+  test('5 in a row offers Popcorn Panic; continuing saves the play for later', async ({ page }) => {
     await solveFiveInARow(page)
     // The offer appears with the result and stays until the player chooses.
     const offer = page.getByRole('dialog', { name: 'Popcorn Panic offer' })
     await expect(offer).toBeVisible()
     await page.waitForTimeout(4000)
     await expect(offer).toBeVisible()
+    await expect(offer).toContainText("You've solved 5 PlotMixes in a row!")
     await expect(offer).toContainText('Badge unlocked: Box Office Smash')
-    await page.getByRole('button', { name: 'Keep guessing' }).click()
-    await page.getByRole('button', { name: 'Next' }).click()
+    await expect(page.getByRole('button', { name: /Play Popcorn Panic to win hidden prizes/ })).toBeVisible()
+    // Continuing goes straight on to the next PlotMix.
+    await page.getByRole('button', { name: 'Continue to the next PlotMix' }).click()
     await waitForSave(page, 'standard', (s) => s.cardIdx === 5)
+    await expect(offer).toHaveCount(0)
     expect(await page.evaluate(() => localStorage.getItem('plotmix_arcade_passes'))).toBe('1')
   })
 
   test('playing from the offer starts the game at once and returns to the next card', async ({ page }) => {
     await seedRandom(page)
     await solveFiveInARow(page)
-    await page.getByRole('button', { name: '🍿 Play Popcorn Panic' }).click()
+    await page.getByRole('button', { name: /^🍿 Play Popcorn Panic/ }).click()
     await expect(page.getByLabel('Lives: 3')).toBeVisible()
     await loseAllLives(page)
     await page.getByRole('button', { name: 'Back to the game' }).click()
@@ -387,6 +390,7 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
     await holdBoxUnderFirst(page, 'Popcorn')
     await expect(page.getByLabel('Level 1')).toBeVisible()
     await expect(page.getByLabel('Level 2')).toBeVisible({ timeout: 7_000 })
+    await expect(page.getByLabel('Level up: 2')).toContainText('Faster!') // each new level is announced
     await expect(page.getByLabel('Lives: 3')).toBeVisible()
     await fixRandom(page, 0.7) // from now on only bad pieces, all falling in one spot
     await holdBoxUnderFirst(page, BAD)
@@ -468,10 +472,19 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
     [0.99, 'Clapperboard', /Action! Laser fully charged/],
   ]) {
     test(`cinema extras: catching a ${name.toLowerCase()}`, async ({ page }) => {
+      // Record every message shown: with only bad pieces falling, the game can end (and the
+      // message vanish) within a second.
+      await page.addInitScript(() => {
+        window.__events = []
+        new MutationObserver(() => {
+          const el = document.querySelector('[aria-label="Arcade event"]')
+          if (el && window.__events[window.__events.length - 1] !== el.textContent) window.__events.push(el.textContent)
+        }).observe(document, { subtree: true, childList: true, characterData: true })
+      })
       await fixRandomOnLoad(page, v)
       await startGame(page)
       await holdBoxUnderFirst(page, name)
-      await expect(page.getByLabel('Arcade event')).toContainText(event, { timeout: 10_000 })
+      await expect.poll(() => page.evaluate(() => window.__events.join(' | ')), { timeout: 10_000 }).toMatch(event)
     })
   }
 

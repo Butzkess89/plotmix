@@ -8,7 +8,6 @@ import {
 
 // One made-up word: not a film title and not a word in any mashed title, so it costs exactly 1 point.
 const WRONG_GUESS = 'zzqxwrong'
-const GENRE_TAG = /Blockbuster Cut|Dream Dissolve|Retro Splice|Thriller Smash/
 
 async function loseCardWithWrongGuesses(page) {
   for (let i = 0; i < 6; i++) await submitGuess(page, `${WRONG_GUESS}${i}`)
@@ -97,11 +96,9 @@ test.describe('A2: the OS "reduce motion" setting is respected', () => {
     const card = await currentCard(page, 'standard')
     await submitGuess(page, card.mashedTitle)
     await page.getByRole('button', { name: 'Next' }).click()
-    // The card-change overlay is visible for about half a second when motion is on.
-    return page.getByText(GENRE_TAG).first().isVisible({ timeout: 0 }).then(async (v) => {
-      if (v) return true
-      try { await page.getByText(GENRE_TAG).first().waitFor({ state: 'visible', timeout: 1_000 }); return true } catch { return false }
-    })
+    // The card-change countdown ("5, 4, blip!") is on screen for about 1.3 s when motion is on.
+    const leader = page.getByRole('status', { name: 'Next card countdown' })
+    try { await leader.waitFor({ state: 'visible', timeout: 1_000 }); return true } catch { return false }
   }
 
   test('with reduce motion, the card-change animation is skipped', async ({ page }) => {
@@ -112,6 +109,24 @@ test.describe('A2: the OS "reduce motion" setting is respected', () => {
   test('without it, the card-change animation still plays', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'no-preference' })
     expect(await playOneCardAndWatchTransition(page)).toBe(true)
+  })
+
+  test('between cards: "5, 4, blip!" then the next card, in under 2 seconds', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    // Record what the countdown shows, and when, as it happens.
+    await page.addInitScript(() => {
+      window.__leader = []
+      new MutationObserver(() => {
+        const el = document.querySelector('[aria-label="Next card countdown"]')
+        const v = el ? (el.textContent || 'blip') : 'gone'
+        if (window.__leader[window.__leader.length - 1]?.v !== v) window.__leader.push({ v, t: performance.now() })
+      }).observe(document, { subtree: true, childList: true, characterData: true })
+    })
+    expect(await playOneCardAndWatchTransition(page)).toBe(true)
+    await expect.poll(() => page.evaluate(() => window.__leader.map((x) => x.v).join(' ')), { timeout: 3_000 }).toMatch(/5 4 blip gone$/)
+    const tl = await page.evaluate(() => window.__leader)
+    const start = tl.find((x) => x.v === '5').t
+    expect(tl[tl.length - 1].t - start).toBeLessThan(2_000)
   })
 })
 
