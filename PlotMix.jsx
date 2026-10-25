@@ -4047,65 +4047,120 @@ function pickArcadeItem(level = 1) {
   return ARCADE_ITEMS[0];
 }
 
-// Drawn in code. Popped popcorn comes in 4 shapes and burnt popcorn in 3; every piece also
-// gets its own random angle and spin (owner request 2026-10-25), so no two look alike.
+// Drawn in code, modelled on photos of real popcorn (owner request 2026-10-25): puffy cream
+// lobes shaded like soft spheres, golden hull showing in the gaps, and a few lobes curled
+// open around a yellow hollow. 4 popped shapes; burnt pieces reuse 3 of them, toasted on one
+// side. Every piece also gets its own random angle and spin, so no two look alike.
+// Lobes are [cx, cy, rx, ry, angle, curl] in a 48×48 box; curl lobes show the yellow hollow.
 const POPCORN_SHAPES = [
-  [[17,20,10],[30,17,10.5],[34,29,9],[15,32,9],[24,27,10]],
-  [[24,14,9],[14,24,9.5],[34,24,9.5],[24,33,10],[24,24,8]],
-  [[14,18,8],[26,13,9],[36,21,8.5],[30,32,10],[17,31,9.5]],
-  [[20,16,11],[33,22,9],[28,34,8.5],[14,30,8],[22,26,9]],
+  [[16,19,10,9,-20,1],[30,15,10,8.5,15,0],[35,28,8.5,9,0,1],[16,32,9,8,20,0],[25,26,10,9.5,0,0]],
+  [[24,12,9,8,0,1],[13,23,8.5,9.5,-10,0],[35,23,8.5,9.5,10,1],[23,35,10,8.5,0,0],[24,24,8,8,0,0]],
+  [[14,17,8,7.5,-30,0],[26,12,9,8,0,1],[37,21,8,8.5,20,0],[30,33,10,9,10,1],[17,31,9.5,9,-15,0]],
+  [[20,15,11,9,-10,1],[34,22,9,8.5,25,0],[29,35,8.5,8,0,1],[13,30,8,8.5,-20,0],[22,26,9,8.5,0,0]],
 ];
-const BURNT_SHAPES = [POPCORN_SHAPES[0], POPCORN_SHAPES[2], [[18,18,9],[30,20,10],[24,31,11],[12,28,7]]];
+const BURNT_SHAPES = [POPCORN_SHAPES[0], POPCORN_SHAPES[2], POPCORN_SHAPES[3]];
+const POPCORN_DEFS = (
+  <>
+    <radialGradient id="pc-lobe" cx="0.38" cy="0.32" r="0.75">
+      <stop offset="0" stopColor="#FFFFFB"/><stop offset="0.5" stopColor="#FCF3DC"/>
+      <stop offset="0.82" stopColor="#F0DCA8"/><stop offset="1" stopColor="#DDBE7A"/>
+    </radialGradient>
+    <radialGradient id="pc-hull" cx="0.45" cy="0.4" r="0.7">
+      <stop offset="0" stopColor="#FFD965"/><stop offset="0.6" stopColor="#F2A92C"/><stop offset="1" stopColor="#C2741A"/>
+    </radialGradient>
+    <radialGradient id="pc-kernel" cx="0.4" cy="0.28" r="0.85">
+      <stop offset="0" stopColor="#FFD24A"/><stop offset="0.45" stopColor="#F5A91E"/><stop offset="1" stopColor="#D97C0E"/>
+    </radialGradient>
+    <linearGradient id="pc-tip" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stopColor="#FBE3A0" stopOpacity="0"/><stop offset="0.55" stopColor="#F6E7C4" stopOpacity="0.9"/><stop offset="1" stopColor="#EFE3CB"/>
+    </linearGradient>
+    <radialGradient id="pc-kernel-burnt" cx="0.4" cy="0.28" r="0.85">
+      <stop offset="0" stopColor="#8A4E1C"/><stop offset="0.5" stopColor="#4E2A10"/><stop offset="1" stopColor="#24130A"/>
+    </radialGradient>
+  </>
+);
+// A lumpy, cauliflower-like outline instead of a plain ellipse.
+function blobPath(cx, cy, rx, ry, seed) {
+  const n = 16, pts = [];
+  for (let i = 0; i < n; i++) {
+    const t = (i / n) * Math.PI * 2;
+    const k = 1 + 0.07 * Math.sin(seed + 3 * t) + 0.05 * Math.sin(seed * 2 + 7 * t);
+    pts.push([cx + Math.cos(t) * rx * k, cy + Math.sin(t) * ry * k]);
+  }
+  const mid = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+  let d = `M${mid(pts[n - 1], pts[0]).map((v) => v.toFixed(1)).join(" ")}`;
+  for (let i = 0; i < n; i++) {
+    const m = mid(pts[i], pts[(i + 1) % n]);
+    d += ` Q${pts[i][0].toFixed(1)} ${pts[i][1].toFixed(1)} ${m[0].toFixed(1)} ${m[1].toFixed(1)}`;
+  }
+  return d + " Z";
+}
+function PopcornLobe({l, i, burntId}) {
+  const [cx, cy, rx, ry, rot, curl] = l;
+  const r = Math.min(rx, ry);
+  const outline = blobPath(cx, cy, rx, ry, i * 1.7 + cx * 0.1);
+  return (
+    <g transform={`rotate(${rot} ${cx} ${cy})`}>
+      <path d={outline} fill="url(#pc-lobe)" stroke="#BE9A55" strokeWidth="0.7"/>
+      {curl ? (
+        // A petal curled open: a golden hollow under a cream lip.
+        <>
+          <ellipse cx={cx} cy={cy + r * 0.22} rx={r * 0.62} ry={r * 0.45} fill="url(#pc-hull)"/>
+          <path d={blobPath(cx, cy - r * 0.12, r * 0.7, r * 0.45, i + 2)} fill="url(#pc-lobe)"/>
+          <path d={`M${cx - r * 0.55} ${cy + r * 0.12} Q${cx} ${cy + r * 0.42} ${cx + r * 0.55} ${cy + r * 0.12}`} fill="none" stroke="#D9B66E" strokeWidth="0.6"/>
+        </>
+      ) : (
+        <path d={`M${cx - r * 0.45} ${cy + r * 0.35} Q${cx} ${cy + r * 0.6} ${cx + r * 0.4} ${cy + r * 0.3}`} fill="none" stroke="#E2C88E" strokeWidth="0.6"/>
+      )}
+      {burntId && <path d={outline} fill={`url(#${burntId})`}/>}
+    </g>
+  );
+}
 function ArcadeItemArt({kind, color, variant=0}) {
   if (kind === "popcorn" || kind === "burnt") {
     const burnt = kind === "burnt";
     const shapes = burnt ? BURNT_SHAPES : POPCORN_SHAPES;
-    const blobs = shapes[variant % shapes.length];
-    const uid = `${kind}${variant % shapes.length}`;
-    // Semi-burnt: still cream popcorn, but toasted brown on one side with a few charred spots.
-    const scorch = [[0.25, 0.3], [0.75, 0.65], [0.4, 0.8]][variant % 3];
+    const lobes = shapes[variant % shapes.length];
+    // Semi-burnt: still popcorn, but toasted brown from one side, with a few charred specks.
+    const scorch = [[0.2, 0.25], [0.8, 0.7], [0.35, 0.85]][variant % 3];
+    const burntId = burnt ? `pc-scorch-${variant % 3}` : null;
+    const hull = lobes.slice(0, 4).map(([x, y]) => [(x + 24) / 2, (y + 24) / 2]);
     return (
       <svg viewBox="0 0 48 48" width="100%" height="100%" aria-hidden="true">
         <defs>
+          {POPCORN_DEFS}
           {burnt && (
-            <radialGradient id={`scorch-${uid}`} cx={scorch[0]} cy={scorch[1]} r="0.75">
-              <stop offset="0" stopColor="#3A2010"/>
-              <stop offset="0.35" stopColor="#8A5426"/>
-              <stop offset="0.65" stopColor="#D9A866"/>
-              <stop offset="1" stopColor="#FFF3D6"/>
+            <radialGradient id={burntId} gradientUnits="userSpaceOnUse" cx={48 * scorch[0]} cy={48 * scorch[1]} r="44">
+              <stop offset="0" stopColor="#24110A" stopOpacity="0.95"/><stop offset="0.3" stopColor="#5E3214" stopOpacity="0.9"/>
+              <stop offset="0.6" stopColor="#9A6028" stopOpacity="0.75"/><stop offset="1" stopColor="#C08A4C" stopOpacity="0.55"/>
             </radialGradient>
           )}
         </defs>
-        <g stroke="#1C1D21" strokeWidth="1.6">
-          {blobs.map(([x, y, r], i) => <circle key={i} cx={x} cy={y} r={r} fill={burnt ? `url(#scorch-${uid})` : "#FFF8E6"}/>)}
-        </g>
-        {!burnt && (
-          <>
-            <circle cx={(blobs[0][0] + blobs[1][0]) / 2} cy={(blobs[0][1] + blobs[1][1]) / 2 + 6} r="4" fill="#F3DFAE"/>
-            <circle cx={blobs[1][0]} cy={blobs[1][1] + 2} r="3" fill="#F3DFAE"/>
-            <path d={`M${blobs[0][0] + 3} ${blobs[0][1] + 13} q3 4 7 1`} stroke="#F6C64B" strokeWidth="3" fill="none" strokeLinecap="round"/>
-          </>
-        )}
+        {hull.map(([x, y], i) => <ellipse key={i} cx={x} cy={y} rx="6" ry="5" fill="url(#pc-hull)" stroke="#A8661A" strokeWidth="0.6"/>)}
+        {lobes.map((l, i) => <PopcornLobe key={i} i={i} l={l} burntId={burntId}/>)}
         {burnt && (
-          <>
-            <circle cx={8 + scorch[0] * 32} cy={8 + scorch[1] * 32} r="2.4" fill="#1A0E06"/>
-            <circle cx={12 + scorch[0] * 28} cy={4 + scorch[1] * 30} r="1.5" fill="#1A0E06"/>
-            <path d={`M${10 + scorch[0] * 26} ${14 + scorch[1] * 22} q2 3 5 1`} stroke="#5A3418" strokeWidth="1.6" fill="none" strokeLinecap="round"/>
-          </>
+          <g fill="#2A1406" opacity="0.85">
+            <ellipse cx={8 + scorch[0] * 32} cy={8 + scorch[1] * 30} rx="1.8" ry="1.1"/>
+            <ellipse cx={12 + scorch[0] * 26} cy={5 + scorch[1] * 28} rx="1" ry="0.7"/>
+          </g>
         )}
       </svg>
     );
   }
   if (kind === "unpopped") {
-    // A real kernel: broad rounded crown narrowing to a small pale tip cap, with a lighter germ patch.
-    const body = ["#F2A71B", "#E99418", "#F4B428"][variant % 3];
+    // A real kernel: glossy rounded crown, narrowing to a pale, slightly see-through tip.
+    // Every third kernel is a burnt one (owner request 2026-10-25).
+    const burnt = variant % 3 === 2;
     return (
       <svg viewBox="0 0 48 48" width="100%" height="100%" aria-hidden="true">
-        <path d="M24 6 C35 6 39 15 37 24 C35 32 29 38 26 42 C25 43.5 23 43.5 22 42 C19 38 13 32 11 24 C9 15 13 6 24 6 Z"
-          fill={body} stroke="#1C1D21" strokeWidth="1.8" strokeLinejoin="round"/>
-        <path d="M24 9 C31 9 34 14 33 20 C30 14 18 14 15 20 C14 14 17 9 24 9 Z" fill="#FFCF5C" opacity="0.85"/>
-        <ellipse cx="24" cy="27" rx="4.5" ry="7.5" fill="#FFE6A3" stroke="#C47A12" strokeWidth="1"/>
-        <path d="M21.5 40 C23 42.5 25 42.5 26.5 40 L25.5 43 C24.6 44.2 23.4 44.2 22.5 43 Z" fill="#F3E2C0" stroke="#1C1D21" strokeWidth="1"/>
+        <defs>{POPCORN_DEFS}</defs>
+        <path d="M24 5 C36 5 40 14 38 23 C36 31 30 37 27 41.5 C25.8 43.3 22.2 43.3 21 41.5 C18 37 12 31 10 23 C8 14 12 5 24 5 Z"
+          fill={burnt ? "url(#pc-kernel-burnt)" : "url(#pc-kernel)"} stroke={burnt ? "#140A04" : "#9A5A0A"} strokeWidth="1"/>
+        {!burnt && <path d="M24 21 C27.5 23 28 29 27 33 C26 36 22 36 21 33 C20 29 20.5 23 24 21 Z" fill="#FFE3A0" opacity="0.45"/>}
+        {!burnt && <path d="M16.5 32 C19 37 21 41 22 42 C23 43.4 25 43.4 26 42 C27 41 29 37 31.5 32 C28 35 20 35 16.5 32 Z" fill="url(#pc-tip)"/>}
+        {burnt && <path d="M14 14 C18 10 22 12 20 17 C18 21 13 19 14 14 Z" fill="#0E0703" opacity="0.8"/>}
+        {burnt && <circle cx="30" cy="26" r="2.2" fill="#0E0703" opacity="0.75"/>}
+        <ellipse cx="17.5" cy="12.5" rx="4.5" ry="2.6" transform="rotate(-30 17.5 12.5)" fill="#FFFFFF" opacity={burnt ? 0.22 : 0.55}/>
       </svg>
     );
   }
