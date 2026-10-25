@@ -297,16 +297,22 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
     const ids = [77, 1, 2, 3, 11]
     const deck = readDeck()
     await resumeStandardWithCards(page, ids)
-    for (const id of ids) {
+    for (const [i, id] of ids.entries()) {
       await submitGuess(page, deck.find((c) => c.id === id).mashedTitle)
-      await page.getByRole('button', { name: 'Next' }).click()
+      if (i < 4) await page.getByRole('button', { name: 'Next' }).click()
     }
   }
 
   test('5 in a row offers Popcorn Panic; keep guessing saves the play for later', async ({ page }) => {
     await solveFiveInARow(page)
-    await expect(page.getByRole('dialog', { name: 'Popcorn Panic offer' })).toBeVisible()
+    // The offer appears with the result and stays until the player chooses.
+    const offer = page.getByRole('dialog', { name: 'Popcorn Panic offer' })
+    await expect(offer).toBeVisible()
+    await page.waitForTimeout(4000)
+    await expect(offer).toBeVisible()
+    await expect(offer).toContainText('Badge unlocked: Box Office Smash')
     await page.getByRole('button', { name: 'Keep guessing' }).click()
+    await page.getByRole('button', { name: 'Next' }).click()
     await waitForSave(page, 'standard', (s) => s.cardIdx === 5)
     expect(await page.evaluate(() => localStorage.getItem('plotmix_arcade_passes'))).toBe('1')
   })
@@ -417,5 +423,22 @@ test.describe('Arcade power-ups in the main game', () => {
     await startMode(page, 'daily')
     await page.getByRole('button', { name: 'Open hints' }).click()
     await expect(page.getByRole('button', { name: /Use a Free Hint/ })).toHaveCount(0)
+  })
+})
+
+test.describe('Win sticker clips', () => {
+  // The popcorn sticker was cut off because its listed length (2.1 s) was shorter than the clip (3.7 s).
+  test('listed clip lengths match the real video files', () => {
+    const { readFileSync } = require('node:fs')
+    const { join } = require('node:path')
+    const src = readFileSync(join(process.cwd(), 'PlotMix.jsx'), 'utf8')
+    const listed = [...src.matchAll(/\{ src: "(\/stickers\/[a-z]+\.mp4)", durationMs: (\d+) \}/g)]
+    expect(listed.length).toBe(2)
+    for (const [, file, ms] of listed) {
+      const d = readFileSync(join(process.cwd(), 'public', file))
+      const i = d.indexOf('mvhd')
+      const seconds = d.readUInt32BE(i + 16 + 4) / d.readUInt32BE(i + 16)
+      expect(Math.abs(Number(ms) / 1000 - seconds)).toBeLessThan(0.1)
+    }
   })
 })

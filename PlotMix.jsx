@@ -2192,11 +2192,11 @@ const BTN = {
 };
 
 const STICKER_ASSETS = {
-  // Timings are tuned to the provided MP4 clips:
-  // clapboard ~1s, popcorn ~2s, hint ~2s.
+  // Real clip lengths (checked by a test against the files): popcorn 3.67 s, clapboard 2.03 s.
+  // They were listed as 2.1 s and 1.2 s, so the sticker was hidden before the clip finished.
   winAnimations: [
-    { src: "/stickers/popcorn.mp4", durationMs: 2100 },
-    { src: "/stickers/clapboard.mp4", durationMs: 1200 },
+    { src: "/stickers/popcorn.mp4", durationMs: 3700 },
+    { src: "/stickers/clapboard.mp4", durationMs: 2050 },
   ],
   hintAnimation: { src: "/stickers/hint.mp4", width: 320, aboveGap: 8, liftY: -120 },
   trex: {
@@ -3706,8 +3706,8 @@ function PopcornMeter({streak, popKey, reducedMotion=false}) {
   const level = Math.min(5, streak);
   const kernels = [[-26,-30],[-12,-42],[4,-46],[18,-38],[28,-24]];
   return (
-    <div aria-label={`Streak: ${streak}`} style={{position:"absolute",top:20,left:"50%",transform:"translateX(-50%)",zIndex:250,width:48,height:44,pointerEvents:"none",display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
-      <svg width="34" height="40" viewBox="0 0 34 40" aria-hidden="true" style={{overflow:"visible"}}>
+    <div aria-label={`Streak: ${streak}`} style={{position:"absolute",top:12,left:"50%",transform:"translateX(-50%)",zIndex:250,width:80,height:58,pointerEvents:"none",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start"}}>
+      <svg width="26" height="31" viewBox="0 0 34 40" aria-hidden="true" style={{overflow:"visible",marginTop:6}}>
         {Array.from({length:level}).map((_,i)=>(
           <g key={i} transform={`translate(${5 + (i%3)*8 + (i>2?4:0)}, ${14 - (i>2?7:0)})`}>
             <circle r="5.5" fill="#FFF6D8" stroke="#1C1D21" strokeWidth="1.2"/>
@@ -3718,9 +3718,9 @@ function PopcornMeter({streak, popKey, reducedMotion=false}) {
         <path d="M9 14 L11 39 M17 14 V39 M25 14 L23 39" stroke="#E4444F" strokeWidth="4"/>
         <path d="M2 14 H32 L28 39 H6 Z" fill="none" stroke="#1C1D21" strokeWidth="1.6" strokeLinejoin="round"/>
       </svg>
-      <span style={{position:"absolute",left:"calc(100% + 2px)",bottom:6,height:20,padding:"0 7px",borderRadius:10,background:"#FFD84D",border:"1.5px solid #1C1D21",fontFamily:FONT_FIGMA_STICKER,fontSize:9,color:"#1C1D21",display:"flex",alignItems:"center",whiteSpace:"nowrap",boxSizing:"border-box",animation:reducedMotion?"none":"titlePop 0.35s ease both"}}>{streak} in a row</span>
+      <span style={{marginTop:3,height:17,padding:"0 7px",borderRadius:9,background:"#FFD84D",border:"1.5px solid #1C1D21",fontFamily:FONT_FIGMA_STICKER,fontSize:8.5,color:"#1C1D21",display:"flex",alignItems:"center",whiteSpace:"nowrap",boxSizing:"border-box",animation:reducedMotion?"none":"titlePop 0.35s ease both"}}>{streak} in a row</span>
       {!reducedMotion && popKey > 0 && kernels.map(([dx,dy],i)=>(
-        <span key={`${popKey}-${i}`} style={{position:"absolute",left:21,top:14,width:9,height:9,borderRadius:"50%",background:"#FFF6D8",border:"1px solid #1C1D21",
+        <span key={`${popKey}-${i}`} style={{position:"absolute",left:36,top:14,width:9,height:9,borderRadius:"50%",background:"#FFF6D8",border:"1px solid #1C1D21",
           "--dx":`${dx}px`,"--dy":`${dy}px`,animation:`kernelPop 0.7s cubic-bezier(.2,.8,.3,1) ${i*30}ms both`}}/>
       ))}
     </div>
@@ -3810,7 +3810,7 @@ function NextDailyCountdown() {
 
 function BadgeToast({badges}) {
   return (
-    <div role="status" style={{position:"fixed",top:74,left:"50%",transform:"translateX(-50%)",zIndex:520,pointerEvents:"none",display:"flex",flexDirection:"column",gap:6,alignItems:"center",animation:"badgeToast 2.8s ease both"}}>
+    <div role="status" style={{position:"fixed",top:74,left:"50%",transform:"translateX(-50%)",zIndex:520,pointerEvents:"none",display:"flex",flexDirection:"column",gap:6,alignItems:"center",animation:"badgeIn 0.4s ease both"}}>
       {badges.map(b=>(
         <div key={b.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 14px",background:"#FFD84D",border:"2px solid #1C1D21",borderRadius:12,boxShadow:"0 3px 0 #1C1D21",whiteSpace:"nowrap"}}>
           <span style={{fontSize:18,lineHeight:1}}>{b.emoji}</span>
@@ -3833,7 +3833,10 @@ const CINEMA_KEYFRAMES = `
   @keyframes filmBurn { 0%{opacity:0; transform:scale(0.2)} 30%{opacity:1} 100%{opacity:0; transform:scale(3.2)} }
   @keyframes badgeToast { 0%{opacity:0; transform:translateX(-50%) translateY(-12px)} 10%{opacity:1; transform:translateX(-50%) translateY(0)} 85%{opacity:1} 100%{opacity:0; transform:translateX(-50%) translateY(-6px)} }
   @keyframes reelAdvance { from{background-position:center 0} to{background-position:center 168px} }
-  @keyframes projectorFlicker { 0%,100%{opacity:0} 15%{opacity:0.2} 28%{opacity:0.05} 42%{opacity:0.16} 60%{opacity:0.04} 75%{opacity:0.12} }
+  @keyframes projectorFlicker { 0%,100%{opacity:0} 10%{opacity:0.55} 18%{opacity:0.1} 30%{opacity:0.45} 40%{opacity:0.05} 52%{opacity:0.5} 64%{opacity:0.15} 78%{opacity:0.35} 90%{opacity:0.08} }
+  @keyframes filmScratch { 0%{opacity:0;background-position:0 0} 15%{opacity:1} 50%{background-position:-23px 0} 85%{opacity:1} 100%{opacity:0;background-position:31px 0} }
+  @keyframes filmJitter { 0%,100%{transform:translate(0,0)} 25%{transform:translate(1px,-2px)} 50%{transform:translate(-1px,2px)} 75%{transform:translate(1px,1px)} }
+  @keyframes badgeIn { from{opacity:0;transform:translateX(-50%) translateY(-10px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
   @keyframes ptsShake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(calc(var(--amp) * -1))} 40%{transform:translateX(var(--amp))} 60%{transform:translateX(calc(var(--amp) * -0.6))} 80%{transform:translateX(calc(var(--amp) * 0.4))} }
   @keyframes tileFlip { 0%{transform:rotateX(90deg) scale(0.9)} 60%{transform:rotateX(-12deg) scale(1.06)} 100%{transform:rotateX(0) scale(1)} }
   @keyframes itemSpin { from{transform:rotate(var(--r0))} to{transform:rotate(var(--r1))} }
@@ -4700,8 +4703,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   const [popKey,setPopKey]=useState(0);
   const [badgeToast,setBadgeToast]=useState(null);
   // 5 in a row earns a Popcorn Panic play; on Next the player chooses to play it now or keep guessing.
-  const arcadeOfferRef=useRef(false);
-  const [arcadeOffer,setArcadeOffer]=useState(null); // null | "ask" | "playing"
+  const [arcadeOffer,setArcadeOffer]=useState(null); // null | {stage:"ask"|"playing", badges}
   const badgeToastTimerRef=useRef(null);
   const [themedWeek]=useState(()=>mode.isDaily ? activeThemedWeek() : null);
   const [dailyLine]=useState(()=>mode.isDaily && !initialState ? pickRandom("trailer", themedWeek ? themedWeek.lines : TRAILER_OPENERS) : null);
@@ -4784,6 +4786,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     }
     setCardTransitionPhase("in");
     comboRef.current=0;
+    setBadgeToast(null);
     const settle = setTimeout(() => setCardTransitionPhase("idle"), 440);
     return () => clearTimeout(settle);
   }, [activeIdx, reducedMotion]);
@@ -4862,7 +4865,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       anim: transitionMeta.anim,
     });
     if (genreTransitionTimerRef.current) clearTimeout(genreTransitionTimerRef.current);
-    genreTransitionTimerRef.current = setTimeout(() => setGenreTransition(null), 520);
+    genreTransitionTimerRef.current = setTimeout(() => setGenreTransition(null), 760);
 
     setCardTransitionPhase("out");
     if (cardSwapTimerRef.current) clearTimeout(cardSwapTimerRef.current);
@@ -5001,7 +5004,6 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   },[phase]);
 
   const handleResultNext=()=>{
-    if(arcadeOfferRef.current && !resultAppliedRef.current){ arcadeOfferRef.current=false; setArcadeOffer("ask"); return; }
     if(resultAppliedRef.current) return;
     resultAppliedRef.current=true;
     if(skipped){
@@ -5156,17 +5158,19 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     if(wrongGuessCount===mode.maxGuesses-1) ids.push("plotTwist");
     if(runStreak>=5) ids.push("boxOfficeSmash");
     const fresh=earnBadges(ids);
-    const toasts=BADGES.filter(b=>fresh.includes(b.id));
-    // Every 5 mashups in a row earns a play of Popcorn Panic, offered when the player taps Next.
+    const earned=BADGES.filter(b=>fresh.includes(b.id));
+    // Every 5 mashups in a row earns a play of Popcorn Panic: offered at once in a box that
+    // stays until the player chooses (owner request 2026-10-25), with any new badges in it.
     if(runStreak>0 && runStreak % ARCADE_STREAK_FOR_PASS === 0){
       addArcadePass();
-      arcadeOfferRef.current=true;
+      SFX.badge();
+      setArcadeOffer({stage:"ask",badges:earned});
+      return;
     }
-    if(!toasts.length) return;
+    if(!earned.length) return;
     SFX.badge();
-    setBadgeToast(toasts);
-    if (badgeToastTimerRef.current) clearTimeout(badgeToastTimerRef.current);
-    badgeToastTimerRef.current = setTimeout(() => setBadgeToast(null), 2900);
+    // New badges stay on screen until the next card.
+    setBadgeToast(earned);
   },[phase]);
 
   useEffect(() => {
@@ -5202,17 +5206,19 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     winAnimationStartedAtRef.current = Date.now();
     setShowWinAnimation(true);
 
-    // Safety fallback in case a device never fires video onEnded.
+    // Safety fallback in case a device never fires video onEnded: the clip's length plus
+    // generous time for a slow phone to load it.
     if (winAnimationTimerRef.current) clearTimeout(winAnimationTimerRef.current);
     winAnimationTimerRef.current = setTimeout(() => {
       setWinAnimationEnded(true);
-    }, Math.max(3000, pickedDuration + 1400));
+    }, pickedDuration + 4000);
 
   }, [phase, both, skipped, timedOut, cardIdx]);
 
   useEffect(() => {
     if (!showWinAnimation || !winAnimationEnded) return;
-    const MIN_RESULT_VISIBLE_MS = 4200;
+    // Once the clip has ended, hold its last frame briefly (and at least this long overall).
+    const MIN_RESULT_VISIBLE_MS = 2000;
     const elapsed = Date.now() - winAnimationStartedAtRef.current;
     const holdMore = Math.max(0, MIN_RESULT_VISIBLE_MS - elapsed);
 
@@ -5288,25 +5294,44 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
         </div>
       )}
 
-      {arcadeOffer==="ask" && (
+      {arcadeOffer?.stage==="ask" && (
         <div role="dialog" aria-label="Popcorn Panic offer" style={{position:"fixed",inset:0,zIndex:600,background:"rgba(0,0,0,0.55)",display:"flex",alignItems:"center",justifyContent:"center",padding:18}}>
           <div style={{width:"100%",maxWidth:340,background:T.bgDeep,border:`2px solid ${T.border}`,borderRadius:16,boxShadow:T.shadowLg,padding:"22px 20px",textAlign:"center",animation:reducedMotion?"none":"titlePop 0.4s ease both"}}>
             <div style={{width:84,height:84,margin:"0 auto 8px"}}><ArcadeItemArt kind="popcorn" variant={2}/></div>
             <div style={{...YELLOW_STICKER_TEXT,fontSize:18,textTransform:"uppercase",lineHeight:1.3}}>{runStreak} in a row!</div>
-            <p style={{fontFamily:"'Outfit',sans-serif",fontSize:15,margin:"8px 0 18px"}}>You've unlocked Popcorn Panic. Play now for a chance at prizes?</p>
-            <button onClick={()=>setArcadeOffer("playing")} style={{...BTN.primary,width:"100%",padding:"13px 0",marginBottom:10}}>
+            <p style={{fontFamily:"'Outfit',sans-serif",fontSize:15,margin:"8px 0 14px"}}>You've unlocked Popcorn Panic. Play now for a chance at prizes?</p>
+            {arcadeOffer.badges?.length>0 && (
+              <div style={{display:"flex",flexDirection:"column",gap:6,margin:"0 0 16px"}}>
+                {arcadeOffer.badges.map((b)=>(
+                  <div key={b.id} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"7px 10px",background:"#FFD84D",border:"2px solid #1C1D21",borderRadius:10}}>
+                    <span style={{fontSize:16}}>{b.emoji}</span>
+                    <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:10.5,color:"#1C1D21",textTransform:"uppercase"}}>Badge unlocked: {b.name}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button onClick={()=>setArcadeOffer({stage:"playing"})} style={{...BTN.primary,width:"100%",padding:"13px 0",marginBottom:10}}>
               <span style={{...WHITE_STICKER_TEXT,fontSize:13,textTransform:"uppercase"}}>🍿 Play Popcorn Panic</span>
             </button>
-            <button onClick={()=>{ setArcadeOffer(null); handleResultNext(); }} style={{...BTN.cyan,width:"100%",padding:"12px 0"}}>
+            <button onClick={()=>setArcadeOffer(null)} style={{...BTN.cyan,width:"100%",padding:"12px 0"}}>
               <span style={{...WHITE_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>Keep guessing</span>
             </button>
             <div style={{fontFamily:"'Outfit',sans-serif",fontSize:12,opacity:0.8,marginTop:10}}>Not now? The play stays in the 🕹️ arcade on the menu.</div>
           </div>
         </div>
       )}
-      {arcadeOffer==="playing" && (
+      {arcadeOffer?.stage==="playing" && (
         <div style={{position:"fixed",inset:0,zIndex:650,overflowY:"auto"}}>
           <ArcadeScreen embedded reducedMotion={reducedMotion} onBack={()=>{ setArcadeOffer(null); handleResultNext(); }}/>
+        </div>
+      )}
+
+      {/* Load the win and hint clips early so they play smoothly the first time */}
+      {!reducedMotion && (
+        <div aria-hidden="true" style={{display:"none"}}>
+          {[...STICKER_ASSETS.winAnimations.map((a)=>a.src), STICKER_ASSETS.hintAnimation.src].map((src)=>(
+            <video key={src} src={src} preload="auto" muted playsInline/>
+          ))}
         </div>
       )}
 
@@ -5319,13 +5344,14 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
 
       {/* Film-reel change: sprocket strips advance and the projector flickers */}
       {!!genreTransition && (
-        <div key={`reel-${genreTransition.nonce}`} aria-hidden="true" style={{position:"fixed",inset:0,zIndex:305,pointerEvents:"none"}}>
+        <div key={`reel-${genreTransition.nonce}`} aria-hidden="true" style={{position:"fixed",inset:0,zIndex:305,pointerEvents:"none",animation:"filmJitter 760ms steps(8) both"}}>
           {["left","right"].map(side=>(
             <div key={side} style={{position:"absolute",top:0,bottom:0,[side]:0,width:24,background:"#1C1D21",
               backgroundImage:"linear-gradient(to bottom, transparent 0 9px, #F3F4FF 9px 19px, transparent 19px 28px)",
-              backgroundSize:"11px 28px",backgroundRepeat:"repeat-y",backgroundPosition:"center 0",animation:"reelAdvance 520ms steps(6) both"}}/>
+              backgroundSize:"11px 28px",backgroundRepeat:"repeat-y",backgroundPosition:"center 0",animation:"reelAdvance 760ms steps(8) both"}}/>
           ))}
-          <div style={{position:"absolute",inset:0,background:"#FFF8E7",animation:"projectorFlicker 520ms linear both"}}/>
+          <div style={{position:"absolute",inset:0,background:"#FFF8E7",animation:"projectorFlicker 760ms linear both"}}/>
+          <div style={{position:"absolute",inset:0,background:"repeating-linear-gradient(90deg, transparent 0 37px, rgba(28,22,12,0.35) 37px 38px, transparent 38px 113px, rgba(255,255,255,0.5) 113px 114px)",animation:"filmScratch 760ms steps(6) both"}}/>
         </div>
       )}
 
