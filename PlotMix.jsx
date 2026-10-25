@@ -4038,14 +4038,15 @@ function VaultScreen({onBack, onArcade}) {
 
 // Arcade side-quest: "Popcorn Panic" (owner design 2026-10-25).
 // Endless: catch popped popcorn; burnt popcorn and unpopped kernels cost a life (3 lives).
-// Every 5 seconds it gets faster with more bad bits, so every game ends. Catching popcorn without
-// letting any fall builds a combo (x2 at 5, x3 at 10); every 10 in a row starts a Popcorn Frenzy.
+// Every 5 seconds it gets faster with more bad bits, so every game ends. Popcorn caught without
+// catching a bad bit in between builds a combo (x2 at 5, x3 at 10); every 10 starts a Popcorn Frenzy.
 // Chocolate candies give a boost: an extra life, a 5-second shield, or 5 seconds of double points.
 // A play is earned by solving 5 mashups in a row (no paying to replay).
 const ARCADE_LIVES = 3;
 const ARCADE_LEVEL_MS = 5000;
 const ARCADE_BASE_SPAWN = 560, ARCADE_MIN_SPAWN = 200;   // ms between pieces
-const ARCADE_BASE_FLIGHT = 1900, ARCADE_MIN_FLIGHT = 900; // ms a piece is in the air
+const ARCADE_BASE_FALL = 3200, ARCADE_MIN_FALL = 1300;   // ms for a piece to fall the whole way
+const BUCKET_W = 112, BUCKET_H = 80, ARCADE_ITEM = 46;
 const FRENZY_AT = 10, FRENZY_MS = 3000, FRENZY_SPAWN_MS = 140;
 const ARCADE_STREAK_FOR_PASS = 5;
 function comboMultiplier(c) { return c >= 10 ? 3 : c >= 5 ? 2 : 1; }
@@ -4143,7 +4144,7 @@ function ArcadeItemArt({kind, color, variant=0}) {
 }
 
 // The catching box: angled like a real popcorn box, with a scalloped (arched) top edge.
-function PopcornBox() {
+function PopcornBox({x = null}) {
   const top = 14, bottom = 96, l0 = 6, r0 = 134, l1 = 26, r1 = 114; // top corners wider than bottom
   const arches = 8, w = (r0 - l0) / arches;
   let scallop = `M${l0} ${top}`;
@@ -4151,8 +4152,8 @@ function PopcornBox() {
   const stripes = 7;
   const lerp = (a, b, t) => a + (b - a) * t;
   return (
-    <svg aria-hidden="true" viewBox="0 0 140 100" width="150" height="107"
-      style={{position:"absolute",left:"50%",bottom:-4,transform:"translateX(-50%)",overflow:"visible",filter:"drop-shadow(0 -2px 0 rgba(0,0,0,0.15))"}}>
+    <svg aria-label="Popcorn box" role="img" viewBox="0 0 140 100" width={BUCKET_W + 6} height={BUCKET_H}
+      style={{position:"absolute",left:x === null ? "50%" : x,bottom:-2,transform:"translateX(-50%)",overflow:"visible",filter:"drop-shadow(0 -2px 0 rgba(0,0,0,0.15))",pointerEvents:"none"}}>
       <defs>
         <clipPath id="popcorn-box-shape">
           <path d={`${scallop} L${r1} ${bottom} L${l1} ${bottom} Z`}/>
@@ -4189,7 +4190,10 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
   const boostRef = useRef(null);
   const comboRef = useRef(0);
   const itemsRef = useRef([]);
-  useEffect(() => { itemsRef.current = items; }, [items]);
+  const arenaRef = useRef(null);
+  const bucketXRef = useRef(null);
+  const [bucketX, setBucketX] = useState(null);
+  const [showSlideHint, setShowSlideHint] = useState(true);
   const frenzyUntilRef = useRef(0);
   const nextFrenzyAtRef = useRef(FRENZY_AT);
   const idRef = useRef(0);
@@ -4202,6 +4206,7 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
     comboRef.current = 0; frenzyUntilRef.current = 0; nextFrenzyAtRef.current = FRENZY_AT;
     setScore(0); setLives(ARCADE_LIVES); setLevel(1); setCombo(0); setFrenzy(false);
     setBoost(null); setFlash(null); setItems([]); setResult(null);
+    bucketXRef.current = null; setBucketX(null); setShowSlideHint(true);
     setPhase("playing");
   };
 
@@ -4213,15 +4218,19 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
     start();
   }, [embedded]);
 
+  // Catch game (owner design 2026-10-25): pieces fall from the top and the player slides the
+  // popcorn box under them. Popcorn in the box scores; burnt bits and kernels in the box cost a
+  // life and break the combo. Several pieces fall at once, so dropped popcorn only costs points.
   useEffect(() => {
     if (phase !== "playing") return;
     const startedAt = Date.now();
-    let done = false, spawnTimer = null;
+    let done = false, raf = null, last = performance.now(), nextSpawnAt = Date.now() + 400;
+    itemsRef.current = [];
     const levelNow = () => 1 + Math.floor((Date.now() - startedAt) / ARCADE_LEVEL_MS);
     const finish = () => {
       if (done) return;
       done = true;
-      clearTimeout(spawnTimer); clearInterval(clock);
+      if (raf) cancelAnimationFrame(raf);
       const final = scoreRef.current;
       const prize = prizeForScore(final);
       const p = loadPrizes();
@@ -4231,46 +4240,76 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
       if (prize) addPowerups(prize.powerups);
       if (prize || isRecord) SFX.complete();
       setResult({ score: final, prize, isNew, isRecord, level: levelNow() });
+      itemsRef.current = [];
       setItems([]);
       setPhase("done");
     };
     finishRef.current = finish;
-    // Endless: pieces come faster every level, with more bad bits, until the lives run out.
-    const spawn = () => {
+    const step = (t) => {
       if (done) return;
+      const dt = Math.min(50, t - last); last = t;
+      const arena = arenaRef.current;
+      const W = arena?.clientWidth || 360, H = arena?.clientHeight || 500;
+      if (bucketXRef.current === null) { bucketXRef.current = W / 2; setBucketX(W / 2); }
       const lv = levelNow();
-      const inFrenzy = Date.now() < frenzyUntilRef.current;
-      const it = inFrenzy ? ARCADE_ITEMS[0] : pickArcadeItem(lv);
-      const dur = Math.max(ARCADE_MIN_FLIGHT, ARCADE_BASE_FLIGHT * Math.pow(0.93, lv - 1));
-      const item = { id: ++idRef.current, kind: it.kind, label: it.label, x: 8 + Math.random() * 76, born: Date.now(), dur,
-        color: CANDY_COLORS[Math.floor(Math.random() * CANDY_COLORS.length)],
-        variant: Math.floor(Math.random() * 12), angle: Math.floor(Math.random() * 360), spin: Math.round((Math.random() * 2 - 1) * 240) };
-      setItems((xs) => [...xs.filter((q) => Date.now() - q.born < q.dur), item]);
-      const gap = inFrenzy ? FRENZY_SPAWN_MS : Math.max(ARCADE_MIN_SPAWN, ARCADE_BASE_SPAWN * Math.pow(0.88, lv - 1));
-      spawnTimer = setTimeout(spawn, gap);
-    };
-    spawnTimer = setTimeout(spawn, 300);
-    const clock = setInterval(() => {
-      setLevel(levelNow());
-      if (boostRef.current && Date.now() > boostRef.current.until) { boostRef.current = null; setBoost(null); }
-      if (frenzyUntilRef.current && Date.now() > frenzyUntilRef.current) { frenzyUntilRef.current = 0; setFrenzy(false); }
-      // Popcorn that fell without being caught breaks the combo.
       const now = Date.now();
-      const missed = itemsRef.current.filter((q) => q.kind === "popcorn" && now - q.born >= q.dur);
-      if (missed.length) {
-        const gone = new Set(missed.map((q) => q.id));
-        setItems((xs) => xs.filter((q) => !gone.has(q.id)));
-        if (comboRef.current) { comboRef.current = 0; setCombo(0); }
+      const inFrenzy = now < frenzyUntilRef.current;
+      // Spawn: faster each level; a Popcorn Frenzy rains popcorn only.
+      if (now >= nextSpawnAt) {
+        const it = inFrenzy ? ARCADE_ITEMS[0] : pickArcadeItem(lv);
+        const fall = Math.max(ARCADE_MIN_FALL, ARCADE_BASE_FALL * Math.pow(0.92, lv - 1));
+        itemsRef.current.push({ id: ++idRef.current, kind: it.kind, label: it.label,
+          x: ARCADE_ITEM / 2 + Math.random() * (W - ARCADE_ITEM), y: -ARCADE_ITEM, vy: (H + ARCADE_ITEM) / fall,
+          color: CANDY_COLORS[Math.floor(Math.random() * CANDY_COLORS.length)],
+          variant: Math.floor(Math.random() * 12), angle: Math.floor(Math.random() * 360), spin: (Math.random() * 2 - 1) * 0.25 });
+        nextSpawnAt = now + (inFrenzy ? FRENZY_SPAWN_MS : Math.max(ARCADE_MIN_SPAWN, ARCADE_BASE_SPAWN * Math.pow(0.88, lv - 1)));
       }
-    }, 150);
-    return () => { done = true; clearTimeout(spawnTimer); clearInterval(clock); };
+      // Move, catch, or drop.
+      const catchY = H - BUCKET_H + 18;
+      const bx = bucketXRef.current;
+      const keep = [];
+      for (const it of itemsRef.current) {
+        const prevY = it.y;
+        it.y += it.vy * dt;
+        it.angle += it.spin * dt;
+        if (prevY < catchY && it.y >= catchY && Math.abs(it.x - bx) <= BUCKET_W / 2) { catchItem(it); continue; }
+        if (it.y - ARCADE_ITEM / 2 > H) continue; // dropped: no points, no penalty
+        keep.push(it);
+      }
+      itemsRef.current = keep;
+      setItems(keep.map((it) => ({ ...it })));
+      setLevel(lv);
+      if (boostRef.current && now > boostRef.current.until) { boostRef.current = null; setBoost(null); }
+      if (frenzyUntilRef.current && now > frenzyUntilRef.current) { frenzyUntilRef.current = 0; setFrenzy(false); }
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => { done = true; if (raf) cancelAnimationFrame(raf); };
+  }, [phase]);
+
+  // Slide the box: it follows the finger (or mouse); arrow keys work too.
+  const moveBucket = (clientX) => {
+    const arena = arenaRef.current; if (!arena) return;
+    const r = arena.getBoundingClientRect();
+    const x = Math.max(BUCKET_W / 2, Math.min(r.width - BUCKET_W / 2, clientX - r.left));
+    bucketXRef.current = x; setBucketX(x);
+    if (showSlideHint) setShowSlideHint(false);
+  };
+  useEffect(() => {
+    if (phase !== "playing") return;
+    const onKey = (e) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      const r = arenaRef.current?.getBoundingClientRect(); if (!r) return;
+      moveBucket(r.left + (bucketXRef.current ?? r.width / 2) + (e.key === "ArrowLeft" ? -36 : 36));
+      e.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [phase]);
 
   const showFlash = (text, bad=false) => setFlash({ key: Date.now(), text, bad });
 
   const catchItem = (it) => {
-    if (phase !== "playing") return;
-    setItems((xs) => xs.filter((q) => q.id !== it.id));
     const active = boostRef.current && Date.now() <= boostRef.current.until ? boostRef.current.type : null;
     if (it.kind === "popcorn") {
       const now = Date.now();
@@ -4381,19 +4420,23 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
         )}
       </div>
       {phase === "playing" && (
-        <div style={{position:"absolute",left:0,right:0,top:210,bottom:0}}>
+        <div ref={arenaRef} aria-label="Popcorn arena"
+          onPointerDown={(e) => moveBucket(e.clientX)} onPointerMove={(e) => moveBucket(e.clientX)}
+          style={{position:"absolute",left:0,right:0,top:210,bottom:0,touchAction:"none",overflow:"hidden",cursor:"grab"}}>
           {items.map((it) => (
-            <button key={it.id} aria-label={it.label} onPointerDown={() => catchItem(it)}
-              style={{position:"absolute",left:`${it.x}%`,bottom:40,width:it.kind === "unpopped" ? 40 : 52,height:it.kind === "unpopped" ? 40 : 52,marginLeft:-26,padding:0,
-                background:"transparent",border:"none",cursor:"pointer",filter:"drop-shadow(0 3px 0 rgba(28,29,33,0.6))",
-                animation:reducedMotion ? "fadeIn 0.2s ease both" : `kernelArc ${it.dur}ms cubic-bezier(.25,.9,.4,1) both`}}>
-              <div style={{width:"100%",height:"100%","--r0":`${it.angle}deg`,"--r1":`${it.angle + it.spin}deg`,transform:`rotate(${it.angle}deg)`,
-                animation:reducedMotion ? "none" : `itemSpin ${it.dur}ms linear both`}}>
-                <ArcadeItemArt kind={it.kind} color={it.color} variant={it.variant}/>
-              </div>
-            </button>
+            <div key={it.id} role="img" aria-label={it.label}
+              style={{position:"absolute",left:it.x - (it.kind === "unpopped" ? 18 : 23),top:it.y - (it.kind === "unpopped" ? 18 : 23),
+                width:it.kind === "unpopped" ? 36 : 46,height:it.kind === "unpopped" ? 36 : 46,pointerEvents:"none",
+                transform:`rotate(${it.angle}deg)`,filter:"drop-shadow(0 3px 0 rgba(28,29,33,0.6))"}}>
+              <ArcadeItemArt kind={it.kind} color={it.color} variant={it.variant}/>
+            </div>
           ))}
-          <PopcornBox/>
+          {bucketX !== null && <PopcornBox x={bucketX}/>}
+          {bucketX !== null && showSlideHint && (
+            <div aria-hidden="true" style={{position:"absolute",left:bucketX,bottom:BUCKET_H + 14,transform:"translateX(-50%)",...WHITE_STICKER_TEXT,fontSize:13,whiteSpace:"nowrap",pointerEvents:"none",animation:reducedMotion?"none":"pulse 1.2s ease-in-out infinite"}}>
+              ← slide →
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -4426,6 +4469,38 @@ function HangmanTitle({card, found, guesses=[], reducedMotion=false, peek=false}
       });
   });
 
+  // Naming a film shows its part of the title (owner report 2026-10-25: "good fellas" turned
+  // green but showed nothing in "Goodfellowship"). Words of a named film open whole title words
+  // they equal, and the shared start or end (4+ letters) of a blended word.
+  const filmPartSet = new Set();
+  {
+    const clean = (t) => t.toLowerCase().replace(/[’']/g, "").replace(/[^a-z0-9 ]/g, " ");
+    const filmWords = new Set();
+    card.movies.forEach((m, i) => {
+      if (!found[i]) return;
+      const ws = clean(m).split(" ").filter(Boolean);
+      ws.forEach((w) => filmWords.add(w));
+      filmWords.add(ws.join(""));
+    });
+    if (filmWords.size) {
+      let pos = 0;
+      title.split(" ").forEach((w) => {
+        const idx = [];
+        for (let k = 0; k < w.length; k++) if (/[a-z0-9]/i.test(w[k])) idx.push(pos + k);
+        const wl = idx.map((k) => title[k].toLowerCase()).join("");
+        filmWords.forEach((fw) => {
+          if (fw === wl) { idx.forEach((k) => filmPartSet.add(k)); return; }
+          if (fw.length < 4 || wl.length < 4) return;
+          let p = 0; while (p < fw.length && p < wl.length && fw[p] === wl[p]) p++;
+          if (p >= 4) idx.slice(0, p).forEach((k) => filmPartSet.add(k));
+          let q = 0; while (q < fw.length && q < wl.length && fw[fw.length - 1 - q] === wl[wl.length - 1 - q]) q++;
+          if (q >= 4) idx.slice(idx.length - q).forEach((k) => filmPartSet.add(k));
+        });
+        pos += w.length + 1;
+      });
+    }
+  }
+
   // Popcorn Peek: every third letter or digit of the title (3rd, 6th, 9th...).
   const peekSet = new Set();
   if (peek) {
@@ -4435,7 +4510,7 @@ function HangmanTitle({card, found, guesses=[], reducedMotion=false, peek=false}
 
   function shouldReveal(charIdx) {
     if (found[0] && found[1]) return true;          // solved: show the whole title
-    if (peekSet.has(charIdx)) return true;
+    if (peekSet.has(charIdx) || filmPartSet.has(charIdx)) return true;
     const words = title.split(" ");
     let pos = 0;
     for (let w = 0; w < words.length; w++) {

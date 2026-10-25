@@ -6,7 +6,7 @@
 //   - 6 wrong guesses lose the card; a lost or skipped card costs 1 heart
 import { test, expect } from '@playwright/test'
 import {
-  openMenu, startMode, submitGuess, guessInput, waitForSave, currentCard, pointsCounter, pinDailyDate,
+  openMenu, startMode, submitGuess, guessInput, waitForSave, currentCard, pointsCounter, pinDailyDate, resumeStandardWithCards,
 } from './helpers.js'
 
 // Clearly not a film title and not a word from any mashed title.
@@ -191,3 +191,16 @@ test.describe('sharing', () => {
     expect(lines).toHaveLength(5)
   })
 })
+
+test.describe('Naming a film shows its part of a blended title word', () => {
+  test('"good fellas" opens GOODFELL in "Goodfellowship of the Ring"', async ({ page }) => {
+    await resumeStandardWithCards(page, [90])
+    await submitGuess(page, 'good fellas')
+    const shown = () => page.evaluate(() => [...document.querySelectorAll('[aria-label="Title letters"] div')]
+      .filter((d) => d.children.length === 0 && /^[a-z]$/i.test(d.textContent)).map((d) => d.textContent).join(''))
+    await expect.poll(shown).toBe('Goodfell')
+    await submitGuess(page, 'The Lord of the Rings: The Fellowship of the Ring')
+    await expect(page.getByRole('button', { name: 'Next' })).toBeVisible() // both films: solved
+  })
+})
+
