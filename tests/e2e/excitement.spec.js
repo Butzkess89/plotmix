@@ -256,75 +256,106 @@ test.describe("L. Director's Whisper hint", () => {
 })
 
 test.describe('Arcade side-quest: Popcorn Panic', () => {
-  // A fixed sequence of "random" numbers makes the falling items repeatable.
+  // A fixed sequence of "random" numbers makes the falling pieces repeatable.
   async function seedRandom(page) {
     await page.addInitScript(() => {
       let a = 12345
       Math.random = () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296 }
     })
   }
-  async function startGame(page, stubs = 6) {
-    await page.addInitScript((n) => { if (!localStorage.getItem('plotmix_stubs')) localStorage.setItem('plotmix_stubs', JSON.stringify({ earned: n, spent: 0 })) }, stubs)
+  async function startGame(page, passes = 1) {
+    await page.addInitScript((n) => { if (localStorage.getItem('plotmix_arcade_passes') === null) localStorage.setItem('plotmix_arcade_passes', String(n)) }, passes)
     await openMenu(page)
     await page.getByRole('button', { name: 'Arcade' }).click()
     await page.getByRole('button', { name: 'Play Popcorn Panic' }).click()
   }
-  const tap = (page, name) => page.getByRole('button', { name, exact: true }).first().dispatchEvent('pointerdown')
+  const piece = (page, name) => page.getByRole('button', { name, exact: true }).first()
+  async function catchPopcorn(page, n) {
+    for (let i = 0; i < n; i++) {
+      await expect(piece(page, 'Popcorn')).toBeAttached({ timeout: 10_000 })
+      await piece(page, 'Popcorn').dispatchEvent('pointerdown')
+    }
+  }
+  async function loseAllLives(page) {
+    while (!(await page.getByLabel('Arcade result').count())) {
+      const bad = page.getByRole('button', { name: /^(Burnt popcorn|Unpopped kernel)$/ }).first()
+      if (await bad.count()) await bad.dispatchEvent('pointerdown').catch(() => {})
+      await page.waitForTimeout(60)
+    }
+  }
 
-  test('locked until there are 5 stubs', async ({ page }) => {
+  test('locked until earned by 5 mashups in a row', async ({ page }) => {
     await openMenu(page)
     await page.getByRole('button', { name: 'Arcade' }).click()
     await expect(page.getByRole('button', { name: 'Play Popcorn Panic' })).toBeDisabled()
-    await expect(page.getByLabel('Stubs to spend')).toHaveText('You have 1 🎟️. Solve 4 more cards to play')
+    await expect(page.getByLabel('Arcade passes')).toHaveText('Solve 5 mashups in a row to earn a play')
   })
 
-  test('items look like popcorn, burnt popcorn, unpopped kernels and chocolate candies', async ({ page }) => {
+  test('solving 5 mashups in a row earns one play', async ({ page }) => {
+    const { readDeck } = await import('./helpers.js')
+    const ids = [77, 1, 2, 3, 11]
+    const deck = readDeck()
+    await resumeStandardWithCards(page, ids)
+    for (const [i, id] of ids.entries()) {
+      await submitGuess(page, deck.find((c) => c.id === id).mashedTitle)
+      if (i === 4) await expect(page.getByText('5 in a row! Popcorn Panic play earned')).toBeVisible()
+      await page.getByRole('button', { name: 'Next' }).click()
+    }
+    expect(await page.evaluate(() => localStorage.getItem('plotmix_arcade_passes'))).toBe('1')
+  })
+
+  test('pieces look like popcorn, burnt popcorn, unpopped kernels and chocolate candies', async ({ page }) => {
     await seedRandom(page)
     await startGame(page)
     for (const name of ['Popcorn', 'Burnt popcorn', 'Unpopped kernel', 'Chocolate candy']) {
-      await expect(page.getByRole('button', { name, exact: true }).first()).toBeAttached({ timeout: 15_000 })
+      await expect(piece(page, name)).toBeAttached({ timeout: 20_000 })
     }
   })
 
-  test('catching burnt popcorn or an unpopped kernel costs a life; 3 lost ends the game', async ({ page }) => {
+  test('endless: it speeds up every 5 seconds and ends when the lives run out', async ({ page }) => {
     await seedRandom(page)
     await startGame(page)
+    await expect(page.getByLabel('Level 1')).toBeVisible()
+    await expect(page.getByLabel('Level 2')).toBeVisible({ timeout: 7_000 })
     await expect(page.getByLabel('Lives: 3')).toBeVisible()
-    for (const n of [2, 1, 0]) {
-      const bad = page.getByRole('button', { name: /^(Burnt popcorn|Unpopped kernel)$/ }).first()
-      await expect(bad).toBeAttached({ timeout: 15_000 })
-      await bad.dispatchEvent('pointerdown')
-      if (n > 0) await expect(page.getByLabel(`Lives: ${n}`)).toBeVisible()
-    }
-    await expect(page.getByLabel('Arcade result')).toContainText('Out of lives!')
+    await loseAllLives(page)
+    await expect(page.getByLabel('Arcade result')).toContainText('Out of lives on level')
+    // No paying to play again: the only way out is Done, and the play is used up.
+    await expect(page.getByRole('button', { name: /play again/i })).toHaveCount(0)
+    await page.getByRole('button', { name: 'Done' }).click()
+    await page.getByRole('button', { name: 'Arcade' }).click()
+    await expect(page.getByRole('button', { name: 'Play Popcorn Panic' })).toBeDisabled()
+  })
+
+  test('quick catches build a combo, and 10 in a row starts a Popcorn Frenzy', async ({ page }) => {
+    await seedRandom(page)
+    await startGame(page)
+    await catchPopcorn(page, 5)
+    await expect(page.getByLabel('Combo ×2')).toBeVisible()
+    await catchPopcorn(page, 5)
+    await expect(page.getByLabel('Arcade event')).toHaveText('🍿 POPCORN FRENZY!')
+    await expect(page.getByLabel('Combo ×3')).toBeVisible()
   })
 
   test('a chocolate candy gives a boost', async ({ page }) => {
     await seedRandom(page)
     await startGame(page)
-    await expect(page.getByRole('button', { name: 'Chocolate candy', exact: true }).first()).toBeAttached({ timeout: 15_000 })
-    await tap(page, 'Chocolate candy')
+    await expect(piece(page, 'Chocolate candy')).toBeAttached({ timeout: 20_000 })
+    await piece(page, 'Chocolate candy').dispatchEvent('pointerdown')
     await expect(page.getByLabel('Arcade event')).toContainText('🍫')
   })
 
-  test('a game costs 5 stubs, lasts 20 seconds and awards a prize', async ({ page }) => {
+  test('a winning score earns a power-up and a new record is celebrated', async ({ page }) => {
     test.setTimeout(60_000)
+    await seedRandom(page)
     await startGame(page)
-    const end = Date.now() + 22_000
-    while (Date.now() < end && !(await page.getByLabel('Arcade result').count())) {
-      const k = page.getByRole('button', { name: 'Popcorn', exact: true })
-      if (await k.count()) await k.first().dispatchEvent('pointerdown').catch(() => {})
-      await page.waitForTimeout(80)
-    }
+    await catchPopcorn(page, 6) // 1+1+1+1+2+2 = 8 points: Bronze
+    await loseAllLives(page)
+    await expect(page.getByLabel('New record')).toBeVisible()
     await expect(page.getByLabel('Arcade result')).toContainText(/Reel!/)
-    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('plotmix_stubs')))).toEqual({ earned: 6, spent: 5 })
-    const prizes = await page.evaluate(() => JSON.parse(localStorage.getItem('plotmix_prizes')))
-    expect(prizes.won.length).toBe(1)
-    // Winning a reel also wins a single-use power-up for the main game.
     const power = await page.evaluate(() => JSON.parse(localStorage.getItem('plotmix_powerups')))
     expect(power.hint + power.peek).toBeGreaterThan(0)
-    await page.getByRole('button', { name: 'Back to the arcade' }).click()
-    await page.getByRole('button', { name: 'Back' }).click()
+    await page.getByRole('button', { name: 'Done' }).click()
     await page.getByRole('button', { name: 'Film Vault' }).click()
     await expect(page.getByRole('button', { name: /Curtains: (Midnight Blue|Emerald|Gold Lamé)$/ })).toBeEnabled()
   })

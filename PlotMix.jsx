@@ -3814,7 +3814,7 @@ function BadgeToast({badges}) {
       {badges.map(b=>(
         <div key={b.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 14px",background:"#FFD84D",border:"2px solid #1C1D21",borderRadius:12,boxShadow:"0 3px 0 #1C1D21",whiteSpace:"nowrap"}}>
           <span style={{fontSize:18,lineHeight:1}}>{b.emoji}</span>
-          <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:11,color:"#1C1D21",textTransform:"uppercase"}}>Badge unlocked: {b.name}</span>
+          <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:11,color:"#1C1D21",textTransform:"uppercase"}}>{b.title || `Badge unlocked: ${b.name}`}</span>
         </div>
       ))}
     </div>
@@ -3850,7 +3850,6 @@ const LS_VAULT = "plotmix_vault";
 const LS_STUBS = "plotmix_stubs";
 const LS_PRIZES = "plotmix_prizes";
 const LS_DSTREAK = "plotmix_dstreak"; // not "plotmix_daily_…": that prefix is reserved for daily results
-const ARCADE_PLAY_COST = 5;
 const WELCOME_STUBS = 1;
 
 function readJSON(key, fallback) {
@@ -3863,19 +3862,12 @@ function loadStubs() {
   const v = readJSON(LS_STUBS, null);
   return v && typeof v.earned === "number" ? v : { earned: WELCOME_STUBS, spent: 0 };
 }
-function stubsAvailable() { const s = loadStubs(); return Math.max(0, s.earned - s.spent); }
 // A solved card: one stub to spend, and its mashup goes into the Vault.
 function recordSolve(cardId) {
   const s = loadStubs();
   writeJSON(LS_STUBS, { ...s, earned: s.earned + 1 });
   const vault = loadVault();
   if (!vault.includes(cardId)) writeJSON(LS_VAULT, [...vault, cardId]);
-}
-function spendStubs(n) {
-  const s = loadStubs();
-  if (s.earned - s.spent < n) return false;
-  writeJSON(LS_STUBS, { ...s, spent: s.spent + n });
-  return true;
 }
 
 // Single-use power-ups won in the arcade (owner request 2026-10-25), used in Standard and
@@ -3985,7 +3977,7 @@ function VaultScreen({onBack, onArcade}) {
           <div style={{height:"100%",width:`${((vault.length + 1) / (deck.length + 1)) * 100}%`,background:"#FFD84D"}}/>
         </div>
         <button onClick={onArcade} aria-label="Open arcade" style={{...BTN.primary,width:"100%",padding:"12px 0",marginBottom:16}}>
-          <span style={{...WHITE_STICKER_TEXT,fontSize:13,textTransform:"uppercase"}}>🕹️ Arcade · {stubsAvailable()} 🎟️ to spend</span>
+          <span style={{...WHITE_STICKER_TEXT,fontSize:13,textTransform:"uppercase"}}>🕹️ Arcade · {arcadePasses()} play{arcadePasses()===1?"":"s"}</span>
         </button>
 
         <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:13,margin:"0 0 8px"}}>Curtain colour</div>
@@ -4031,10 +4023,22 @@ function VaultScreen({onBack, onArcade}) {
 }
 
 // Arcade side-quest: "Popcorn Panic" (owner design 2026-10-25).
-// Catch popped popcorn (+1). Burnt popcorn and unpopped kernels cost a life (3 lives).
+// Endless: catch popped popcorn; burnt popcorn and unpopped kernels cost a life (3 lives).
+// Every 5 seconds it gets faster with more bad bits, so every game ends. Catching popcorn without
+// letting any fall builds a combo (x2 at 5, x3 at 10); every 10 in a row starts a Popcorn Frenzy.
 // Chocolate candies give a boost: an extra life, a 5-second shield, or 5 seconds of double points.
-const ARCADE_SECONDS = 20;
+// A play is earned by solving 5 mashups in a row (no paying to replay).
 const ARCADE_LIVES = 3;
+const ARCADE_LEVEL_MS = 5000;
+const ARCADE_BASE_SPAWN = 560, ARCADE_MIN_SPAWN = 200;   // ms between pieces
+const ARCADE_BASE_FLIGHT = 1900, ARCADE_MIN_FLIGHT = 900; // ms a piece is in the air
+const FRENZY_AT = 10, FRENZY_MS = 3000, FRENZY_SPAWN_MS = 140;
+const ARCADE_STREAK_FOR_PASS = 5;
+function comboMultiplier(c) { return c >= 10 ? 3 : c >= 5 ? 2 : 1; }
+const LS_ARCADE_PASSES = "plotmix_arcade_passes";
+function arcadePasses() { const n = Number(readJSON(LS_ARCADE_PASSES, 0)); return Number.isFinite(n) && n > 0 ? n : 0; }
+function addArcadePass() { writeJSON(LS_ARCADE_PASSES, arcadePasses() + 1); }
+function useArcadePass() { const n = arcadePasses(); if (n < 1) return false; writeJSON(LS_ARCADE_PASSES, n - 1); return true; }
 const BOOST_MS = 5000;
 const ARCADE_ITEMS = [
   { kind: "popcorn",  weight: 62, label: "Popcorn" },
@@ -4044,9 +4048,12 @@ const ARCADE_ITEMS = [
 ];
 const CANDY_COLORS = ["#E4444F", "#2F6BFF", "#20B46A", "#FF9F1C", "#FFD84D", "#8B4A2B"];
 
-function pickArcadeItem() {
-  let r = Math.random() * 100;
-  for (const it of ARCADE_ITEMS) { if ((r -= it.weight) < 0) return it; }
+// Higher levels bring more burnt bits and kernels (capped at level 7).
+function pickArcadeItem(level = 1) {
+  const extra = Math.min(12, (level - 1) * 2);
+  const weights = ARCADE_ITEMS.map((it) => it.kind === "popcorn" ? it.weight - 2 * extra : (it.kind === "burnt" || it.kind === "unpopped") ? it.weight + extra : it.weight);
+  let r = Math.random() * weights.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < ARCADE_ITEMS.length; i++) { if ((r -= weights[i]) < 0) return ARCADE_ITEMS[i]; }
   return ARCADE_ITEMS[0];
 }
 
@@ -4152,10 +4159,12 @@ function PopcornBox() {
 
 function ArcadeScreen({onBack, reducedMotion=false}) {
   const [phase, setPhase] = useState("lobby"); // lobby | playing | done
-  const [stubs, setStubs] = useState(stubsAvailable);
+  const [passes, setPasses] = useState(arcadePasses);
   const [score, setScore] = useState(0);
   const [lives, setLives] = useState(ARCADE_LIVES);
-  const [timeLeft, setTimeLeft] = useState(ARCADE_SECONDS);
+  const [level, setLevel] = useState(1);
+  const [combo, setCombo] = useState(0);
+  const [frenzy, setFrenzy] = useState(false);
   const [items, setItems] = useState([]);
   const [boost, setBoost] = useState(null);   // {type: "shield"|"double", until}
   const [flash, setFlash] = useState(null);   // {key, text, bad}
@@ -4163,51 +4172,75 @@ function ArcadeScreen({onBack, reducedMotion=false}) {
   const scoreRef = useRef(0);
   const livesRef = useRef(ARCADE_LIVES);
   const boostRef = useRef(null);
+  const comboRef = useRef(0);
+  const itemsRef = useRef([]);
+  useEffect(() => { itemsRef.current = items; }, [items]);
+  const frenzyUntilRef = useRef(0);
+  const nextFrenzyAtRef = useRef(FRENZY_AT);
   const idRef = useRef(0);
   const finishRef = useRef(null);
 
   const start = () => {
-    if (!spendStubs(ARCADE_PLAY_COST)) return;
-    setStubs(stubsAvailable());
+    if (!useArcadePass()) return;
+    setPasses(arcadePasses());
     scoreRef.current = 0; livesRef.current = ARCADE_LIVES; boostRef.current = null;
-    setScore(0); setLives(ARCADE_LIVES); setBoost(null); setFlash(null);
-    setTimeLeft(ARCADE_SECONDS); setItems([]); setResult(null);
+    comboRef.current = 0; frenzyUntilRef.current = 0; nextFrenzyAtRef.current = FRENZY_AT;
+    setScore(0); setLives(ARCADE_LIVES); setLevel(1); setCombo(0); setFrenzy(false);
+    setBoost(null); setFlash(null); setItems([]); setResult(null);
     setPhase("playing");
   };
 
   useEffect(() => {
     if (phase !== "playing") return;
-    const endAt = Date.now() + ARCADE_SECONDS * 1000;
-    let done = false;
-    const finish = (reason) => {
+    const startedAt = Date.now();
+    let done = false, spawnTimer = null;
+    const levelNow = () => 1 + Math.floor((Date.now() - startedAt) / ARCADE_LEVEL_MS);
+    const finish = () => {
       if (done) return;
       done = true;
-      clearInterval(spawn); clearInterval(clock);
+      clearTimeout(spawnTimer); clearInterval(clock);
       const final = scoreRef.current;
       const prize = prizeForScore(final);
       const p = loadPrizes();
       const isNew = !!prize && !p.won.includes(prize.id);
+      const isRecord = final > (p.best || 0) && final > 0;
       writeJSON(LS_PRIZES, { ...p, best: Math.max(p.best || 0, final), won: prize && isNew ? [...p.won, prize.id] : p.won });
-      if (prize) { SFX.badge(); addPowerups(prize.powerups); }
-      setResult({ score: final, prize, isNew, reason });
+      if (prize) addPowerups(prize.powerups);
+      if (prize || isRecord) SFX.complete();
+      setResult({ score: final, prize, isNew, isRecord, level: levelNow() });
       setItems([]);
       setPhase("done");
     };
     finishRef.current = finish;
-    const spawn = setInterval(() => {
-      const it = pickArcadeItem();
-      const item = { id: ++idRef.current, kind: it.kind, label: it.label, x: 8 + Math.random() * 76, born: Date.now(),
+    // Endless: pieces come faster every level, with more bad bits, until the lives run out.
+    const spawn = () => {
+      if (done) return;
+      const lv = levelNow();
+      const inFrenzy = Date.now() < frenzyUntilRef.current;
+      const it = inFrenzy ? ARCADE_ITEMS[0] : pickArcadeItem(lv);
+      const dur = Math.max(ARCADE_MIN_FLIGHT, ARCADE_BASE_FLIGHT * Math.pow(0.93, lv - 1));
+      const item = { id: ++idRef.current, kind: it.kind, label: it.label, x: 8 + Math.random() * 76, born: Date.now(), dur,
         color: CANDY_COLORS[Math.floor(Math.random() * CANDY_COLORS.length)],
         variant: Math.floor(Math.random() * 12), angle: Math.floor(Math.random() * 360), spin: Math.round((Math.random() * 2 - 1) * 240) };
-      setItems((xs) => [...xs.filter((q) => Date.now() - q.born < 1700), item]);
-    }, 420);
+      setItems((xs) => [...xs.filter((q) => Date.now() - q.born < q.dur), item]);
+      const gap = inFrenzy ? FRENZY_SPAWN_MS : Math.max(ARCADE_MIN_SPAWN, ARCADE_BASE_SPAWN * Math.pow(0.88, lv - 1));
+      spawnTimer = setTimeout(spawn, gap);
+    };
+    spawnTimer = setTimeout(spawn, 300);
     const clock = setInterval(() => {
-      const left = Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
-      setTimeLeft(left);
+      setLevel(levelNow());
       if (boostRef.current && Date.now() > boostRef.current.until) { boostRef.current = null; setBoost(null); }
-      if (left <= 0) finish("time");
-    }, 200);
-    return () => { clearInterval(spawn); clearInterval(clock); };
+      if (frenzyUntilRef.current && Date.now() > frenzyUntilRef.current) { frenzyUntilRef.current = 0; setFrenzy(false); }
+      // Popcorn that fell without being caught breaks the combo.
+      const now = Date.now();
+      const missed = itemsRef.current.filter((q) => q.kind === "popcorn" && now - q.born >= q.dur);
+      if (missed.length) {
+        const gone = new Set(missed.map((q) => q.id));
+        setItems((xs) => xs.filter((q) => !gone.has(q.id)));
+        if (comboRef.current) { comboRef.current = 0; setCombo(0); }
+      }
+    }, 150);
+    return () => { done = true; clearTimeout(spawnTimer); clearInterval(clock); };
   }, [phase]);
 
   const showFlash = (text, bad=false) => setFlash({ key: Date.now(), text, bad });
@@ -4217,9 +4250,21 @@ function ArcadeScreen({onBack, reducedMotion=false}) {
     setItems((xs) => xs.filter((q) => q.id !== it.id));
     const active = boostRef.current && Date.now() <= boostRef.current.until ? boostRef.current.type : null;
     if (it.kind === "popcorn") {
-      scoreRef.current += active === "double" ? 2 : 1;
+      const now = Date.now();
+      const c = comboRef.current + 1;
+      comboRef.current = c;
+      setCombo(c);
+      const mult = comboMultiplier(c) * (active === "double" ? 2 : 1);
+      scoreRef.current += mult;
       setScore(scoreRef.current);
-      SFX.pop(); buzz(15);
+      SFX.comboNote(Math.min(c - 1, 14)); buzz(12);
+      if (c >= nextFrenzyAtRef.current) {
+        nextFrenzyAtRef.current += FRENZY_AT;
+        frenzyUntilRef.current = now + FRENZY_MS;
+        setFrenzy(true);
+        showFlash("🍿 POPCORN FRENZY!");
+        SFX.complete(); buzz([20, 30, 20, 30, 20]);
+      }
       return;
     }
     if (it.kind === "candy") {
@@ -4234,18 +4279,21 @@ function ArcadeScreen({onBack, reducedMotion=false}) {
       SFX.badge(); buzz([15, 30, 15]);
       return;
     }
-    // Burnt popcorn or an unpopped kernel
+    // Burnt popcorn or an unpopped kernel: the combo breaks, and a life is lost unless shielded.
+    comboRef.current = 0; setCombo(0);
     if (active === "shield") { showFlash("🛡️ Blocked!"); SFX.hint(); return; }
     livesRef.current -= 1;
     setLives(livesRef.current);
     showFlash(it.kind === "burnt" ? "Burnt! −1 life" : "Unpopped! −1 life", true);
     SFX.wrong(); buzz([40, 60, 40]);
-    if (livesRef.current <= 0) finishRef.current?.("lives");
+    if (livesRef.current <= 0) finishRef.current?.();
   };
 
   const best = loadPrizes().best || 0;
+  const mult = comboMultiplier(combo);
   return (
-    <div style={{minHeight:"100dvh",...CHECKER_BG,color:T.textOnDark,position:"relative",overflow:"hidden",boxSizing:"border-box"}}>
+    <div style={{minHeight:"100dvh",...CHECKER_BG,color:T.textOnDark,position:"relative",overflow:"hidden",boxSizing:"border-box",
+      boxShadow:frenzy && !reducedMotion ? "inset 0 0 60px 10px rgba(255,216,77,0.55)" : "none",transition:"box-shadow 0.3s ease"}}>
       <button onClick={onBack} aria-label="Back" style={{position:"absolute",top:20,left:16,zIndex:5,...BTN.cyan,padding:"8px 14px"}}>
         <span style={{...WHITE_STICKER_TEXT,fontSize:11,textTransform:"uppercase"}}>← Back</span>
       </button>
@@ -4254,25 +4302,26 @@ function ArcadeScreen({onBack, reducedMotion=false}) {
         {phase === "lobby" && (
           <div style={{marginTop:14}}>
             <p style={{fontFamily:"'Outfit',sans-serif",fontSize:15,lineHeight:1.5,margin:"0 0 12px"}}>
-              The popcorn machine has gone rogue! Tap the popcorn as it flies. You have {ARCADE_SECONDS} seconds and {ARCADE_LIVES} lives.
+              The popcorn machine has gone rogue! Tap the popcorn as it flies. It gets faster and faster. You have {ARCADE_LIVES} lives.
             </p>
             <div style={{display:"grid",gridTemplateColumns:"40px 1fr",gap:"6px 10px",alignItems:"center",textAlign:"left",fontFamily:"'Outfit',sans-serif",fontSize:13.5,margin:"0 auto 14px",maxWidth:320}}>
-              <div style={{width:36,height:36}}><ArcadeItemArt kind="popcorn"/></div><div><b>Popcorn</b>: +1 point</div>
+              <div style={{width:36,height:36}}><ArcadeItemArt kind="popcorn"/></div><div><b>Popcorn</b>: +1 · don't let any fall: 5 in a row ×2, 10 in a row ×3</div>
               <div style={{width:36,height:36}}><ArcadeItemArt kind="burnt"/></div><div><b>Burnt popcorn</b>: lose a life</div>
               <div style={{width:36,height:36}}><ArcadeItemArt kind="unpopped"/></div><div><b>Unpopped kernel</b>: lose a life</div>
               <div style={{width:36,height:36}}><ArcadeItemArt kind="candy" color="#2F6BFF"/></div><div><b>Chocolate candy</b>: extra life, shield or double points</div>
             </div>
             <div style={{fontFamily:"'Outfit',sans-serif",fontSize:13,lineHeight:1.6,margin:"0 0 16px",opacity:0.9}}>
+              <div>{FRENZY_AT} in a row starts a 🍿 Popcorn Frenzy.</div>
               {PRIZE_TIERS.slice().reverse().map((p) => <div key={p.id}>{p.emoji} {p.min}+ points: {p.reward} (and {CURTAINS.find((c) => c.prize === p.id)?.name} curtains)</div>)}
               <div>🎟️ Free Hint: the next hint costs no points · 🍿 Popcorn Peek: fills in every third letter</div>
               <div>Best score: {best}</div>
             </div>
-            <button onClick={start} disabled={stubs < ARCADE_PLAY_COST} aria-label="Play Popcorn Panic"
-              style={{...BTN.primary,width:"100%",padding:"14px 0",opacity:stubs < ARCADE_PLAY_COST ? 0.5 : 1,cursor:stubs < ARCADE_PLAY_COST ? "not-allowed" : "pointer"}}>
-              <span style={{...WHITE_STICKER_TEXT,fontSize:14,textTransform:"uppercase"}}>Play for {ARCADE_PLAY_COST} 🎟️</span>
+            <button onClick={start} disabled={passes < 1} aria-label="Play Popcorn Panic"
+              style={{...BTN.primary,width:"100%",padding:"14px 0",opacity:passes < 1 ? 0.5 : 1,cursor:passes < 1 ? "not-allowed" : "pointer"}}>
+              <span style={{...WHITE_STICKER_TEXT,fontSize:14,textTransform:"uppercase"}}>{passes > 0 ? "Play" : "Locked"}</span>
             </button>
-            <div aria-label="Stubs to spend" style={{...YELLOW_STICKER_TEXT,fontSize:12,marginTop:10,textTransform:"uppercase"}}>
-              {stubs >= ARCADE_PLAY_COST ? `You have ${stubs} 🎟️` : `You have ${stubs} 🎟️. Solve ${ARCADE_PLAY_COST - stubs} more card${ARCADE_PLAY_COST - stubs === 1 ? "" : "s"} to play`}
+            <div aria-label="Arcade passes" style={{...YELLOW_STICKER_TEXT,fontSize:12,marginTop:10,textTransform:"uppercase",lineHeight:1.5}}>
+              {passes > 0 ? `You have ${passes} play${passes === 1 ? "" : "s"}` : `Solve ${ARCADE_STREAK_FOR_PASS} mashups in a row to earn a play`}
             </div>
           </div>
         )}
@@ -4280,46 +4329,51 @@ function ArcadeScreen({onBack, reducedMotion=false}) {
           <div style={{display:"flex",justifyContent:"center",gap:8,margin:"10px 0",flexWrap:"wrap"}}>
             <div style={HUD_STAT_PILL}><span aria-label={`Score: ${score}`} style={HUD_COUNTER_TEXT}>🍿 {score}</span></div>
             <div style={HUD_STAT_PILL}><span aria-label={`Lives: ${lives}`} style={HUD_COUNTER_TEXT}>{"❤️".repeat(Math.max(0, lives))}{"🖤".repeat(Math.max(0, ARCADE_LIVES - lives))}</span></div>
-            <div style={HUD_STAT_PILL}><span style={HUD_COUNTER_TEXT}>⏱ {timeLeft}</span></div>
+            <div style={HUD_STAT_PILL}><span aria-label={`Level ${level}`} style={HUD_COUNTER_TEXT}>LV {level}</span></div>
           </div>
         )}
-        {phase === "playing" && boost && (
-          <div aria-label="Active boost" style={{...YELLOW_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>
-            {boost.type === "shield" ? "🛡️ Shield on" : "⚡ Double points"}
+        {phase === "playing" && (
+          <div style={{minHeight:20,display:"flex",justifyContent:"center",gap:10}}>
+            {mult > 1 && <span aria-label={`Combo ×${mult}`} style={{...YELLOW_STICKER_TEXT,fontSize:13}}>×{mult} combo</span>}
+            {boost && <span aria-label="Active boost" style={{...YELLOW_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>{boost.type === "shield" ? "🛡️ Shield" : "⚡ Double"}</span>}
           </div>
         )}
         {phase === "playing" && flash && (
-          <div key={flash.key} role="status" aria-label="Arcade event" style={{...WHITE_STICKER_TEXT,fontSize:14,marginTop:6,color:flash.bad?"#FFB4B4":"#fff",animation:reducedMotion?"none":"fadeIn 0.25s ease both"}}>
+          <div key={flash.key} role="status" aria-label="Arcade event" style={{...WHITE_STICKER_TEXT,fontSize:flash.text.includes("FRENZY")?20:14,marginTop:6,color:flash.bad?"#FFB4B4":"#fff",animation:reducedMotion?"none":"fadeIn 0.25s ease both"}}>
             {flash.text}
           </div>
         )}
         {phase === "done" && result && (
-          <div role="status" aria-label="Arcade result" style={{marginTop:12,padding:"18px 14px",background:T.bgDeep,border:"2px solid #1C1D21",borderRadius:14,boxShadow:T.shadow}}>
+          <div role="status" aria-label="Arcade result" style={{position:"relative",marginTop:12,padding:"18px 14px",background:T.bgDeep,border:"2px solid #1C1D21",borderRadius:14,boxShadow:T.shadow}}>
+            {result.isRecord && !reducedMotion && (
+              <LottieOverlay src={LOTTIE_ASSETS.roundWin} loop={false} style={{position:"absolute",left:"50%",top:-60,width:280,height:280,transform:"translateX(-50%)",pointerEvents:"none",opacity:0.8}}/>
+            )}
+            {result.isRecord && (
+              <div aria-label="New record" style={{...YELLOW_STICKER_TEXT,fontSize:22,textTransform:"uppercase",marginBottom:8,animation:reducedMotion?"none":"titlePop 0.5s ease both"}}>🏆 New record!</div>
+            )}
             <div style={{...YELLOW_STICKER_TEXT,fontSize:16,textTransform:"uppercase"}}>
               {result.prize ? `${result.prize.emoji} ${result.prize.name}!` : "No prize this time"}
             </div>
             <div style={{fontFamily:"'Outfit',sans-serif",fontSize:14,margin:"8px 0 14px"}}>
-              {result.reason === "lives" ? "Out of lives! " : "Time's up! "}
-              You scored {result.score} point{result.score === 1 ? "" : "s"}.
-              {result.prize ? ` You won ${result.prize.reward} to use in Standard or Speed Run.` : ""}
-              {result.prize && result.isNew ? ` New curtains unlocked: ${CURTAINS.find((c) => c.prize === result.prize.id)?.name}. Pick them in the Vault.` : ""}
-              {!result.prize ? ` ${PRIZE_TIERS[2].min} gets you a prize.` : ""}
+              Out of lives on level {result.level}! You scored {result.score} point{result.score === 1 ? "" : "s"}.
+              {result.prize ? ` You won ${result.prize.reward} to use in Standard or Speed Run.` : ` ${PRIZE_TIERS[2].min} points wins a power-up.`}
+              {result.prize && result.isNew ? ` New curtains unlocked: ${CURTAINS.find((c) => c.prize === result.prize.id)?.name}.` : ""}
             </div>
-            <button onClick={() => setPhase("lobby")} style={{...BTN.cyan,width:"100%",padding:"12px 0"}}>
-              <span style={{...WHITE_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>Back to the arcade</span>
+            <button onClick={onBack} style={{...BTN.cyan,width:"100%",padding:"12px 0"}}>
+              <span style={{...WHITE_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>Done</span>
             </button>
           </div>
         )}
       </div>
       {phase === "playing" && (
-        <div style={{position:"absolute",left:0,right:0,top:200,bottom:0}}>
+        <div style={{position:"absolute",left:0,right:0,top:210,bottom:0}}>
           {items.map((it) => (
             <button key={it.id} aria-label={it.label} onPointerDown={() => catchItem(it)}
               style={{position:"absolute",left:`${it.x}%`,bottom:40,width:it.kind === "unpopped" ? 40 : 52,height:it.kind === "unpopped" ? 40 : 52,marginLeft:-26,padding:0,
                 background:"transparent",border:"none",cursor:"pointer",filter:"drop-shadow(0 3px 0 rgba(28,29,33,0.6))",
-                animation:reducedMotion ? "fadeIn 0.2s ease both" : "kernelArc 1.7s cubic-bezier(.25,.9,.4,1) both"}}>
+                animation:reducedMotion ? "fadeIn 0.2s ease both" : `kernelArc ${it.dur}ms cubic-bezier(.25,.9,.4,1) both`}}>
               <div style={{width:"100%",height:"100%","--r0":`${it.angle}deg`,"--r1":`${it.angle + it.spin}deg`,transform:`rotate(${it.angle}deg)`,
-                animation:reducedMotion ? "none" : "itemSpin 1.7s linear both"}}>
+                animation:reducedMotion ? "none" : `itemSpin ${it.dur}ms linear both`}}>
                 <ArcadeItemArt kind={it.kind} color={it.color} variant={it.variant}/>
               </div>
             </button>
@@ -5097,9 +5151,15 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     if(wrongGuessCount===mode.maxGuesses-1) ids.push("plotTwist");
     if(runStreak>=5) ids.push("boxOfficeSmash");
     const fresh=earnBadges(ids);
-    if(!fresh.length) return;
+    const toasts=BADGES.filter(b=>fresh.includes(b.id));
+    // Every 5 mashups in a row earns a play of Popcorn Panic.
+    if(runStreak>0 && runStreak % ARCADE_STREAK_FOR_PASS === 0){
+      addArcadePass();
+      toasts.push({id:"arcade-pass",emoji:"🍿",title:`${runStreak} in a row! Popcorn Panic play earned`});
+    }
+    if(!toasts.length) return;
     SFX.badge();
-    setBadgeToast(BADGES.filter(b=>fresh.includes(b.id)));
+    setBadgeToast(toasts);
     if (badgeToastTimerRef.current) clearTimeout(badgeToastTimerRef.current);
     badgeToastTimerRef.current = setTimeout(() => setBadgeToast(null), 2900);
   },[phase]);
@@ -5654,7 +5714,7 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,onMenu,onPlayAgain
 
         {/* Stubs, Daily streak, install */}
         <div aria-label="Stubs" style={{fontFamily:"'Outfit',sans-serif",fontSize:12.5,color:"rgba(255,255,255,0.9)",marginBottom:mode.isDaily?6:14}}>
-          🎟️ {stubsAvailable()} stub{stubsAvailable()===1?"":"s"} to spend in the Arcade · Vault {loadVault().length}/{uniqueCardsByMoviePair(MASTER_DECK).length}
+          🎟️ Vault {loadVault().length}/{uniqueCardsByMoviePair(MASTER_DECK).length} · 🍿 {arcadePasses()} arcade play{arcadePasses()===1?"":"s"} (earn one per {ARCADE_STREAK_FOR_PASS} in a row)
         </div>
         {mode.isDaily && (()=>{
           const st=loadDailyStreak();
