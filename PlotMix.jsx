@@ -5370,16 +5370,14 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       {dailyLine && <CurtainReveal line={dailyLine} reducedMotion={reducedMotion} colors={themedWeek?.curtains || null}/>}
       {showingResult && !both && !skipped && !reducedMotion && <FilmBurn/>}
 
-      {/* Film-reel change (owner request 2026-10-25): wide film strips race down both sides, one
-          strip flies across the screen, and the projector flickers. */}
+      {/* Film-reel change (owner request 2026-10-25): wide film strips race down both sides and
+          the projector flickers. */}
       {!!genreTransition && (
         <div key={`reel-${genreTransition.nonce}`} aria-hidden="true" style={{position:"fixed",inset:0,zIndex:305,pointerEvents:"none",overflow:"hidden",animation:"filmJitter 950ms steps(10) both"}}>
           {["left","right"].map(side=>(
             <div key={side} style={{position:"absolute",top:"-10%",bottom:"-10%",[side]:0,width:54,backgroundImage:FILM_STRIP_BG,backgroundSize:"54px 72px",backgroundRepeat:"repeat-y",
               boxShadow:"0 0 12px rgba(0,0,0,0.5)",animation:`filmSideIn${side==="left"?"L":"R"} 950ms ease both, filmRoll 950ms linear both`}}/>
           ))}
-          <div style={{position:"absolute",left:"-30%",right:"-30%",top:"42%",height:72,backgroundImage:FILM_STRIP_BG_H,backgroundSize:"72px 72px",backgroundRepeat:"repeat-x",
-            boxShadow:"0 6px 18px rgba(0,0,0,0.45)",animation:"filmFlyAcross 950ms cubic-bezier(.3,.1,.3,1) both, filmRollH 950ms linear both"}}/>
           <div style={{position:"absolute",inset:0,background:"#FFF8E7",animation:"projectorFlicker 950ms linear both"}}/>
           <div style={{position:"absolute",inset:0,background:"repeating-linear-gradient(90deg, transparent 0 37px, rgba(28,22,12,0.35) 37px 38px, transparent 38px 113px, rgba(255,255,255,0.5) 113px 114px)",animation:"filmScratch 950ms steps(6) both"}}/>
         </div>
