@@ -3841,7 +3841,8 @@ const CINEMA_KEYFRAMES = `
   @keyframes filmSideInL { 0%{transform:translateX(-110%)} 18%{transform:translateX(0)} 82%{transform:translateX(0)} 100%{transform:translateX(-110%)} }
   @keyframes filmSideInR { 0%{transform:translateX(110%)} 18%{transform:translateX(0)} 82%{transform:translateX(0)} 100%{transform:translateX(110%)} }
   @keyframes filmFlyAcross { 0%{transform:translateX(-100%) rotate(-14deg);opacity:0} 15%{opacity:1} 85%{opacity:1} 100%{transform:translateX(100%) rotate(-8deg);opacity:0} }
-  @keyframes tileWin { 0%{transform:translateY(0)} 40%{transform:translateY(-8px) scale(1.08)} 100%{transform:translateY(0)} }
+  @keyframes tileWinFlipOld { 0%{transform:perspective(300px) rotateY(0);color:#1C1D21} 49%{color:#1C1D21} 50%{transform:perspective(300px) rotateY(90deg);color:#15803D} 75%{transform:perspective(300px) rotateY(-12deg) scale(1.06)} 100%{transform:perspective(300px) rotateY(0) scale(1);color:#15803D} }
+  @keyframes tileWinFlipNew { 0%{transform:perspective(300px) rotateY(0);color:transparent} 49%{color:transparent} 50%{transform:perspective(300px) rotateY(90deg);color:#15803D} 75%{transform:perspective(300px) rotateY(-12deg) scale(1.06)} 100%{transform:perspective(300px) rotateY(0) scale(1);color:#15803D} }
   @keyframes reelAdvance { from{background-position:center 0} to{background-position:center 168px} }
   @keyframes projectorFlicker { 0%,100%{opacity:0} 10%{opacity:0.55} 18%{opacity:0.1} 30%{opacity:0.45} 40%{opacity:0.05} 52%{opacity:0.5} 64%{opacity:0.15} 78%{opacity:0.35} 90%{opacity:0.08} }
   @keyframes filmScratch { 0%{opacity:0;background-position:0 0} 15%{opacity:1} 50%{background-position:-23px 0} 85%{opacity:1} 100%{opacity:0;background-position:31px 0} }
@@ -4474,6 +4475,7 @@ function HangmanTitle({card, found, guesses=[], reducedMotion=false, peek=false}
     if (n === 0) return;
     setFreshOrder(order);
     for (let k = 0; k < Math.min(n, 12); k++) SFX.tileTick(k, Math.min(k * 45, 900) / 1000);
+    if (found[0] && found[1]) return; // solved: the win flip uses this list to the end
     const id = setTimeout(() => setFreshOrder({}), Math.min(n * 45, 900) + 500);
     return () => clearTimeout(id);
   }, [revealedKey, card.id, reducedMotion]);
@@ -4506,19 +4508,25 @@ function HangmanTitle({card, found, guesses=[], reducedMotion=false, peek=false}
               <div key={ci} style={{
                 width:34,height:37,flexShrink:0,
                 display:"flex",alignItems:"center",justifyContent:"center",
-                background: allRevealed ? "#6AE89D" : T.surfaceAlt,
+                background:T.surfaceAlt,
                 border:`1px solid ${T.border}`,
                 borderRadius:9,
                 boxShadow:"0 4px 0 #1C1D21",
                 fontFamily:"'Outfit',sans-serif",
                 fontSize:16,
                 fontWeight:700,
-                color: allRevealed ? "#0B3D2C" : T.textPrimary,
+                // Solved: white tiles flip one by one and come back showing the letter in green
+                // (#15803D, contrast about 5:1 on white). The colour changes at the half-turn.
+                color: allRevealed ? "#15803D" : T.textPrimary,
                 textTransform:"uppercase",
-                transition:`background-color 0.25s ease ${allRevealed ? Math.min((word.start + ci) * 30, 700) : 0}ms, color 0.25s ease`,
-                animation: freshOrder[word.start + ci] !== undefined
-                  ? `tileFlip 0.42s cubic-bezier(.2,1.3,.4,1) ${Math.min(freshOrder[word.start + ci] * 45, 900)}ms both`
-                  : (allRevealed && solvedWave && !reducedMotion ? `tileWin 0.5s ease ${Math.min((word.start + ci) * 30, 700)}ms both` : "none"),
+                transition:"color 0.25s ease",
+                // Letters found earlier turn from dark to green at the half-turn; letters not found
+                // yet stay hidden until the half-turn and appear already green.
+                animation: allRevealed && solvedWave && !reducedMotion
+                  ? `${freshOrder[word.start + ci] !== undefined ? "tileWinFlipNew" : "tileWinFlipOld"} 0.42s ease-in-out ${Math.min((word.start + ci) * 45, 900)}ms both`
+                  : freshOrder[word.start + ci] !== undefined
+                    ? `tileFlip 0.42s cubic-bezier(.2,1.3,.4,1) ${Math.min(freshOrder[word.start + ci] * 45, 900)}ms both`
+                    : "none",
               }}>{rev ? ch : ""}</div>
             );
           })}
