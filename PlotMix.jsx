@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle, useId } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, forwardRef, useImperativeHandle, useId } from "react";
 import lottie from "lottie-web";
 
 // 
@@ -1836,6 +1836,12 @@ function playTone(frequency, type, duration, gain, delayStart=0, rampDown=true) 
   } catch(e) {}
 }
 
+// Vibration on Android phones (iPhone browsers don't support it). Follows the sound button.
+function buzz(pattern) {
+  if (!isSoundOn()) return;
+  try { if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(pattern); } catch {}
+}
+
 const SFX = {
   correct: () => {
     // Rising chime — two bright tones
@@ -1874,6 +1880,10 @@ const SFX = {
   curtain: () => {
     playTone(160,"triangle",0.6,0.04);
     playTone(220,"sine",0.5,0.025,0.15);
+  },
+  // Letter-tile reveal: quiet ticks climbing a semitone at a time
+  tileTick: (step=0, delay=0) => {
+    playTone(660 * Math.pow(2, step / 12), "triangle", 0.06, 0.035, delay);
   },
   badge: () => {
     [[784,0],[988,0.09],[1319,0.18]].forEach(([f,d])=>playTone(f,"triangle",0.22,0.1,d));
@@ -3593,6 +3603,33 @@ function trailingSolvedStreak(results, upto) {
 }
 
 // Wrong guess: a clapperboard snaps shut on the next take, with a note from the director.
+// Points counter: rolls to the new value and shakes harder the more points were lost.
+function RollingPoints({value, reducedMotion=false, style}) {
+  const [shown,setShown]=useState(value);
+  const [shake,setShake]=useState(null);
+  const prevRef=useRef(value);
+  useEffect(()=>{
+    const from=prevRef.current;
+    prevRef.current=value;
+    if(from===value) return;
+    if(reducedMotion){ setShown(value); return; }
+    if(value<from) setShake({key:Date.now(), amp: Math.min(8, 2 + (from-value)*2)});
+    const start=performance.now(), dur=380;
+    let raf=null;
+    const tick=(now)=>{
+      const t=Math.min(1,(now-start)/dur);
+      setShown(Math.round(from+(value-from)*(1-Math.pow(1-t,3))));
+      if(t<1) raf=requestAnimationFrame(tick);
+    };
+    raf=requestAnimationFrame(tick);
+    return ()=>{ if(raf) cancelAnimationFrame(raf); };
+  },[value, reducedMotion]);
+  return (
+    <span key={shake?.key} style={{...style,display:"inline-block","--amp":`${shake?.amp||0}px`,animation:shake?"ptsShake 0.36s ease":"none",color:shake?"#FFB4B4":style?.color}}
+      onAnimationEnd={()=>setShake(null)}>PTS: {shown}</span>
+  );
+}
+
 function ClapperTake({take, note, reducedMotion=false}) {
   const stripes = [6, 18, 30, 42];
   return (
@@ -3714,6 +3751,19 @@ function FilmBurn() {
   );
 }
 
+// Time until the next Daily (local midnight).
+function NextDailyCountdown() {
+  const calc=()=>{
+    const now=new Date();
+    const next=new Date(now.getFullYear(), now.getMonth(), now.getDate()+1);
+    const s=Math.max(0, Math.floor((next-now)/1000));
+    return [Math.floor(s/3600), Math.floor(s/60)%60, s%60].map(n=>String(n).padStart(2,"0")).join(":");
+  };
+  const [left,setLeft]=useState(calc);
+  useEffect(()=>{ const id=setInterval(()=>setLeft(calc()),1000); return ()=>clearInterval(id); },[]);
+  return <span>{left}</span>;
+}
+
 function BadgeToast({badges}) {
   return (
     <div role="status" style={{position:"fixed",top:74,left:"50%",transform:"translateX(-50%)",zIndex:520,pointerEvents:"none",display:"flex",flexDirection:"column",gap:6,alignItems:"center",animation:"badgeToast 2.8s ease both"}}>
@@ -3740,13 +3790,15 @@ const CINEMA_KEYFRAMES = `
   @keyframes badgeToast { 0%{opacity:0; transform:translateX(-50%) translateY(-12px)} 10%{opacity:1; transform:translateX(-50%) translateY(0)} 85%{opacity:1} 100%{opacity:0; transform:translateX(-50%) translateY(-6px)} }
   @keyframes reelAdvance { from{background-position:center 0} to{background-position:center 168px} }
   @keyframes projectorFlicker { 0%,100%{opacity:0} 15%{opacity:0.2} 28%{opacity:0.05} 42%{opacity:0.16} 60%{opacity:0.04} 75%{opacity:0.12} }
+  @keyframes ptsShake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(calc(var(--amp) * -1))} 40%{transform:translateX(var(--amp))} 60%{transform:translateX(calc(var(--amp) * -0.6))} 80%{transform:translateX(calc(var(--amp) * 0.4))} }
+  @keyframes tileFlip { 0%{transform:rotateX(90deg) scale(0.9)} 60%{transform:rotateX(-12deg) scale(1.06)} 100%{transform:rotateX(0) scale(1)} }
   @keyframes creditsRoll { from{transform:translateY(118px)} to{transform:translateY(-100%)} }
 `;
 
 // 
 // HANGMAN TITLE — dashes that reveal as films are found
 // 
-function HangmanTitle({card, found, guesses=[]}) {
+function HangmanTitle({card, found, guesses=[], reducedMotion=false}) {
   const title = card.mashedTitle || card.movies.join(" + ");
 
   // Reveal any title word typed in any guess, even if the full guess is wrong.
@@ -3784,6 +3836,27 @@ function HangmanTitle({card, found, guesses=[]}) {
   }
 
   const allRevealed = found[0] && found[1];
+
+  // Tiles flip over one by one when a guess reveals them, each with a rising tick
+  // (owner request 2026-10-22). Tiles already showing when a card opens don't animate.
+  const revealedKey = Array.from(title).map((_, i) => (shouldReveal(i) ? "1" : "0")).join("");
+  const prevRevealRef = useRef(null);
+  const [freshOrder, setFreshOrder] = useState({});
+  useLayoutEffect(() => {
+    const prev = prevRevealRef.current;
+    prevRevealRef.current = { cardId: card.id, key: revealedKey };
+    if (!prev || prev.cardId !== card.id || reducedMotion) { setFreshOrder({}); return; }
+    const order = {};
+    let n = 0;
+    for (let i = 0; i < revealedKey.length; i++) {
+      if (revealedKey[i] === "1" && prev.key[i] !== "1" && /[a-z0-9]/i.test(title[i])) order[i] = n++;
+    }
+    if (n === 0) return;
+    setFreshOrder(order);
+    for (let k = 0; k < Math.min(n, 12); k++) SFX.tileTick(k, Math.min(k * 45, 900) / 1000);
+    const id = setTimeout(() => setFreshOrder({}), Math.min(n * 45, 900) + 500);
+    return () => clearTimeout(id);
+  }, [revealedKey, card.id, reducedMotion]);
 
   // Prefer wrapping between words, but allow very long single words to wrap
   // inside themselves so they cannot force horizontal scrolling on mobile.
@@ -3823,6 +3896,9 @@ function HangmanTitle({card, found, guesses=[]}) {
                 color: allRevealed ? T.pink : T.textPrimary,
                 textTransform:"uppercase",
                 transition:"color 0.25s ease",
+                animation: freshOrder[word.start + ci] !== undefined
+                  ? `tileFlip 0.42s cubic-bezier(.2,1.3,.4,1) ${Math.min(freshOrder[word.start + ci] * 45, 900)}ms both`
+                  : "none",
               }}>{rev ? ch : ""}</div>
             );
           })}
@@ -4071,7 +4147,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   useEffect(()=>{
     const prev=prevFoundRef.current;
     const newFind=found.some((f,i)=>f&&!prev[i]);
-    if(newFind){ SFX.correct(); SFX.pop(); setPopKey(k=>k+1); }
+    if(newFind){ SFX.correct(); SFX.pop(); buzz(25); setPopKey(k=>k+1); }
     prevFoundRef.current=found;
   },[found[0],found[1]]);
 
@@ -4095,6 +4171,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     const state = guessClassification(g, card);
     if(state==="miss"){
       SFX.wrong();
+      buzz([30,50,30]);
       // The next take, unless this miss used the card's last guess.
       if(wrongGuessCount+1 < mode.maxGuesses){
         SFX.clap();
@@ -4640,7 +4717,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
           </div>
           <div style={HUD_STAT_PILL}>
             <IconStar size={21}/>
-            <span style={HUD_COUNTER_TEXT}>PTS: {liveCardPts}</span>
+            <RollingPoints value={liveCardPts} reducedMotion={reducedMotion} style={HUD_COUNTER_TEXT}/>
           </div>
           {mode.timeLimit>0&&(
             <div style={HUD_STAT_PILL}>
@@ -4901,7 +4978,12 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,onMenu,onPlayAgain
       <div style={{width:"100%",minHeight:"calc(100dvh - 38px)",...WIN_RESULT_BG,backgroundColor:T.bgDeep,border:`2px solid ${T.border}`,borderRadius:20,boxShadow:T.shadowLg,padding:"56px 22px 24px",textAlign:"center",boxSizing:"border-box",display:"flex",flexDirection:"column",position:"relative"}}>
 
         <div style={{...WHITE_STICKER_TEXT,fontSize:"clamp(30px, 8.8vw, 40px)",lineHeight:1.02,marginBottom:10,textTransform:"uppercase"}}>The End</div>
-        <div style={{...YELLOW_STICKER_TEXT,fontSize:"clamp(17px, 5.1vw, 24px)",lineHeight:1.04,marginBottom:24,textTransform:"uppercase"}}>Share Your Results</div>
+        <div style={{...YELLOW_STICKER_TEXT,fontSize:"clamp(17px, 5.1vw, 24px)",lineHeight:1.04,marginBottom:mode.isDaily?10:24,textTransform:"uppercase"}}>Share Your Results</div>
+        {mode.isDaily && (
+          <div aria-label="Next Daily" style={{...WHITE_STICKER_TEXT,fontSize:12,lineHeight:1.3,marginBottom:22,letterSpacing:"0.02em"}}>
+            Daily #{getDailyNumber()} · Next Daily in <NextDailyCountdown/>
+          </div>
+        )}
         {officialDaily && (
           <div style={{...WHITE_STICKER_TEXT,fontSize:12,lineHeight:1.3,margin:"-12px 0 18px",letterSpacing:"0.02em"}}>
             Replay — today's first result is kept: {officialDaily.score} ⭐
