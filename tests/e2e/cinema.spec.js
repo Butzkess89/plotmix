@@ -135,7 +135,7 @@ test.describe('Gold Lamé curtains: 3 perfect Dailies in a row (owner decision 2
 
   test('a first perfect Daily counts 1 of 3', async ({ page }) => {
     await playDaily(page, { before: 0, perfect: true })
-    await expect(page.getByLabel('Perfect Daily streak')).toContainText('1 of 3')
+    await expect(page.getByLabel('Perfect Dailies in a row')).toContainText('1 of 3')
     expect(await won(page)).not.toContain('perfectDaily3')
   })
 
@@ -147,7 +147,7 @@ test.describe('Gold Lamé curtains: 3 perfect Dailies in a row (owner decision 2
 
   test('one wrong guess, even on a solved Daily, starts the count again', async ({ page }) => {
     await playDaily(page, { before: 2, perfect: false })
-    await expect(page.getByLabel('Perfect Daily streak')).toContainText('0 of 3')
+    await expect(page.getByLabel('Perfect Dailies in a row')).toContainText('0 of 3')
     expect(await won(page)).not.toContain('perfectDaily3')
   })
 })

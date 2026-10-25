@@ -6157,7 +6157,7 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,onMenu,onPlayAgain
             </div>
           );
           return (
-            <div aria-label="Perfect Daily streak" style={{fontFamily:"'Outfit',sans-serif",fontSize:12.5,color:"rgba(255,255,255,0.9)",marginBottom:14}}>
+            <div aria-label="Perfect Dailies in a row" style={{fontFamily:"'Outfit',sans-serif",fontSize:12.5,color:"rgba(255,255,255,0.9)",marginBottom:14}}>
               🏅 Perfect Dailies in a row: {pd.lastDay===today ? pd.count : 0} of {PERFECT_DAILY_FOR_GOLD} (no wrong guesses) for the Gold Lamé curtains
             </div>
           );
