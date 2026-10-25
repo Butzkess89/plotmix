@@ -2946,13 +2946,16 @@ function ModeSelect({onSelect, onArcade}) {
           <span style={{fontFamily:"'Outfit',sans-serif",fontSize:12,fontWeight:700,color:"#7A5C00"}}>{passes>0?`${passes} play${passes===1?"":"s"}`:"🔒"}</span>
         </button>
 
+        {/* The T-rex fills only the gap between Popcorn Panic and Resume Game, so it never
+            covers or hides under a button on shorter phones. */}
         <div
           aria-hidden="true"
           style={{
             position:"absolute",
-            left:"50%",
-            top:mostRecentSession?"80.8%":"84.6%",
-            transform:"translate(-50%, -50%)",
+            left:0,right:0,
+            top:`calc(${571/874*100}% + 50px)`,
+            bottom:mostRecentSession?"calc(1.7% + 90px)":"2%",
+            display:"flex",alignItems:"center",justifyContent:"center",
             pointerEvents:"none",
             zIndex:1,
           }}
@@ -2964,7 +2967,8 @@ function ModeSelect({onSelect, onArcade}) {
             style={{
               display:"block",
               width:"auto",
-              height:"clamp(148px, 21vh, 188px)",
+              height:"100%",
+              maxHeight:188,
               filter:"drop-shadow(0 12px 16px rgba(0,0,0,0.42))",
               animation:"homeTrexFloat 3s ease-in-out infinite",
               transformOrigin:"50% 75%",
@@ -4015,6 +4019,15 @@ function comboMultiplier(c) { return c >= 10 ? 3 : c >= 5 ? 2 : 1; }
 const LS_ARCADE_PASSES = "plotmix_arcade_passes";
 function arcadePasses() { const n = Number(readJSON(LS_ARCADE_PASSES, 0)); return Number.isFinite(n) && n > 0 ? n : 0; }
 function addArcadePass() { writeJSON(LS_ARCADE_PASSES, arcadePasses() + 1); }
+// Developer shortcut (owner request 2026-10-25): adding ?popcorn to a preview or local link
+// opens Popcorn Panic with 3 plays. Never on the live site (plotmix-app.vercel.app).
+function isTestBuildHost(host) { return host === "localhost" || host === "127.0.0.1" || host.includes("-git-"); }
+function openPopcornForTesting() {
+  if (typeof window === "undefined" || !isTestBuildHost(window.location.hostname)) return false;
+  if (!new URLSearchParams(window.location.search).has("popcorn")) return false;
+  if (arcadePasses() < 3) writeJSON(LS_ARCADE_PASSES, 3);
+  return true;
+}
 function useArcadePass() { const n = arcadePasses(); if (n < 1) return false; writeJSON(LS_ARCADE_PASSES, n - 1); return true; }
 const BOOST_MS = 5000;
 const ARCADE_ITEMS = [
@@ -5917,7 +5930,7 @@ function PlotMixApp() {
     document.head.appendChild(style);
     return ()=>{ document.head.removeChild(style); };
   },[]);
-  const [screen,setScreen]=useState("intro");
+  const [screen,setScreen]=useState(()=>openPopcornForTesting()?"arcade":"intro");
   const [mode,setMode]=useState(null);
   const [deck,setDeck]=useState([]);
   const [results,setResults]=useState([]);

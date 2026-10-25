@@ -127,6 +127,34 @@ test.describe('F. Popcorn Panic on the menu', () => {
   })
 })
 
+test.describe('Menu layout', () => {
+  for (const height of [874, 700, 640]) {
+    test(`the T-rex never overlaps a menu button (402×${height}, saved game)`, async ({ page }) => {
+      await page.setViewportSize({ width: 402, height })
+      await resumeStandardWithCards(page, [77])
+      await submitGuess(page, 'zzqxwrong')
+      await waitForSave(page, 'standard', (st) => st.guesses.length === 1)
+      await openMenu(page) // reload: the saved game puts Resume Game on the menu
+      await expect(page.getByRole('button', { name: 'Resume Game' })).toBeVisible()
+      const rex = await page.locator('img[src="/stickers/Happy.webp"]').boundingBox()
+      const pop = await page.getByRole('button', { name: 'Popcorn Panic', exact: true }).boundingBox()
+      const resume = await page.getByRole('button', { name: 'Resume Game' }).boundingBox()
+      expect(rex.height).toBeGreaterThan(60)
+      expect(rex.y).toBeGreaterThanOrEqual(pop.y + pop.height)
+      expect(rex.y + rex.height).toBeLessThanOrEqual(resume.y)
+    })
+  }
+})
+
+test.describe('Popcorn Panic test link', () => {
+  test('?popcorn on a test build opens Popcorn Panic with 3 plays', async ({ page }) => {
+    await page.goto('/?popcorn')
+    await expect(page.getByLabel('Arcade passes')).toHaveText('You have 3 plays')
+    await page.getByRole('button', { name: 'Play Popcorn Panic' }).click()
+    await expect(page.getByLabel('Popcorn arena')).toBeVisible()
+  })
+})
+
 test.describe('G. Combo ladder', () => {
   test('correct guesses in a row climb the scale; a miss starts again', async ({ page }) => {
     await page.addInitScript(() => {
