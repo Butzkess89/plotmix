@@ -1735,9 +1735,13 @@ function hasDoneDaily() { try{return !!localStorage.getItem(getDailyKey());}catc
 // The first Daily result of the day is the one kept and shared; replays don't
 // overwrite it. Returns true when this call recorded the day's first result.
 // First completion of today's Daily also counts toward the Daily streak.
-function completeDaily(score, shareText) {
+// It also counts toward the Gold Lamé curtains: 3 Dailies in a row solved with no wrong guess.
+function completeDaily(score, shareText, results = []) {
   const first = markDailyDone(score, shareText);
-  if (first) recordDailyPlayed();
+  if (first) {
+    recordDailyPlayed();
+    recordPerfectDaily(results.length > 0 && results.every((r) => r.solved && (r.wrong || 0) === 0));
+  }
   return first;
 }
 function markDailyDone(score, shareText) {
@@ -3938,7 +3942,8 @@ const CURTAINS = [
   { id: "red",     name: "Red Velvet",    colors: ["#8E0F1F", "#C21E32"], prize: null },
   { id: "blue",    name: "Midnight Blue", colors: ["#0E1A4F", "#2A3FA8"], prize: "bronze" },
   { id: "emerald", name: "Emerald",       colors: ["#0B4A33", "#16875C"], prize: "silver" },
-  { id: "gold",    name: "Gold Lamé",     colors: ["#8A5A00", "#E0A82E"], prize: "gold" },
+  // The hardest to get (owner decision 2026-10-25): 3 Dailies in a row with no wrong guess at all.
+  { id: "gold",    name: "Gold Lamé",     colors: ["#8A5A00", "#E0A82E"], prize: "perfectDaily3" },
 ];
 const PRIZE_TIERS = [
   { id: "gold",   min: 150, name: "Gold Reel",   emoji: "🥇", powerups: { hint: 1, peek: 1 }, reward: "a Free Hint and a Popcorn Peek" },
@@ -3984,6 +3989,24 @@ function themedDailyCard(sourceDeck, date) {
 // Daily streak: days in a row with the Daily played. One missed day a week is forgiven.
 function weekNumber(dayNum) { return Math.floor((dayNum + 3) / 7); }
 function loadDailyStreak() { const v = readJSON(LS_DSTREAK, null); return v && typeof v.count === "number" ? v : { count: 0, best: 0, lastDay: null, saverWeek: null }; }
+// Perfect Dailies in a row (solved with no wrong guess); 3 unlock the Gold Lamé curtains.
+const LS_PERFECT_DAILY = "plotmix_perfect_daily";
+const PERFECT_DAILY_FOR_GOLD = 3;
+function loadPerfectDaily() { const v = readJSON(LS_PERFECT_DAILY, null); return v && typeof v.count === "number" ? v : { count: 0, lastDay: null }; }
+function recordPerfectDaily(perfect, date = new Date()) {
+  const today = localDayNumber(date);
+  const st = loadPerfectDaily();
+  if (st.lastDay === today) return st;
+  const count = !perfect ? 0 : st.lastDay === today - 1 ? st.count + 1 : 1;
+  const next = { count, lastDay: today };
+  writeJSON(LS_PERFECT_DAILY, next);
+  if (count >= PERFECT_DAILY_FOR_GOLD) {
+    const p = loadPrizes();
+    if (!p.won.includes("perfectDaily3")) writeJSON(LS_PRIZES, { ...p, won: [...p.won, "perfectDaily3"], curtain: "gold", goldJustWon: today });
+  }
+  return next;
+}
+
 function recordDailyPlayed(date = new Date()) {
   const today = localDayNumber(date);
   const st = loadDailyStreak();
@@ -4045,9 +4068,9 @@ function CurtainPicker() {
 }
 
 // Arcade side-quest: "Popcorn Panic" (owner design 2026-10-25).
-// Endless: catch popped popcorn; burnt popcorn and unpopped kernels cost a life (3 lives).
-// Every 5 seconds it gets faster with more bad bits, so every game ends. Popcorn caught without
-// catching a bad bit in between builds a combo (x2 at 5, x3 at 10); every 10 starts a Popcorn Frenzy.
+// Catch good pieces in the box; bad ones cost a life (3 lives). A play lasts 45 seconds at most,
+// and every 5 seconds it gets faster with more bad pieces. Good catches without a bad one in
+// between build a combo (x2 at 5, x3 at 10); 15 regular catches in a row start a Popcorn Frenzy.
 // Chocolate candies give a boost: an extra life, a 5-second shield, or 5 seconds of double points.
 // A play is earned by solving 5 mashups in a row (no paying to replay).
 const ARCADE_LIVES = 3;
@@ -4676,7 +4699,7 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
             <div style={{fontFamily:"'Outfit',sans-serif",fontSize:14,margin:"8px 0 14px"}}>
               {result.reason === "time" ? `Time's up! You lasted all 45 seconds and reached level ${result.level}.` : `Out of lives on level ${result.level}!`} You scored {result.score} point{result.score === 1 ? "" : "s"}.
               {result.prize ? ` You won ${result.prize.reward} to use in Standard or Speed Run.` : " Keep popping!"}
-              {result.prize && result.isNew ? ` New curtains unlocked: ${CURTAINS.find((c) => c.prize === result.prize.id)?.name} (choose them on the Popcorn Panic screen).` : ""}
+              {result.prize && result.isNew && CURTAINS.some((c) => c.prize === result.prize.id) ? ` New curtains unlocked: ${CURTAINS.find((c) => c.prize === result.prize.id).name} (choose them on the Popcorn Panic screen).` : ""}
             </div>
             <button onClick={onBack} style={{...BTN.cyan,width:"100%",padding:"12px 0"}}>
               <span style={{...WHITE_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>{embedded ? "Back to the game" : "Done"}</span>
@@ -5409,7 +5432,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       const nextResults = upsertRoundResult(results, cardIdx, skipResult);
       if(isLast||lives<=0){
         clearSession(mode.id);
-        const dailyReplay = mode.isDaily && !completeDaily(totalScore, buildShareText(mode, nextResults, totalScore));
+        const dailyReplay = mode.isDaily && !completeDaily(totalScore, buildShareText(mode, nextResults, totalScore), nextResults);
         onComplete(nextResults,totalScore,streak,{dailyReplay});
         return;
       }
@@ -5442,7 +5465,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     setStreak(newStreak);
     const newTotal=totalScore+pts;
     setTotalScore(newTotal);
-    const roundResult={card,found:effectiveFound,solved:both,guesses:guesses.length,hints:hintsRevealed.length,guessList:[...guesses],hintList:[...hintsRevealed],pts,reward:currentReward};
+    const roundResult={card,found:effectiveFound,solved:both,guesses:guesses.length,wrong:wrongGuessCount,hints:hintsRevealed.length,guessList:[...guesses],hintList:[...hintsRevealed],pts,reward:currentReward};
     const nextResults = upsertRoundResult(results, activeIdx, roundResult);
 
     if (isRewound && activeIdx !== cardIdx) {
@@ -5463,7 +5486,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
 
     if(isLast||livesAfterLoss+heartBonus<=0){
       clearSession(mode.id);
-      const dailyReplay = mode.isDaily && !completeDaily(newTotal, buildShareText(mode, nextResults, newTotal));
+      const dailyReplay = mode.isDaily && !completeDaily(newTotal, buildShareText(mode, nextResults, newTotal), nextResults);
       onComplete(nextResults,newTotal,newStreak,{dailyReplay});
       return;
     }
@@ -5481,11 +5504,11 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
 
   const handleIntermissionNext=()=>{
     const pts=calcScore(both,currentReward);
-    const roundResult={card,found:effectiveFound,solved:both,guesses:guesses.length,hints:hintsRevealed.length,guessList:[...guesses],hintList:[...hintsRevealed],pts,reward:currentReward};
+    const roundResult={card,found:effectiveFound,solved:both,guesses:guesses.length,wrong:wrongGuessCount,hints:hintsRevealed.length,guessList:[...guesses],hintList:[...hintsRevealed],pts,reward:currentReward};
     const nextResults = upsertRoundResult(results, activeIdx, roundResult);
     if(isLast){
       clearSession(mode.id);
-      const dailyReplay = mode.isDaily && !completeDaily(totalScore, buildShareText(mode, nextResults, totalScore));
+      const dailyReplay = mode.isDaily && !completeDaily(totalScore, buildShareText(mode, nextResults, totalScore), nextResults);
       onComplete(nextResults,totalScore,streak,{dailyReplay});
       return;
     }
@@ -6121,6 +6144,21 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,onMenu,onPlayAgain
           return (
             <div aria-label="Daily streak" style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:13,color:"#FFD84D",marginBottom:14}}>
               🔥 Daily streak: {st.count} day{st.count===1?"":"s"}{st.saverDay===today ? " · 🧊 streak saver covered a missed day" : ""}
+            </div>
+          );
+        })()}
+        {mode.isDaily && (()=>{
+          const pd=loadPerfectDaily();
+          const gold=loadPrizes();
+          const today=localDayNumber(new Date());
+          if(gold.won.includes("perfectDaily3")) return (
+            <div aria-label="Gold curtains" style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:13,color:"#FFD84D",marginBottom:14}}>
+              {gold.goldJustWon===today ? "✨ 3 perfect Dailies in a row: Gold Lamé curtains unlocked!" : "✨ Gold Lamé curtains: yours"}
+            </div>
+          );
+          return (
+            <div aria-label="Perfect Daily streak" style={{fontFamily:"'Outfit',sans-serif",fontSize:12.5,color:"rgba(255,255,255,0.9)",marginBottom:14}}>
+              🏅 Perfect Dailies in a row: {pd.lastDay===today ? pd.count : 0} of {PERFECT_DAILY_FOR_GOLD} (no wrong guesses) for the Gold Lamé curtains
             </div>
           );
         })()}

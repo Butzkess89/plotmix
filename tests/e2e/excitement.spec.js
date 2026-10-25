@@ -542,7 +542,7 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
     expect(power.hint + power.peek).toBeGreaterThan(0)
     await page.getByRole('button', { name: 'Done' }).click()
     await page.getByRole('button', { name: 'Popcorn Panic', exact: true }).click()
-    await expect(page.getByRole('button', { name: /Curtains: (Midnight Blue|Emerald|Gold Lamé)$/ })).toBeEnabled()
+    await expect(page.getByRole('button', { name: /Curtains: (Midnight Blue|Emerald)$/ })).toBeEnabled()
   })
 })
 

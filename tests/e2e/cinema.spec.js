@@ -114,6 +114,44 @@ test.describe('End screen extras', () => {
   })
 })
 
+test.describe('Gold Lamé curtains: 3 perfect Dailies in a row (owner decision 2026-10-25)', () => {
+  // Seed the perfect-Daily run as of yesterday, then play today's Daily.
+  async function playDaily(page, { before, perfect }) {
+    await pinDailyDate(page)
+    await openMenu(page)
+    await page.evaluate((n) => {
+      const d = new Date()
+      const today = Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000)
+      localStorage.setItem('plotmix_perfect_daily', JSON.stringify({ count: n, lastDay: n ? today - 1 : null }))
+    }, before)
+    await startMode(page, 'daily')
+    const card = await currentCard(page, 'daily')
+    if (!perfect) await submitGuess(page, 'zzqxwrong')
+    await submitGuess(page, card.mashedTitle)
+    await page.getByRole('button', { name: 'Finish' }).click()
+    await expect(page.getByText('The End')).toBeVisible()
+  }
+  const won = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('plotmix_prizes') || '{"won":[]}').won)
+
+  test('a first perfect Daily counts 1 of 3', async ({ page }) => {
+    await playDaily(page, { before: 0, perfect: true })
+    await expect(page.getByLabel('Perfect Daily streak')).toContainText('1 of 3')
+    expect(await won(page)).not.toContain('perfectDaily3')
+  })
+
+  test('the third perfect Daily in a row unlocks them', async ({ page }) => {
+    await playDaily(page, { before: 2, perfect: true })
+    await expect(page.getByLabel('Gold curtains')).toHaveText('✨ 3 perfect Dailies in a row: Gold Lamé curtains unlocked!')
+    expect(await won(page)).toContain('perfectDaily3')
+  })
+
+  test('one wrong guess, even on a solved Daily, starts the count again', async ({ page }) => {
+    await playDaily(page, { before: 2, perfect: false })
+    await expect(page.getByLabel('Perfect Daily streak')).toContainText('0 of 3')
+    expect(await won(page)).not.toContain('perfectDaily3')
+  })
+})
+
 test.describe('Reduce motion', () => {
   test('curtains are not drawn when the phone asks for less motion', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' })
