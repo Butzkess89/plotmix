@@ -320,9 +320,52 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('plotmix_stubs')))).toEqual({ earned: 6, spent: 5 })
     const prizes = await page.evaluate(() => JSON.parse(localStorage.getItem('plotmix_prizes')))
     expect(prizes.won.length).toBe(1)
+    // Winning a reel also wins a single-use power-up for the main game.
+    const power = await page.evaluate(() => JSON.parse(localStorage.getItem('plotmix_powerups')))
+    expect(power.hint + power.peek).toBeGreaterThan(0)
     await page.getByRole('button', { name: 'Back to the arcade' }).click()
     await page.getByRole('button', { name: 'Back' }).click()
     await page.getByRole('button', { name: 'Film Vault' }).click()
     await expect(page.getByRole('button', { name: /Curtains: (Midnight Blue|Emerald|Gold Lamé)$/ })).toBeEnabled()
+  })
+})
+
+test.describe('Arcade power-ups in the main game', () => {
+  const seed = (page, p) => page.addInitScript((v) => { if (!localStorage.getItem('plotmix_powerups')) localStorage.setItem('plotmix_powerups', JSON.stringify(v)) }, p)
+  const shownLetters = (page) => page.evaluate(() => [...document.querySelectorAll('[aria-label="Title letters"] div')]
+    .filter((d) => d.children.length === 0 && /^[a-z0-9]$/i.test(d.textContent)).map((d) => d.textContent).join(''))
+
+  test('a Free Hint reveals the next hint without costing points, once', async ({ page }) => {
+    await seed(page, { hint: 1, peek: 0 })
+    await resumeStandardWithCards(page, [77])
+    await page.getByRole('button', { name: 'Open hints' }).click()
+    await page.getByRole('button', { name: 'Use a Free Hint (1 left)' }).click()
+    await expect(page.getByRole('button', { name: /Year & Genre.*✓/ })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Use a Free Hint (0 left)' })).toBeDisabled()
+    await page.getByRole('button', { name: 'Close hints' }).click()
+    await expect(page.getByText('PTS: 10')).toBeVisible()
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('plotmix_powerups')))).toEqual({ hint: 0, peek: 0 })
+  })
+
+  test('a Popcorn Peek fills in every third letter', async ({ page }) => {
+    await seed(page, { hint: 0, peek: 1 })
+    await resumeStandardWithCards(page, [77]) // The Nightmare Before Christmas Story
+    expect(await shownLetters(page)).toBe('')
+    await page.getByRole('button', { name: 'Open hints' }).click()
+    await page.getByRole('button', { name: 'Use a Popcorn Peek (1 left)' }).click()
+    await page.getByRole('button', { name: 'Close hints' }).click()
+    // the 3rd, 6th, 9th... letter of the title
+    const letters = 'TheNightmareBeforeChristmasStory'.split('').filter((_, i) => (i + 1) % 3 === 0).join('')
+    await expect.poll(() => shownLetters(page)).toBe(letters)
+    await expect(page.getByText('PTS: 10')).toBeVisible()
+  })
+
+  test('power-ups are not offered in the Daily', async ({ page }) => {
+    await seed(page, { hint: 2, peek: 2 })
+    await pinDailyDate(page)
+    await openMenu(page)
+    await startMode(page, 'daily')
+    await page.getByRole('button', { name: 'Open hints' }).click()
+    await expect(page.getByRole('button', { name: /Use a Free Hint/ })).toHaveCount(0)
   })
 })
