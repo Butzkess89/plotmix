@@ -4000,11 +4000,21 @@ function recordPerfectDaily(perfect, date = new Date()) {
   const count = !perfect ? 0 : st.lastDay === today - 1 ? st.count + 1 : 1;
   const next = { count, lastDay: today };
   writeJSON(LS_PERFECT_DAILY, next);
-  if (count >= PERFECT_DAILY_FOR_GOLD) {
-    const p = loadPrizes();
-    if (!p.won.includes("perfectDaily3")) writeJSON(LS_PRIZES, { ...p, won: [...p.won, "perfectDaily3"], curtain: "gold", goldJustWon: today });
-  }
+  if (count >= PERFECT_DAILY_FOR_GOLD) unlockGoldCurtains(date);
   return next;
+}
+// Gold Lamé curtains: won by 3 perfect Dailies in a row, or by one perfect Standard or Speed
+// Run (every card solved, no hints or power-ups, no wrong guesses; owner decision 2026-10-26).
+// Returns true the first time they are won.
+function unlockGoldCurtains(date = new Date()) {
+  const p = loadPrizes();
+  if (p.won.includes("perfectDaily3")) return false;
+  writeJSON(LS_PRIZES, { ...p, won: [...p.won, "perfectDaily3"], curtain: "gold", goldJustWon: localDayNumber(date) });
+  return true;
+}
+function isPerfectRun(mode, results) {
+  return !mode.isDaily && results.length === mode.roundCount &&
+    results.every((r) => r && r.solved && !r.skipped && (r.wrong || 0) === 0 && (r.hints || 0) === 0 && !r.peek);
 }
 
 function recordDailyPlayed(date = new Date()) {
@@ -5465,7 +5475,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     setStreak(newStreak);
     const newTotal=totalScore+pts;
     setTotalScore(newTotal);
-    const roundResult={card,found:effectiveFound,solved:both,guesses:guesses.length,wrong:wrongGuessCount,hints:hintsRevealed.length,guessList:[...guesses],hintList:[...hintsRevealed],pts,reward:currentReward};
+    const roundResult={card,found:effectiveFound,solved:both,guesses:guesses.length,wrong:wrongGuessCount,peek,hints:hintsRevealed.length,guessList:[...guesses],hintList:[...hintsRevealed],pts,reward:currentReward};
     const nextResults = upsertRoundResult(results, activeIdx, roundResult);
 
     if (isRewound && activeIdx !== cardIdx) {
@@ -5504,7 +5514,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
 
   const handleIntermissionNext=()=>{
     const pts=calcScore(both,currentReward);
-    const roundResult={card,found:effectiveFound,solved:both,guesses:guesses.length,wrong:wrongGuessCount,hints:hintsRevealed.length,guessList:[...guesses],hintList:[...hintsRevealed],pts,reward:currentReward};
+    const roundResult={card,found:effectiveFound,solved:both,guesses:guesses.length,wrong:wrongGuessCount,peek,hints:hintsRevealed.length,guessList:[...guesses],hintList:[...hintsRevealed],pts,reward:currentReward};
     const nextResults = upsertRoundResult(results, activeIdx, roundResult);
     if(isLast){
       clearSession(mode.id);
@@ -5989,7 +5999,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
 
 
 
-function EndScreen({mode,results,totalScore,dailyReplay=false,onMenu,onPlayAgain,reducedMotion=false}) {
+function EndScreen({mode,results,totalScore,dailyReplay=false,perfectRun=false,goldWon=false,onMenu,onPlayAgain,reducedMotion=false}) {
   const [copied,setCopied]=useState(false);
   const correct=results.filter(r=>isRoundSolved(r)).length;
   const skippedCount=results.filter(r=>r.skipped).length;
@@ -6147,6 +6157,11 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,onMenu,onPlayAgain
             </div>
           );
         })()}
+        {perfectRun && (
+          <div aria-label="Perfect run" style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:13,color:"#FFD84D",marginBottom:14}}>
+            {goldWon ? "✨ A perfect run: no hints, no mistakes! Gold Lamé curtains unlocked!" : "✨ A perfect run: no hints, no mistakes!"}
+          </div>
+        )}
         {mode.isDaily && (()=>{
           const pd=loadPerfectDaily();
           const gold=loadPrizes();
@@ -6280,7 +6295,9 @@ function PlotMixApp() {
 
   const [finalStreak,setFinalStreak]=useState(null);
   const handleComplete=(r,score,streak,{dailyReplay=false}={})=>{
-    setCompletedRun({mode,results:r,totalScore:score,streak:streak||null,dailyReplay});
+    const perfectRun = isPerfectRun(mode, r);
+    const goldWon = perfectRun && unlockGoldCurtains();
+    setCompletedRun({mode,results:r,totalScore:score,streak:streak||null,dailyReplay,perfectRun,goldWon});
     setResults([]); setTotalScore(0); setDeck([]); setResumeState(null); setFinalStreak(streak||null); setShowHelp(false); setScreen("end");
   };
 
@@ -6410,7 +6427,7 @@ function PlotMixApp() {
       {screen==="onboarding"&&<Onboarding onDone={()=>{markOnboarded();setScreen("menu");}} onSkip={()=>{markOnboarded();setScreen("menu");}} showSkip/>}
       {screen==="menu"&&<ModeSelect onSelect={handleModeSelect} onArcade={()=>setScreen("arcade")}/>}
       {screen==="game"&&mode&&<GameScreen mode={mode} deck={deck} initialState={resumeState} onQuit={goMenu} onComplete={handleComplete} reducedMotion={reducedMotion}/>}
-      {screen==="end"&&completedRun&&<EndScreen mode={completedRun.mode} results={completedRun.results} totalScore={completedRun.totalScore} dailyReplay={completedRun.dailyReplay} onMenu={goMenu} onPlayAgain={handlePlayAgain} reducedMotion={reducedMotion}/>}
+      {screen==="end"&&completedRun&&<EndScreen mode={completedRun.mode} results={completedRun.results} perfectRun={completedRun.perfectRun} goldWon={completedRun.goldWon} totalScore={completedRun.totalScore} dailyReplay={completedRun.dailyReplay} onMenu={goMenu} onPlayAgain={handlePlayAgain} reducedMotion={reducedMotion}/>}
       {/* Not during play: it overlaps the Skip button and swallows its clicks,
           and the Figma gameplay frame has no floating help button. */}
       {screen==="menu"&&<HelpButton onClick={()=>setShowHelp(true)}/>}

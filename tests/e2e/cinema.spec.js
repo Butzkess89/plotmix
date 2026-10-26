@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-  openMenu, startMode, submitGuess, guessInput, currentCard, pinDailyDate, resumeStandardWithCards, waitForSave,
+  openMenu, startMode, submitGuess, guessInput, currentCard, pinDailyDate, resumeStandardWithCards, waitForSave, readDeck,
 } from './helpers.js'
 
 const nextButton = (page) => page.getByRole('button', { name: 'Next' })
@@ -114,7 +114,7 @@ test.describe('End screen extras', () => {
   })
 })
 
-test.describe('Gold Lamé curtains: 3 perfect Dailies in a row (owner decision 2026-10-25)', () => {
+test.describe('Gold Lamé curtains: 3 perfect Dailies in a row, or one perfect run (owner decisions 2026-10-25/26)', () => {
   // Seed the perfect-Daily run as of yesterday, then play today's Daily.
   async function playDaily(page, { before, perfect }) {
     await pinDailyDate(page)
@@ -143,6 +143,43 @@ test.describe('Gold Lamé curtains: 3 perfect Dailies in a row (owner decision 2
     await playDaily(page, { before: 2, perfect: true })
     await expect(page.getByLabel('Gold curtains')).toHaveText('✨ 3 perfect Dailies in a row: Gold Lamé curtains unlocked!')
     expect(await won(page)).toContain('perfectDaily3')
+  })
+
+  // A whole Standard run: every card solved by its full title on the first guess.
+  async function playStandardRun(page, { hintOnCard = -1 } = {}) {
+    const ids = readDeck().slice(0, 10).map((c) => c.id)
+    await resumeStandardWithCards(page, ids)
+    for (let i = 0; i < ids.length; i++) {
+      const card = await currentCard(page, 'standard')
+      if (i === hintOnCard) {
+        await page.getByRole('button', { name: 'Open hints' }).click()
+        await page.getByRole('button', { name: /Year & Genre/ }).click()
+        await page.getByRole('button', { name: 'Close hints' }).click()
+      }
+      await submitGuess(page, card.mashedTitle)
+      const go = page.getByRole('button', { name: /^(Next|Finish|Continue to the next PlotMix)$/ })
+      await expect(go.first()).toBeVisible()
+      await page.waitForTimeout(300) // the 5-in-a-row offer, if any, appears with the result
+      const offer = page.getByRole('button', { name: 'Continue to the next PlotMix' })
+      if (await offer.isVisible()) await offer.click()
+      else await page.getByRole('button', { name: /^(Next|Finish)$/ }).click()
+      if (i < ids.length - 1) await waitForSave(page, 'standard', (s) => s.cardIdx === i + 1)
+    }
+    await expect(page.getByText('The End')).toBeVisible()
+  }
+
+  test('a perfect Standard run (no hints, no mistakes) also unlocks them', async ({ page }) => {
+    test.setTimeout(240_000)
+    await playStandardRun(page)
+    await expect(page.getByLabel('Perfect run')).toHaveText('✨ A perfect run: no hints, no mistakes! Gold Lamé curtains unlocked!')
+    expect(await won(page)).toContain('perfectDaily3')
+  })
+
+  test('one hint in an otherwise perfect run does not', async ({ page }) => {
+    test.setTimeout(240_000)
+    await playStandardRun(page, { hintOnCard: 3 })
+    await expect(page.getByLabel('Perfect run')).toHaveCount(0)
+    expect(await won(page)).not.toContain('perfectDaily3')
   })
 
   test('one wrong guess, even on a solved Daily, starts the count again', async ({ page }) => {
