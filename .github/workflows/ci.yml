@@ -16,7 +16,8 @@ jobs:
   build-and-test:
     name: Build and end-to-end tests
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # The suite runs on Chrome and Safari engines; it outgrew 20 minutes (2026-10-26).
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
