@@ -311,7 +311,7 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
   async function loseAllLives(page) {
     const end = Date.now() + 40_000
     while (!(await page.getByLabel('Arcade result').count()) && Date.now() < end) {
-      await moveBoxUnder(page, ['Burnt popcorn', 'Unpopped kernel']); await page.waitForTimeout(40)
+      await moveBoxUnder(page, ['Burnt popcorn', 'Unpopped kernel', 'Ringing phone', 'Vampire bat']); await page.waitForTimeout(40)
     }
   }
 
@@ -352,6 +352,7 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
   })
 
   test('playing from the offer starts the game at once and returns to the next card', async ({ page }) => {
+    test.setTimeout(150_000) // five solves plus a round of up to 45 s (slow on the Safari engine in CI)
     await seedRandom(page)
     await solveFiveInARow(page)
     await page.getByRole('button', { name: /^🍿 Play Popcorn Panic/ }).click()
