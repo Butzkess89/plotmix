@@ -1531,10 +1531,9 @@ function wrongWordsInGuess(guess, card) {
 
 // If players reveal every meaningful word in the mashed title, treat the round
 // as solved even when guesses were entered as separate words.
-function areAllMashedTitleWordsGuessed(guesses, mashedTitle = "") {
-  const titleTokens = normWord(mashedTitle)
-    .split(" ")
-    .filter(Boolean)
+function areAllMashedTitleWordsGuessed(guesses, mashedTitle = "", movies = [], found = [false, false]) {
+  const rawTitleWords = normWord(mashedTitle).split(" ").filter(Boolean);
+  const titleTokens = rawTitleWords
     .map(normalizeToken)
     .filter((token) => token && !STOPWORDS.has(token));
 
@@ -1551,6 +1550,24 @@ function areAllMashedTitleWordsGuessed(guesses, mashedTitle = "") {
       .split(" ")
       .filter(Boolean)
       .map(normalizeToken)
+      .forEach((token) => { if (required.has(token)) guessed.add(token); });
+    // Title words typed run together ("officespace") count for each word they join.
+    normWord(g).split(" ").filter(Boolean).forEach((typed) => {
+      for (let i = 0; i < rawTitleWords.length; i++) {
+        for (let len = 2; len <= 3 && i + len <= rawTitleWords.length; len++) {
+          const run = rawTitleWords.slice(i, i + len);
+          if (normalizeToken(typed) === normalizeToken(run.join(""))) {
+            run.map(normalizeToken).forEach((token) => { if (required.has(token)) guessed.add(token); });
+          }
+        }
+      }
+    });
+  });
+  // A film already named reveals all of its words too (owner report 2026-10-26: "officespace"
+  // then "cowboys" showed the whole of "Office Space Cowboys" but didn't solve it).
+  movies.forEach((m, i) => {
+    if (!found[i]) return;
+    normWord(m).split(" ").filter(Boolean).map(normalizeToken)
       .forEach((token) => { if (required.has(token)) guessed.add(token); });
   });
 
@@ -5440,7 +5457,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   const viewOnly = rewindIdx!==null;
   const isRewound = rewindIdx!==null;
   const found=checkGuesses(guesses,card.movies,card.aliases||[[],[]],card.mashedTitle||"");
-  const titleFullyRevealed = areAllMashedTitleWordsGuessed(guesses, card.mashedTitle || "");
+  const titleFullyRevealed = areAllMashedTitleWordsGuessed(guesses, card.mashedTitle || "", card.movies, found);
   // Solved must come from real movie-title or mashed-title matches only.
   // Completing all meaningful mashed-title words should also complete the round.
   const both=(found[0]&&found[1]) || titleFullyRevealed;

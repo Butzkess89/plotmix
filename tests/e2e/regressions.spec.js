@@ -172,6 +172,21 @@ test.describe('P1: sticker images are lightweight', () => {
 })
 
 test.describe('G10: a title revealed word by word completes the card', () => {
+  test('owner report: "officespace" then "cowboys" solves "Office Space Cowboys"', async ({ page }) => {
+    await resumeStandardWithCards(page, [35])
+    await submitGuess(page, 'officespace')
+    await expect(page.getByRole('button', { name: 'Next' })).toHaveCount(0) // one film named isn't enough
+    await submitGuess(page, 'cowboys')
+    await expect(page.getByRole('button', { name: 'Next' })).toBeVisible()
+    const s = await waitForSave(page, 'standard', () => true)
+    expect(s).toBeTruthy()
+  })
+  test('words typed run together count for each word ("office" then "spacecowboys")', async ({ page }) => {
+    await resumeStandardWithCards(page, [35])
+    await submitGuess(page, 'office')
+    await submitGuess(page, 'spacecowboys')
+    await expect(page.getByRole('button', { name: 'Next' })).toBeVisible()
+  })
   test('words typed several at a time count, so a fully revealed title is solved', async ({ page }) => {
     // #77 "The Nightmare Before Christmas Story": the owner got stuck here on 2026-10-15.
     await resumeStandardWithCards(page, [77])
