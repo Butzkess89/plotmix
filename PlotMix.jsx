@@ -1887,6 +1887,78 @@ function playTone(frequency, type, duration, gain, delayStart=0, rampDown=true) 
   } catch(e) {}
 }
 
+// Filtered noise with a soft swell, for whooshes, rustles, rattles and splats.
+// filter: {type, from, to, q} sweeps the filter frequency over the sound.
+let _noiseBuf = null;
+function playNoise(duration, gain, delayStart = 0, filter = { type: "bandpass", from: 800, to: 800, q: 1 }, attack = 0.05) {
+  if (!isSoundOn()) return;
+  try {
+    const ctx = getACtx(); if (!ctx) return;
+    if (!_noiseBuf) {
+      _noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+      const d = _noiseBuf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    const t0 = ctx.currentTime + delayStart;
+    const src = ctx.createBufferSource(); src.buffer = _noiseBuf;
+    const f = ctx.createBiquadFilter(); f.type = filter.type; f.Q.value = filter.q || 1;
+    f.frequency.setValueAtTime(filter.from, t0);
+    f.frequency.linearRampToValueAtTime(filter.to, t0 + duration);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.linearRampToValueAtTime(gain, t0 + Math.min(attack, duration / 2));
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + duration);
+    src.connect(f); f.connect(g); g.connect(ctx.destination);
+    src.start(t0); src.stop(t0 + duration + 0.02);
+  } catch (e) {}
+}
+
+// One synth voice with an optional pitch slide and a low-pass filter (brass, whistles, voices).
+function playSynth({ type = "sawtooth", freq, slideTo = null, dur, gain, delay = 0, lp = null, attack = 0.02, vibrato = 0 }) {
+  if (!isSoundOn()) return;
+  try {
+    const ctx = getACtx(); if (!ctx) return;
+    const t0 = ctx.currentTime + delay;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t0);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t0 + dur);
+    let node = o;
+    if (lp) { const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = lp; o.connect(f); node = f; }
+    if (vibrato) {
+      const lfo = ctx.createOscillator(), lg = ctx.createGain();
+      lfo.frequency.value = 6; lg.gain.value = vibrato; lfo.connect(lg); lg.connect(o.frequency); lfo.start(t0); lfo.stop(t0 + dur + 0.05);
+    }
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.linearRampToValueAtTime(gain, t0 + attack);
+    g.gain.setValueAtTime(gain, t0 + Math.max(attack, dur * 0.6));
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+    node.connect(g); g.connect(ctx.destination);
+    o.start(t0); o.stop(t0 + dur + 0.05);
+  } catch (e) {}
+}
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+// A brass-ish chord: a few detuned sawtooth voices through a warm filter.
+function playChord(freqs, dur, gain, delay = 0) {
+  freqs.forEach((f) => { playSynth({ freq: f, dur, gain, delay, lp: 1800, attack: 0.03 }); playSynth({ freq: f * 1.005, dur, gain: gain * 0.6, delay, lp: 1400, attack: 0.03 }); });
+}
+// Light applause: many tiny hand-claps, thinning out, at a random density.
+function playClapping(seconds, density, gain, delay = 0) {
+  const n = Math.round(seconds * density);
+  for (let i = 0; i < n; i++) {
+    const t = delay + Math.random() * seconds * (0.4 + 0.6 * Math.random());
+    playNoise(0.03 + Math.random() * 0.02, gain * (0.5 + Math.random() * 0.5), t, { type: "bandpass", from: 900 + Math.random() * 1600, to: 900 + Math.random() * 1600, q: 1.2 }, 0.002);
+  }
+}
+function playWhistle(delay = 0) {
+  if (Math.random() < 0.5) { // wolf whistle: up, then up-and-down
+    playSynth({ type: "sine", freq: 1100, slideTo: 2300, dur: 0.22, gain: 0.05, delay, attack: 0.02 });
+    playSynth({ type: "sine", freq: 1000, slideTo: 2500, dur: 0.18, gain: 0.05, delay: delay + 0.3, attack: 0.02 });
+    playSynth({ type: "sine", freq: 2500, slideTo: 900, dur: 0.3, gain: 0.045, delay: delay + 0.48, attack: 0.01 });
+  } else { // a long rising "woo" whistle
+    playSynth({ type: "sine", freq: 1500, slideTo: 2900, dur: 0.55, gain: 0.045, delay, attack: 0.05, vibrato: 18 });
+  }
+}
+
 // Vibration on Android phones (iPhone browsers don't support it). Follows the sound button.
 function buzz(pattern) {
   if (!isSoundOn()) return;
@@ -1930,16 +2002,73 @@ const SFX = {
   pop: () => {
     [0,0.05,0.11].forEach((d,i)=>playTone(1150+i*260,"sine",0.04,0.06,d));
   },
-  projector: () => {
-    // Projector clatter: quick low ticks
-    for(let i=0;i<6;i++) playTone(90,"square",0.025,0.035,i*0.07);
+  projector: (seconds = 0.95) => {
+    // A film reel running: the sprocket clatter (about 20 clicks a second) over a low motor hum.
+    const clicks = Math.round(seconds * 20);
+    for (let i = 0; i < clicks; i++) playNoise(0.022, 0.09, i * 0.05, { type: "highpass", from: 2200, to: 2200, q: 0.8 }, 0.002);
+    for (let i = 0; i < clicks; i += 2) playTone(70, "square", 0.03, 0.025, i * 0.05);
+    playTone(55, "sawtooth", seconds, 0.018);
   },
   leaderBeep: (go=false) => {
     playTone(go?1320:880,"sine",go?0.32:0.12,0.12);
   },
-  curtain: () => {
-    playTone(160,"triangle",0.6,0.04);
-    playTone(220,"sine",0.5,0.025,0.15);
+  curtain: (delay = 0.25) => {
+    // Heavy velvet sliding open: two swells of filtered noise (one per side) plus a soft rustle.
+    playNoise(1.2, 0.16, delay, { type: "bandpass", from: 380, to: 1400, q: 0.7 }, 0.35);
+    playNoise(1.0, 0.1, delay + 0.08, { type: "bandpass", from: 520, to: 1800, q: 0.9 }, 0.3);
+    playNoise(0.5, 0.05, delay + 0.6, { type: "highpass", from: 2500, to: 4000, q: 0.5 }, 0.1);
+  },
+  // A solved card (owner request 2026-10-26): a "ta-da!" then light applause and the odd
+  // whistle, mixed differently every time so it never sounds the same twice.
+  winCheer: () => {
+    const C = 261.63, E = 329.63, G = 392, C5 = 523.25, E5 = 659.25, G5 = 783.99;
+    const fanfare = pick([
+      () => { playChord([G, C5 * 0.5 * 2, E5 * 0.5 * 2].map((f) => f), 0.14, 0.035); playChord([C5, E5, G5], 0.7, 0.04, 0.16); },     // ta-DAA
+      () => { [C5, E5, G5].forEach((f, i) => playSynth({ freq: f, dur: 0.12, gain: 0.05, delay: i * 0.09, lp: 2200 })); playChord([C5, E5, G5, C5 * 2], 0.7, 0.03, 0.27); }, // da-da-da-DAA
+      () => { playChord([E, G, C5], 0.12, 0.035); playChord([E, G, C5], 0.12, 0.035, 0.14); playChord([G, C5, E5], 0.75, 0.04, 0.3); }, // ta-ta-DAA
+      () => { playChord([C, E, G], 0.18, 0.035); playChord([C5, E5, G5], 0.8, 0.04, 0.2); playSynth({ type: "triangle", freq: C5 * 2, dur: 0.6, gain: 0.03, delay: 0.25 }); }, // ta-DAA with sparkle
+    ]);
+    fanfare();
+    playClapping(1.4 + Math.random() * 0.6, 14 + Math.random() * 14, 0.07, 0.25);
+    if (Math.random() < 0.75) playWhistle(0.45 + Math.random() * 0.5);
+    if (Math.random() < 0.3) playWhistle(0.9 + Math.random() * 0.4);
+  },
+  groan: () => {
+    // The audience going "awww": voices sliding down.
+    [196, 220, 247, 262].forEach((f, i) => playSynth({ freq: f, slideTo: f * 0.7, dur: 1.0, gain: 0.03, delay: i * 0.04, lp: 900, attack: 0.15, vibrato: 4 }));
+  },
+  skip: () => {
+    // A record scratch, then a sad two-note "wah-wah".
+    playNoise(0.12, 0.18, 0, { type: "bandpass", from: 400, to: 3000, q: 2 }, 0.005);
+    playNoise(0.1, 0.14, 0.12, { type: "bandpass", from: 3000, to: 500, q: 2 }, 0.005);
+    playSynth({ freq: 233, slideTo: 220, dur: 0.3, gain: 0.05, delay: 0.3, lp: 900, vibrato: 3 });
+    playSynth({ freq: 208, slideTo: 175, dur: 0.6, gain: 0.05, delay: 0.62, lp: 900, vibrato: 6 });
+  },
+  page: () => playNoise(0.18, 0.06, 0, { type: "highpass", from: 1500, to: 4500, q: 0.7 }, 0.03), // hints opened: paper rustle
+  tick: () => playTone(1400, "sine", 0.03, 0.025), // any button tap
+  ticket: () => { for (let i = 0; i < 6; i++) playNoise(0.02, 0.08, i * 0.025, { type: "highpass", from: 3000, to: 3000, q: 1 }, 0.002); }, // ticket tear
+  psst: () => playNoise(0.6, 0.06, 0, { type: "highpass", from: 3500, to: 5500, q: 0.8 }, 0.08), // the usher
+  rip: () => playNoise(0.35, 0.12, 0, { type: "bandpass", from: 1200, to: 4000, q: 0.9 }, 0.01), // spoiler tape
+  shutter: (n = 6) => { for (let i = 0; i < n; i++) { const d = 0.2 + i * 0.37 + Math.random() * 0.15; playNoise(0.03, 0.12, d, { type: "highpass", from: 2500, to: 2500, q: 1 }, 0.002); playNoise(0.05, 0.06, d + 0.05, { type: "bandpass", from: 1200, to: 1200, q: 1 }, 0.002); } },
+  boo: () => {
+    // A crowd booing: several low, slightly out-of-tune voices sliding down.
+    [118, 131, 142, 156, 171].forEach((f, i) => {
+      try {
+        if (!isSoundOn()) return;
+        const ctx = getACtx(); if (!ctx) return;
+        const t0 = ctx.currentTime + i * 0.03;
+        const o = ctx.createOscillator(), lp = ctx.createBiquadFilter(), g = ctx.createGain();
+        o.type = "sawtooth"; o.frequency.setValueAtTime(f, t0); o.frequency.linearRampToValueAtTime(f * 0.78, t0 + 1.1);
+        lp.type = "lowpass"; lp.frequency.value = 700;
+        g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.035, t0 + 0.2); g.gain.exponentialRampToValueAtTime(0.001, t0 + 1.2);
+        o.connect(lp); lp.connect(g); g.connect(ctx.destination); o.start(t0); o.stop(t0 + 1.25);
+      } catch (e) {}
+    });
+    playNoise(1.1, 0.04, 0, { type: "bandpass", from: 500, to: 380, q: 0.6 }, 0.2);
+  },
+  splat: (delay = 0) => {
+    playNoise(0.25, 0.22, delay, { type: "lowpass", from: 1800, to: 300, q: 0.7 }, 0.005);
+    playTone(95, "sine", 0.18, 0.12, delay);
   },
   // Combo ladder: each correct guess in a row plays the next note of a pentatonic scale
   comboNote: (step=0) => {
@@ -3929,6 +4058,38 @@ function HolidayDecor({holiday, reducedMotion=false}) {
   );
 }
 
+// Owner request 2026-10-26: the 3rd wrong guess on a card brings the crowd back to boo and throw
+// a tomato at the screen. 2.8 seconds, never blocks taps.
+const TOMATO_MS = 2800;
+function TomatoBoo() {
+  return (
+    <div role="status" aria-label="Boo" style={{position:"fixed",inset:0,zIndex:330,pointerEvents:"none",overflow:"hidden"}}>
+      {/* The splat stays on the "screen" a moment, dripping, then fades. */}
+      <div style={{position:"absolute",left:"50%",top:"34%",width:190,height:190,marginLeft:-95,marginTop:-95,animation:`tomatoSplat ${TOMATO_MS}ms ease both`}}>
+        <svg viewBox="0 0 200 200" width="190" height="190" aria-hidden="true">
+          <path d="M100 30 C120 34 128 18 140 30 C150 40 136 52 150 60 C168 66 186 58 184 78 C182 96 162 92 160 106 C158 120 178 130 166 146 C154 160 140 144 128 154 C116 164 118 184 100 182 C82 180 88 160 74 154 C60 148 48 166 36 152 C24 138 44 124 40 110 C36 96 14 98 16 80 C18 62 40 70 50 60 C60 50 48 36 62 28 C76 20 84 28 100 30 Z" fill="#D7261E" stroke="#7A0A10" strokeWidth="3"/>
+          <circle cx="58" cy="44" r="7" fill="#D7261E"/><circle cx="160" cy="48" r="5" fill="#D7261E"/><circle cx="176" cy="132" r="6" fill="#D7261E"/><circle cx="30" cy="120" r="5" fill="#D7261E"/>
+          <path d="M82 110 Q86 140 84 168 M118 116 Q120 136 119 150" stroke="#B3192C" strokeWidth="9" strokeLinecap="round" fill="none" style={{animation:`tomatoDrip ${TOMATO_MS}ms ease-in both`}}/>
+          <ellipse cx="86" cy="76" rx="18" ry="10" fill="#FF6B6B" opacity="0.6"/>
+          <path d="M92 92 l6 -10 6 10 M100 84 v-8" stroke="#2E7D32" strokeWidth="4" strokeLinecap="round" fill="none"/>
+        </svg>
+      </div>
+      {/* The tomato, thrown from the crowd. */}
+      <div style={{position:"absolute",left:"62%",bottom:40,width:44,height:44,marginLeft:-22,animation:"tomatoThrow 0.65s cubic-bezier(.3,.6,.5,1) 0.3s both"}}>
+        <svg viewBox="0 0 44 44" width="44" height="44" aria-hidden="true">
+          <circle cx="22" cy="25" r="17" fill="#E4322B" stroke="#1C1D21" strokeWidth="2"/>
+          <path d="M22 9 l-6 -3 4 5 -8 1 8 2 -4 5 6 -4 6 4 -4 -5 8 -2 -8 -1 4 -5 Z" fill="#2E7D32" stroke="#1C1D21" strokeWidth="1"/>
+          <ellipse cx="15" cy="20" rx="4" ry="6" fill="#fff" opacity="0.35"/>
+        </svg>
+      </div>
+      <div style={{position:"absolute",left:"50%",bottom:76,transform:"translateX(-50%)",...WHITE_STICKER_TEXT,fontSize:34,color:"#FFB4B4",animation:`booShake ${TOMATO_MS}ms ease both`}}>BOO!</div>
+      <div style={{position:"absolute",left:0,right:0,bottom:0,height:64,animation:`audienceInLong ${TOMATO_MS}ms ease both`}}>
+        <AudienceRow mood="groan"/>
+      </div>
+    </div>
+  );
+}
+
 // Owner request 2026-10-26: sit idle too long and the usher's flashlight sweeps across.
 const USHER_IDLE_MS = 30000;
 function Usher() {
@@ -3946,6 +4107,7 @@ function Usher() {
 
 // Owner request 2026-10-26: paparazzi flashes on the end screen after a perfect run.
 function CameraFlashes() {
+  useEffect(() => { SFX.shutter(8); }, []);
   const spots = [[12, 18], [82, 12], [30, 34], [70, 30], [8, 58], [90, 52], [22, 80], [78, 76], [50, 8], [55, 64]];
   return (
     <div aria-label="Camera flashes" role="img" style={{position:"fixed",inset:0,zIndex:730,pointerEvents:"none"}}>
@@ -4006,7 +4168,7 @@ function CurtainReveal({line=null, zIndex=600, reducedMotion=false, colors=null}
   const [visible,setVisible]=useState(true);
   useEffect(()=>{
     if(reducedMotion) return;
-    SFX.curtain();
+    SFX.curtain(line ? 2.3 : 0.25);
     const id=setTimeout(()=>setVisible(false), line ? 3600 : 1700);
     return ()=>clearTimeout(id);
   },[reducedMotion, line]);
@@ -4076,6 +4238,11 @@ const CINEMA_KEYFRAMES = `
   @keyframes speedSymbol { 0%{opacity:0; transform:scale(0.2) rotate(-20deg)} 25%{opacity:1; transform:scale(1.15) rotate(0deg)} 40%{transform:scale(1)} 80%{opacity:1; transform:scale(1)} 100%{opacity:0; transform:scale(1.4)} }
   @keyframes arcadeShakeA { 0%,100%{transform:translate(0,0)} 15%{transform:translate(-7px,3px)} 30%{transform:translate(6px,-4px)} 45%{transform:translate(-5px,-2px)} 60%{transform:translate(4px,3px)} 75%{transform:translate(-2px,1px)} }
   @keyframes arcadeShakeB { 0%,100%{transform:translate(0,0)} 15%{transform:translate(-7px,3px)} 30%{transform:translate(6px,-4px)} 45%{transform:translate(-5px,-2px)} 60%{transform:translate(4px,3px)} 75%{transform:translate(-2px,1px)} }
+  @keyframes audienceInLong { 0%{transform:translateY(100%)} 10%{transform:translateY(0)} 88%{transform:translateY(0)} 100%{transform:translateY(100%)} }
+  @keyframes tomatoThrow { 0%{opacity:1; transform:translate(0,0) scale(0.6) rotate(0)} 96%{opacity:1; transform:translate(-44px,-46vh) scale(2.2) rotate(300deg)} 100%{opacity:0; transform:translate(-44px,-46vh) scale(2.4) rotate(310deg)} }
+  @keyframes tomatoSplat { 0%,33%{opacity:0; transform:scale(0.2)} 36%{opacity:1; transform:scale(1.12)} 42%{transform:scale(1)} 80%{opacity:1} 100%{opacity:0; transform:scale(1) translateY(14px)} }
+  @keyframes tomatoDrip { 0%,40%{stroke-dasharray:0 200} 100%{stroke-dasharray:200 0} }
+  @keyframes booShake { 0%{opacity:0; transform:translateX(-50%) scale(0.6)} 10%{opacity:1; transform:translateX(-50%) scale(1.1)} 14%,22%,30%{transform:translateX(-52%) scale(1)} 18%,26%{transform:translateX(-48%) scale(1)} 85%{opacity:1} 100%{opacity:0; transform:translateX(-50%)} }
   @keyframes audienceIn { 0%{transform:translateY(100%)} 14%{transform:translateY(0)} 84%{transform:translateY(0)} 100%{transform:translateY(100%)} }
   @keyframes audienceCheer { 0%,100%{transform:translateY(0)} 30%{transform:translateY(-12px)} 60%{transform:translateY(0)} 80%{transform:translateY(-6px)} }
   @keyframes audienceGroan { 0%{transform:translateY(0)} 40%,100%{transform:translateY(7px) rotate(-4deg)} }
@@ -5120,14 +5287,14 @@ function HangmanTitle({card, found, guesses=[], reducedMotion=false, peek=false}
   function shouldReveal(charIdx) {
     if (found[0] && found[1]) return true;          // solved: show the whole title
     if (peekSet.has(charIdx) || filmPartSet.has(charIdx)) return true;
-    const words = title.split(" ");
-    let pos = 0;
-    for (let w = 0; w < words.length; w++) {
-      if (charIdx >= pos && charIdx < pos + words[w].length) {
-        const wordTokens = normWord(words[w]).split(" ").filter(Boolean).map(normalizeToken);
-        return wordTokens.some((token) => typed.has(token));
+    // Each part of a joined word reveals on its own (owner report 2026-10-26: typing "off"
+    // showed all of "Scarface/Off" without solving it).
+    const re = /[a-z0-9'’]+/gi;
+    let m;
+    while ((m = re.exec(title))) {
+      if (charIdx >= m.index && charIdx < m.index + m[0].length) {
+        return normWord(m[0]).split(" ").filter(Boolean).map(normalizeToken).some((token) => typed.has(token));
       }
-      pos += words[w].length + 1;
     }
     return false;
   }
@@ -5243,6 +5410,7 @@ function HintsModal({card, hintsRevealed, guessesLeft, onReveal, onClose, hintAn
   const whisperText = card.hints?.[0] ? maskTitleWords(card.hints[0], card) : null;
 
   const revealWithFx = (tierId) => {
+    if (tierId === HINT_TIERS[1].id) SFX.rip();
     setRecentlyUnlocked(tierId);
     onReveal(tierId);
   };
@@ -5423,6 +5591,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   const [whichFirst,setWhichFirst]=useState(null); // "Which came first?" bonus answer: {pick, correct}
   const [audience,setAudience]=useState(null);     // {key, mood: "cheer"|"groan"}
   const [usher,setUsher]=useState(null);
+  const [boo,setBoo]=useState(null); // 3rd wrong guess: the crowd boos and throws a tomato
   const [clapper,setClapper]=useState(null);
   const clapperTimerRef=useRef(null);
   const [popKey,setPopKey]=useState(0);
@@ -5552,8 +5721,13 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       comboRef.current=0;
       SFX.wrong();
       buzz([30,50,30]);
+      // The 3rd wrong guess on a card: the crowd boos and throws a tomato (instead of the clapper).
+      if(wrongGuessCount+1 === 3 && 3 < mode.maxGuesses && !reducedMotion){
+        SFX.boo(); SFX.splat(0.95);
+        setBoo({key:Date.now()});
+      }
       // The next take, unless this miss used the card's last guess.
-      if(wrongGuessCount+1 < mode.maxGuesses){
+      else if(wrongGuessCount+1 < mode.maxGuesses){
         SFX.clap();
         setClapper({key:Date.now(), take:wrongGuessCount+2, note:pickRandom("directorNote", DIRECTOR_NOTES)});
         if (clapperTimerRef.current) clearTimeout(clapperTimerRef.current);
@@ -5632,11 +5806,13 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     setFreeHints(p=>[...p,next]);
     setHintsRevealed(p=>[...p,next]);
     SFX.badge();
+    setShowHints(false); // close the hints so the power-up can be seen working (owner request 2026-10-26)
   };
   const handlePeek=()=>{
     if(!powerupsAllowed||peek||both||cardLost||viewOnly||!usePowerup("peek")) return;
     setPeek(true);
     SFX.pop();
+    setShowHints(false);
   };
 
   const handleSkip=()=>{
@@ -5857,7 +6033,10 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   useEffect(()=>{
     const prev=prevGuessCountRef.current;
     prevGuessCountRef.current=guesses.length;
-    if(guesses.length<=prev||reducedMotion||viewOnly) return;
+    if(guesses.length<=prev||viewOnly) return;
+    if(both) SFX.winCheer();        // "ta-da!", applause and whistles, different every time
+    else if(cardLost) SFX.groan();
+    if(reducedMotion) return;
     if(both) setAudience({key:Date.now(),mood:"cheer"});
     else if(cardLost) setAudience({key:Date.now(),mood:"groan"});
   },[guesses.length]);
@@ -5870,7 +6049,8 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   // The usher: no typing or tapping for 30 seconds mid-card brings the flashlight.
   const lastActivityRef=useRef(Date.now());
   useEffect(()=>{
-    const bump=()=>{ lastActivityRef.current=Date.now(); };
+    // Any touch or key also sends the usher away at once (owner request 2026-10-26).
+    const bump=()=>{ lastActivityRef.current=Date.now(); setUsher(null); };
     window.addEventListener("keydown",bump); window.addEventListener("pointerdown",bump); window.addEventListener("input",bump,true);
     return ()=>{ window.removeEventListener("keydown",bump); window.removeEventListener("pointerdown",bump); window.removeEventListener("input",bump,true); };
   },[]);
@@ -5880,11 +6060,17 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     const id=setInterval(()=>{
       if(Date.now()-lastActivityRef.current>=USHER_IDLE_MS && !document.hidden){
         lastActivityRef.current=Date.now();
+        SFX.psst();
         setUsher({key:Date.now()});
       }
     },1000);
     return ()=>clearInterval(id);
   },[phase,showHints,countingDown,viewOnly,cardIdx]);
+  useEffect(()=>{
+    if(!boo) return;
+    const id=setTimeout(()=>setBoo(null),TOMATO_MS);
+    return ()=>clearTimeout(id);
+  },[boo]);
   useEffect(()=>{
     if(!usher) return;
     const id=setTimeout(()=>setUsher(null),3200);
@@ -6088,7 +6274,8 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       {countingDown && <FilmLeaderCountdown reducedMotion={reducedMotion} onDone={()=>setCountingDown(false)}/>}
       {/* Curtains open every time a game starts or is resumed (owner request 2026-10-26); the
           Daily adds its trailer line. */}
-      <CurtainReveal line={dailyLine} reducedMotion={reducedMotion} colors={themedWeek?.curtains || null}/>
+      {/* The player's chosen curtains (holidays don't change them; owner decision 2026-10-26). */}
+      <CurtainReveal line={dailyLine} reducedMotion={reducedMotion}/>
       {showingResult && !both && !skipped && !reducedMotion && <FilmBurn/>}
 
       {/* Card change (owner request 2026-10-25): a quick old film-leader countdown,
@@ -6097,6 +6284,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       {genreTransition?.kind === "reel" && <FilmReelChange key={`reel-${genreTransition.nonce}`}/>}
       {audience && <AudienceReaction key={audience.key} mood={audience.mood}/>}
       {usher && <Usher key={usher.key}/>}
+      {boo && <TomatoBoo key={boo.key}/>}
 
       {/*  AUTO POPUP when round ends (never while rewinding/view-only)  */}
       {showingResult&&(
@@ -6163,7 +6351,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
             </div>
             <img src="/design-reference/Skip%20modal.svg" alt="" aria-hidden="true" draggable="false"
               style={{position:"absolute",inset:0,width:"100%",height:"100%",display:"block",pointerEvents:"none",userSelect:"none"}}/>
-            <button onClick={()=>{setShowSkipConfirm(false);handleSkip();}} aria-label="Skip It"
+            <button onClick={()=>{setShowSkipConfirm(false);SFX.skip();handleSkip();}} aria-label="Skip It"
               style={{position:"absolute",left:`${20.5/358*100}%`,top:`${104/184*100}%`,width:`${124/358*100}%`,height:`${54/184*100}%`,background:"transparent",border:"none",padding:0,cursor:"pointer"}}/>
             <button onClick={()=>setShowSkipConfirm(false)} aria-label="Keep Trying"
               style={{position:"absolute",left:`${154.5/358*100}%`,top:`${104/184*100}%`,width:`${183/358*100}%`,height:`${54/184*100}%`,background:"transparent",border:"none",padding:0,cursor:"pointer"}}/>
@@ -6308,7 +6496,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
                   style={{position:"absolute",left:footerX(15),top:footerY(16),width:footerX(84),height:footerY(66),background:"transparent",border:"none",padding:0,cursor:canRewind?"pointer":"not-allowed"}}/>
               )}
 
-              <button aria-label={viewOnly?"Hints unavailable in view-only":"Open hints"} onClick={()=>!viewOnly&&setShowHints(true)} disabled={viewOnly}
+              <button aria-label={viewOnly?"Hints unavailable in view-only":"Open hints"} onClick={()=>{ if(viewOnly) return; SFX.page(); setShowHints(true); }} disabled={viewOnly}
                 style={{position:"absolute",left:footerX(hintButtonLeft),top:footerY(16),width:footerX(65),height:footerY(66),background:"transparent",border:"none",padding:0,cursor:viewOnly?"not-allowed":"pointer"}}/>
 
               <button aria-label="Submit guess" onClick={()=>guessInputRef.current?.submit()} disabled={cardLost||both||viewOnly}
@@ -6622,6 +6810,12 @@ function usePrefersReducedMotion() {
 function PlotMixApp() {
   const reducedMotion=usePrefersReducedMotion();
   const [holiday]=useState(()=>activeHoliday()); // holiday-week decorations (owner request 2026-10-26)
+  // Every button gets a soft tick (owner request 2026-10-26: "everything should be sound-designed").
+  useEffect(()=>{
+    const onTap=(e)=>{ if(e.target?.closest?.("button")) SFX.tick(); };
+    document.addEventListener("pointerdown",onTap,true);
+    return ()=>document.removeEventListener("pointerdown",onTap,true);
+  },[]);
   // Inject background into document.head immediately — before React renders anything
   // This prevents Android WebView from showing its default dark background
   useEffect(()=>{
@@ -6653,6 +6847,7 @@ function PlotMixApp() {
 
   // onSelect(mode) = start fresh | onSelect(null, modeId) = resume saved run
   const handleModeSelect=(m, resumeModeId=null)=>{
+    SFX.ticket();
     if(m&&!resumeModeId) clearSession(m.id);   // fresh run => fresh deck
     if(resumeModeId){
       const saved=loadSession(resumeModeId);

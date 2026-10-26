@@ -558,10 +558,12 @@ test.describe('Arcade power-ups in the main game', () => {
     await resumeStandardWithCards(page, [77])
     await page.getByRole('button', { name: 'Open hints' }).click()
     await page.getByRole('button', { name: 'Use a Free Hint (1 left)' }).click()
+    // The hints close so the power-up can be seen working (owner request 2026-10-26).
+    await expect(page.getByRole('button', { name: 'Close hints' })).toHaveCount(0)
+    await expect(page.getByText('PTS: 10')).toBeVisible()
+    await page.getByRole('button', { name: 'Open hints' }).click()
     await expect(page.getByRole('button', { name: /Year & Genre.*✓/ })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Use a Free Hint (0 left)' })).toBeDisabled()
-    await page.getByRole('button', { name: 'Close hints' }).click()
-    await expect(page.getByText('PTS: 10')).toBeVisible()
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('plotmix_powerups')))).toEqual({ hint: 0, peek: 0 })
   })
 
@@ -571,7 +573,7 @@ test.describe('Arcade power-ups in the main game', () => {
     expect(await shownLetters(page)).toBe('')
     await page.getByRole('button', { name: 'Open hints' }).click()
     await page.getByRole('button', { name: 'Use a Popcorn Peek (1 left)' }).click()
-    await page.getByRole('button', { name: 'Close hints' }).click()
+    await expect(page.getByRole('button', { name: 'Close hints' })).toHaveCount(0) // closes by itself
     // the 3rd, 6th, 9th... letter of the title
     const letters = 'TheNightmareBeforeChristmasStory'.split('').filter((_, i) => (i + 1) % 3 === 0).join('')
     await expect.poll(() => shownLetters(page)).toBe(letters)

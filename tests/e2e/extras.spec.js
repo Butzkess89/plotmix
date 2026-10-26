@@ -167,7 +167,6 @@ test.describe('7. Which came first? bonus', () => {
     await resumeStandardWithCards(page, [77, 1])
     await page.getByRole('button', { name: 'Open hints' }).click()
     await page.getByRole('button', { name: /Use a Popcorn Peek/ }).click()
-    await page.getByRole('button', { name: 'Close hints' }).click()
     await submitGuess(page, card77().mashedTitle)
     await expect(page.getByRole('button', { name: 'Next' })).toBeVisible()
     await expect(page.getByRole('group', { name: 'Which came first?' })).toHaveCount(0)
@@ -219,5 +218,84 @@ test.describe('Popcorn Panic feedback', () => {
     const box = await bad.boundingBox()
     await page.mouse.move(box.x + box.width / 2, 800)
     await expect.poll(() => page.evaluate(() => window.__vib), { timeout: 10_000 }).toContainEqual([120, 60, 120])
+  })
+})
+
+// Owner request 2026-10-26: the 3rd wrong guess brings the crowd back to boo and throw a tomato.
+test.describe('Tomato and boo', () => {
+  test('the 3rd wrong guess (not the 2nd) brings it, for under 3 seconds', async ({ page }) => {
+    await resumeStandardWithCards(page, [77])
+    await submitGuess(page, 'zzqxwronga')
+    await submitGuess(page, 'zzqxwrongb')
+    await page.waitForTimeout(300)
+    await expect(page.getByRole('status', { name: 'Boo' })).toHaveCount(0)
+    await submitGuess(page, 'zzqxwrongc')
+    const boo = page.getByRole('status', { name: 'Boo' })
+    await expect(boo).toContainText('BOO!')
+    const shownAt = Date.now()
+    await expect(boo).toHaveCount(0, { timeout: 3_500 })
+    expect(Date.now() - shownAt).toBeLessThan(3_200)
+  })
+  test('stays away when the phone asks for less motion', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await resumeStandardWithCards(page, [77])
+    for (const w of ['zzqxwronga', 'zzqxwrongb', 'zzqxwrongc']) await submitGuess(page, w)
+    await page.waitForTimeout(300)
+    await expect(page.getByRole('status', { name: 'Boo' })).toHaveCount(0)
+  })
+})
+
+test.describe('Owner fixes 2026-10-26', () => {
+  test('"off" shows only OFF in "Scarface/Off" and does not solve it; naming Scarface then does', async ({ page }) => {
+    await resumeStandardWithCards(page, [41, 1])
+    await submitGuess(page, 'off')
+    const shown = () => page.evaluate(() => [...document.querySelectorAll('[aria-label="Title letters"] div')]
+      .filter((d) => d.children.length === 0 && /^[a-z0-9]$/i.test(d.textContent)).map((d) => d.textContent).join(''))
+    await expect.poll(shown).toMatch(/^off$/i) // only OFF, not SCARFACE
+    await expect(page.getByRole('button', { name: 'Next' })).toHaveCount(0)
+    await submitGuess(page, 'scarface')
+    await expect(page.getByRole('button', { name: 'Next' })).toBeVisible()
+  })
+
+  test('the usher leaves the moment the screen is touched', async ({ page }) => {
+    await page.clock.install()
+    await resumeStandardWithCards(page, [77])
+    await page.clock.runFor(31_000)
+    await expect(page.getByRole('status', { name: 'Usher' })).toBeVisible()
+    await page.mouse.click(200, 300)
+    await expect(page.getByRole('status', { name: 'Usher' })).toHaveCount(0, { timeout: 300 })
+  })
+
+  test('holiday weeks keep the curtains you chose (Emerald Green during Fright Week)', async ({ page }) => {
+    await page.clock.setFixedTime(new Date('2026-10-26T12:00:00'))
+    await page.addInitScript(() => localStorage.setItem('plotmix_prizes', JSON.stringify({ won: ['silver'], best: 90, curtain: 'emerald' })))
+    await openMenu(page)
+    await page.getByRole('button', { name: 'Standard Mode' }).click()
+    const bg = await page.evaluate(() => [...document.querySelectorAll('div')].find((d) => d.style.animation.includes('curtainLeft'))?.style.background || '')
+    expect(bg).toContain('rgb(11, 74, 51)') // Emerald Green, not the orange Fright Week velvet
+  })
+
+  test('a solved card plays the cheer: a fanfare plus applause', async ({ page }) => {
+    // A pretend audio system that just counts the sounds made.
+    await page.addInitScript(() => {
+      window.__audio = { osc: 0, noise: 0 }
+      const param = () => ({ value: 0, setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} })
+      const node = () => ({ connect() {}, start() {}, stop() {}, frequency: param(), gain: param(), Q: param(), type: '' })
+      class FakeCtx {
+        constructor() { this.currentTime = 0; this.sampleRate = 8000; this.destination = {} }
+        createOscillator() { window.__audio.osc++; return node() }
+        createGain() { return node() }
+        createBiquadFilter() { return node() }
+        createBuffer() { return { getChannelData: () => new Float32Array(16000) } }
+        createBufferSource() { window.__audio.noise++; return node() }
+        resume() {}
+      }
+      window.AudioContext = FakeCtx; window.webkitAudioContext = FakeCtx
+    })
+    await resumeStandardWithCards(page, [77, 1])
+    const before = await page.evaluate(() => ({ ...window.__audio }))
+    await submitGuess(page, card77().mashedTitle)
+    await expect.poll(() => page.evaluate(() => window.__audio.noise)).toBeGreaterThan(before.noise + 15) // claps
+    expect(await page.evaluate(() => window.__audio.osc)).toBeGreaterThan(before.osc + 4) // the fanfare
   })
 })
