@@ -2057,6 +2057,13 @@ const SFX = {
   psst: () => playNoise(0.6, 0.06, 0, { type: "highpass", from: 3500, to: 5500, q: 0.8 }, 0.08), // the usher
   rip: () => playNoise(0.35, 0.12, 0, { type: "bandpass", from: 1200, to: 4000, q: 0.9 }, 0.01), // spoiler tape
   shutter: (n = 6) => { for (let i = 0; i < n; i++) { const d = 0.2 + i * 0.37 + Math.random() * 0.15; playNoise(0.03, 0.12, d, { type: "highpass", from: 2500, to: 2500, q: 1 }, 0.002); playNoise(0.05, 0.06, d + 0.05, { type: "bandpass", from: 1200, to: 1200, q: 1 }, 0.002); } },
+  iris: () => { playNoise(0.5, 0.06, 0, { type: "lowpass", from: 1400, to: 300, q: 0.7 }, 0.1); playNoise(0.5, 0.06, 0.6, { type: "lowpass", from: 300, to: 1400, q: 0.7 }, 0.1); },
+  slate: () => {
+    // The clapper arm comes down with a sharp CLACK just after the board lands.
+    playNoise(0.2, 0.08, 0.05, { type: "bandpass", from: 300, to: 900, q: 0.8 }, 0.05);
+    playNoise(0.06, 0.3, 0.48, { type: "highpass", from: 1500, to: 1500, q: 0.8 }, 0.001);
+    playTone(220, "triangle", 0.08, 0.14, 0.48);
+  },
   boo: () => {
     // A crowd booing: several low, slightly out-of-tune voices sliding down.
     [118, 131, 142, 156, 171].forEach((f, i) => {
@@ -4127,6 +4134,38 @@ function CameraFlashes() {
   );
 }
 
+// Between cards (alternative): the old silent-film iris closes to a dot and opens again.
+const IRIS_MS = 1100;
+function IrisWipe() {
+  return (
+    <div role="status" aria-label="Iris change" style={{position:"fixed",inset:0,zIndex:305,pointerEvents:"none",overflow:"hidden"}}>
+      <div style={{position:"absolute",left:"50%",top:"45%",borderRadius:"50%",boxShadow:"0 0 0 300vmax #0B0812",
+        transform:"translate(-50%,-50%)",animation:`irisWipe ${IRIS_MS}ms ease-in-out both`}}/>
+    </div>
+  );
+}
+// Between cards (alternative): a big clapperboard drops in ("SCENE n · TAKE 1"), snaps shut, lifts away.
+const CLAPPER_SLAM_MS = 1250;
+function ClapperSlam({scene}) {
+  return (
+    <div role="status" aria-label="Clapper change" style={{position:"fixed",inset:0,zIndex:305,pointerEvents:"none",display:"flex",alignItems:"center",justifyContent:"center",
+      background:"rgba(11,8,18,0.55)",animation:`leaderFade ${CLAPPER_SLAM_MS}ms linear both`}}>
+      <div style={{position:"relative",width:250,animation:`slamDrop ${CLAPPER_SLAM_MS}ms cubic-bezier(.2,.9,.3,1) both`}}>
+        <div style={{position:"absolute",left:0,right:0,top:0,height:36,transformOrigin:"6px 34px",animation:`slamArm ${CLAPPER_SLAM_MS}ms ease-in both`,
+          background:"repeating-linear-gradient(135deg,#F7F4EE 0 18px,#1C1D21 18px 36px)",border:"3px solid #1C1D21",borderRadius:4}}/>
+        <div style={{marginTop:38,height:28,background:"repeating-linear-gradient(135deg,#1C1D21 0 18px,#F7F4EE 18px 36px)",border:"3px solid #1C1D21",borderRadius:"4px 4px 0 0"}}/>
+        <div style={{background:"#1C1D21",border:"3px solid #1C1D21",borderTop:"none",borderRadius:"0 0 6px 6px",padding:"12px 14px 14px",display:"flex",flexDirection:"column",gap:8}}>
+          <div style={{display:"flex",justifyContent:"space-between",borderBottom:"2px solid #F7F4EE",paddingBottom:6}}>
+            <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:13,color:"#F7F4EE"}}>SCENE {scene}</span>
+            <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:13,color:"#F7F4EE"}}>TAKE 1</span>
+          </div>
+          <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:11,color:"#F7F4EE",opacity:0.85}}>PROD: PLOTMIX</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Between cards (alternative): wide film strips race down both sides and the projector flickers.
 const FILM_REEL_MS = 950;
 function FilmReelChange() {
@@ -4275,6 +4314,9 @@ const CINEMA_KEYFRAMES = `
   @keyframes trailerLine { 0%{opacity:0; transform:scale(0.96)} 25%{opacity:1; transform:scale(1)} 80%{opacity:1} 100%{opacity:0; transform:scale(1.04)} }
   @keyframes filmBurn { 0%{opacity:0; transform:scale(0.2)} 30%{opacity:1} 100%{opacity:0; transform:scale(3.2)} }
   @keyframes badgeToast { 0%{opacity:0; transform:translateX(-50%) translateY(-12px)} 10%{opacity:1; transform:translateX(-50%) translateY(0)} 85%{opacity:1} 100%{opacity:0; transform:translateX(-50%) translateY(-6px)} }
+  @keyframes irisWipe { 0%{width:300vmax; height:300vmax} 45%,55%{width:0; height:0} 100%{width:300vmax; height:300vmax} }
+  @keyframes slamDrop { 0%{transform:translateY(-120vh)} 22%{transform:translateY(0)} 26%{transform:translateY(-6px)} 30%,78%{transform:translateY(0)} 100%{transform:translateY(-120vh)} }
+  @keyframes slamArm { 0%,30%{transform:rotate(-24deg)} 42%,100%{transform:rotate(0deg)} }
   @keyframes leaderFade { 0%{opacity:0} 6%{opacity:1} 72%{opacity:1} 100%{opacity:0} }
   @keyframes leaderBlip { 0%{opacity:0.95} 100%{opacity:0} }
   @keyframes filmRoll { from{background-position:0 0} to{background-position:0 720px} }
@@ -5805,13 +5847,21 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     const transitionMeta = GENRE_TRANSITION_META[transitionFamily.name] || GENRE_TRANSITION_META.punchy;
     // Two card changes, picked at random but never the same one three times running
     // (owner request 2026-10-26): the "5, 4, blip!" leader or the film-reel run.
+    // Four card changes, picked at random but never the same one twice in a row
+    // (owner requests 2026-10-26): countdown, iris wipe, film reel, clapperboard slam.
+    const KINDS = ["leader", "iris", "reel", "clapper"];
     const recent = recentSwapKindsRef.current;
-    let kind = Math.random() < 0.5 ? "leader" : "reel";
-    if (recent.length >= 2 && recent[0] === kind && recent[1] === kind) kind = kind === "leader" ? "reel" : "leader";
+    let kind = KINDS[Math.min(KINDS.length - 1, Math.floor(Math.random() * KINDS.length))];
+    if (recent[0] === kind) kind = KINDS[(KINDS.indexOf(kind) + 1) % KINDS.length];
+    const forced = readJSON("plotmix_force_card_change", null); // lets the tests pick one
+    if (KINDS.includes(forced)) kind = forced;
     recentSwapKindsRef.current = [kind, ...recent].slice(0, 2);
     if (kind === "reel") SFX.projector();
+    if (kind === "iris") SFX.iris();
+    if (kind === "clapper") SFX.slate();
     setGenreTransition({
       kind,
+      scene: cardIdx + 2, // the card about to show, numbered from 1 (fixed now, before the card changes)
       nonce: Date.now(),
       name: transitionFamily.name,
       tag: transitionMeta.tag,
@@ -5819,7 +5869,8 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       anim: transitionMeta.anim,
     });
     if (genreTransitionTimerRef.current) clearTimeout(genreTransitionTimerRef.current);
-    genreTransitionTimerRef.current = setTimeout(() => setGenreTransition(null), kind === "reel" ? FILM_REEL_MS : LEADER_BLIP_MS);
+    genreTransitionTimerRef.current = setTimeout(() => setGenreTransition(null),
+      { reel: FILM_REEL_MS, leader: LEADER_BLIP_MS, iris: IRIS_MS, clapper: CLAPPER_SLAM_MS }[kind]);
 
     setCardTransitionPhase("out");
     if (cardSwapTimerRef.current) clearTimeout(cardSwapTimerRef.current);
@@ -6019,7 +6070,9 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       return;
     }
 
-    if(isLast||livesAfterLoss+heartBonus<=0){
+    // Speed Run: each card has its own clock, and running out of time ends the run
+    // (owner decision 2026-10-26).
+    if(isLast||livesAfterLoss+heartBonus<=0||timedOut){
       clearSession(mode.id);
       const dailyReplay = mode.isDaily && !completeDaily(newTotal, buildShareText(mode, nextResults, newTotal), nextResults);
       onComplete(nextResults,newTotal,newStreak,{dailyReplay});
@@ -6325,6 +6378,8 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
           "5, 4, blip!", then the next card. About 1.3 seconds, and it never blocks typing. */}
       {genreTransition?.kind === "leader" && <LeaderBlip key={`leader-${genreTransition.nonce}`}/>}
       {genreTransition?.kind === "reel" && <FilmReelChange key={`reel-${genreTransition.nonce}`}/>}
+      {genreTransition?.kind === "iris" && <IrisWipe key={`iris-${genreTransition.nonce}`}/>}
+      {genreTransition?.kind === "clapper" && <ClapperSlam key={`slam-${genreTransition.nonce}`} scene={genreTransition.scene}/>}
       {audience && <AudienceReaction key={audience.key} mood={audience.mood}/>}
       {usher && <Usher key={usher.key}/>}
       {boo && <TomatoBoo key={boo.key}/>}
@@ -6343,7 +6398,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
           cardIdx={cardIdx}
           totalCards={deck.length}
           results={results}
-          isLast={isLast}
+          isLast={isLast||timedOut}
           skipped={skipped}
           timedOut={timedOut}
           showSticker={showWinAnimation && both}

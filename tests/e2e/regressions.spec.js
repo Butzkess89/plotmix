@@ -64,14 +64,12 @@ test.describe('G3: Speed Run clock keeps running while rewound', () => {
     await page.getByRole('button', { name: 'Rewind to previous card' }).click()
     await page.clock.runFor(65_000)
 
-    // The current card timed out: its result shows and costs a heart.
-    const next = page.getByRole('button', { name: 'Next' })
-    await expect(next).toBeVisible()
-    await next.click()
+    // The current card timed out: its result shows, and (owner decision 2026-10-26) the run ends.
+    const finish = page.getByRole('button', { name: 'Finish' })
+    await expect(finish).toBeVisible()
+    await finish.click()
     await page.clock.runFor(2_000)
-    const session = await waitForSave(page, 'speedrun', (s) => s.cardIdx === 2)
-    expect(session.results[1]).toMatchObject({ solved: false, pts: 0 })
-    expect(session.lives).toBe(5)
+    await expect(page.getByText('The End')).toBeVisible()
   })
 })
 
@@ -97,7 +95,7 @@ test.describe('A2: the OS "reduce motion" setting is respected', () => {
     await submitGuess(page, card.mashedTitle)
     await page.getByRole('button', { name: 'Next' }).click()
     // A card change ("5, 4, blip!" or the film-reel run, picked at random) is on screen for about 1 s.
-    const change = page.getByRole('status', { name: /^(Next card countdown|Film reel change)$/ })
+    const change = page.getByRole('status', { name: /^(Next card countdown|Film reel change|Iris change|Clapper change)$/ })
     try { await change.waitFor({ state: 'visible', timeout: 1_000 }); return true } catch { return false }
   }
 
@@ -113,7 +111,7 @@ test.describe('A2: the OS "reduce motion" setting is respected', () => {
 
   test('between cards: "5, 4, blip!" then the next card, in under 2 seconds', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'no-preference' })
-    await page.addInitScript(() => { let n = 0; Math.random = () => 0.1 + (n++ % 4) / 10 }) // below 0.5: the countdown
+    await page.addInitScript(() => localStorage.setItem('plotmix_force_card_change', '"leader"'))
     // Record what the countdown shows, and when, as it happens.
     await page.addInitScript(() => {
       window.__leader = []
@@ -130,36 +128,51 @@ test.describe('A2: the OS "reduce motion" setting is respected', () => {
     expect(tl[tl.length - 1].t - start).toBeLessThan(2_000)
   })
 
-  test('between cards: or the film-reel run, picked at random', async ({ page }) => {
+  for (const [kind, label] of [['reel', 'Film reel change'], ['iris', 'Iris change'], ['clapper', 'Clapper change']]) {
+    test(`between cards: ${label.toLowerCase()} (one of four, picked at random), under 2 seconds`, async ({ page }) => {
+      await page.emulateMedia({ reducedMotion: 'no-preference' })
+      await page.addInitScript((k) => localStorage.setItem('plotmix_force_card_change', JSON.stringify(k)), kind)
+      expect(await playOneCardAndWatchTransition(page)).toBe(true)
+      await expect(page.getByRole('status', { name: label })).toBeAttached()
+      await expect(page.getByRole('status', { name: label })).toHaveCount(0, { timeout: 2_000 })
+    })
+  }
+  test('the clapperboard shows the next scene number', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'no-preference' })
-    await page.addInitScript(() => { let n = 0; Math.random = () => 0.6 + (n++ % 4) / 10 }) // 0.5 or more: the film reel
+    await page.addInitScript(() => localStorage.setItem('plotmix_force_card_change', '"clapper"'))
     expect(await playOneCardAndWatchTransition(page)).toBe(true)
-    await expect(page.getByRole('status', { name: 'Film reel change' })).toBeAttached()
-    await expect(page.getByRole('status', { name: 'Film reel change' })).toHaveCount(0, { timeout: 2_000 })
+    await expect(page.getByRole('status', { name: 'Clapper change' })).toContainText('SCENE 2')
+    await page.waitForTimeout(600) // still SCENE 2 after the card underneath has changed
+    await expect(page.getByRole('status', { name: 'Clapper change' })).toContainText('SCENE 2')
   })
 
-  test('the same card change never plays three times running', async ({ page }) => {
+  test('the same card change never plays twice in a row', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'no-preference' })
     await page.addInitScript(() => {
-      let n = 0; Math.random = () => 0.1 + (n++ % 4) / 10 // always below 0.5: would always pick the countdown
       window.__changes = []
       new MutationObserver(() => {
-        const el = document.querySelector('[aria-label="Next card countdown"], [aria-label="Film reel change"]')
-        const v = el ? el.getAttribute('aria-label') : null
-        if (v && window.__last !== el) { window.__changes.push(v); window.__last = el }
+        const el = document.querySelector('[aria-label="Next card countdown"], [aria-label="Film reel change"], [aria-label="Iris change"], [aria-label="Clapper change"]')
+        if (el && window.__last !== el) { window.__changes.push(el.getAttribute('aria-label')); window.__last = el }
       }).observe(document, { subtree: true, childList: true })
     })
     const deck = readDeck()
-    const ids = [77, 1, 2, 3]
+    const ids = [77, 1, 2, 3, 11, 12, 13]
     await resumeStandardWithCards(page, ids)
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 6; i++) {
       await submitGuess(page, deck.find((c) => c.id === ids[i]).mashedTitle)
-      await page.getByRole('button', { name: 'Next' }).click()
+      await expect(page.getByRole('button', { name: 'Next', exact: true })).toBeVisible()
+      await page.waitForTimeout(300) // the 5-in-a-row offer, if any, comes with the result
+      const offer = page.getByRole('button', { name: 'Continue to the next PlotMix' })
+      if (await offer.isVisible()) await offer.click()
+      else await page.getByRole('button', { name: 'Next', exact: true }).click()
       await waitForSave(page, 'standard', (x) => x.cardIdx === i + 1)
       await page.waitForTimeout(1_500)
     }
-    expect(await page.evaluate(() => window.__changes)).toEqual(['Next card countdown', 'Next card countdown', 'Film reel change'])
+    const changes = await page.evaluate(() => window.__changes)
+    expect(changes.length).toBe(6)
+    for (let i = 1; i < changes.length; i++) expect(changes[i]).not.toBe(changes[i - 1])
   })
+
 })
 
 test.describe('P1: sticker images are lightweight', () => {
