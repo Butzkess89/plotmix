@@ -100,7 +100,7 @@ test.describe('Curtains (owner request 2026-10-26)', () => {
 test.describe('5. Post-credits scene', () => {
   test("teases tomorrow's Daily after the credits", async ({ page }) => {
     await finishDaily(page)
-    await expect(page.getByRole('status', { name: 'Post-credits scene' })).toContainText(/Coming tomorrow: a .+ mashup\. Same time, same theatre\./, { timeout: 9_000 })
+    await expect(page.getByRole('status', { name: 'Post-credits scene' })).toContainText(/Tomorrow's Daily Challenge: a .+ mashup\. Same time, same theatre\./, { timeout: 9_000 })
   })
 })
 
@@ -297,5 +297,73 @@ test.describe('Owner fixes 2026-10-26', () => {
     await submitGuess(page, card77().mashedTitle)
     await expect.poll(() => page.evaluate(() => window.__audio.noise)).toBeGreaterThan(before.noise + 15) // claps
     expect(await page.evaluate(() => window.__audio.osc)).toBeGreaterThan(before.osc + 4) // the fanfare
+  })
+})
+
+// Owner question 2026-10-26: "how can the player even know they have a laser?"
+test.describe('Learning the laser', () => {
+  test('the first bad piece gets a "tap it to zap it" target until the first zap, then never again', async ({ page }) => {
+    await page.addInitScript(() => {
+      if (!sessionStorage.getItem('seeded')) { localStorage.setItem('plotmix_arcade_passes', '2'); sessionStorage.setItem('seeded', '1') }
+      let n = 0; Math.random = () => 0.6 + (n++ % 2) * 0.01 // only burnt popcorn, in one spot
+    })
+    await openMenu(page)
+    await page.getByRole('button', { name: 'Popcorn Panic', exact: true }).click()
+    await page.getByRole('button', { name: 'Play Popcorn Panic' }).click()
+    const coach = page.getByRole('status', { name: 'Zap coach' })
+    await expect(coach).toContainText('Tap it to zap it!', { timeout: 10_000 })
+    const bad = page.getByRole('img', { name: 'Burnt popcorn', exact: true }).first()
+    const box = await bad.boundingBox()
+    await page.mouse.click(box.x + box.width / 2, 800)
+    await expect(page.getByLabel('Arcade event')).toHaveText(/Zapped!/)
+    await expect(coach).toHaveCount(0)
+    expect(await page.evaluate(() => localStorage.getItem('plotmix_zap_learned'))).toBe('true')
+    // Next game: no coach.
+    await openMenu(page)
+    await page.getByRole('button', { name: 'Popcorn Panic', exact: true }).click()
+    await page.getByRole('button', { name: 'Play Popcorn Panic' }).click()
+    await expect(page.getByRole('img', { name: 'Burnt popcorn', exact: true }).first()).toBeAttached({ timeout: 10_000 })
+    await expect(coach).toHaveCount(0)
+  })
+})
+
+test.describe('Small words', () => {
+  test('owner report: "of" and "on" are not in "The Little Mermaid in Manhattan", so no tick; "in" is', async ({ page }) => {
+    await resumeStandardWithCards(page, [55])
+    await submitGuess(page, 'of')
+    await expect(page.getByText('Take 2')).toBeVisible() // counted as a wrong guess
+    await submitGuess(page, 'in')
+    const shown = () => page.evaluate(() => [...document.querySelectorAll('[aria-label="Title letters"] div')]
+      .filter((d) => d.children.length === 0 && /^[a-z0-9]$/i.test(d.textContent)).map((d) => d.textContent).join(''))
+    await expect.poll(shown).toMatch(/^in$/i)
+  })
+  test('grammar words next to real title words are still free ("the little")', async ({ page }) => {
+    await resumeStandardWithCards(page, [55])
+    await submitGuess(page, 'the little')
+    await page.waitForTimeout(300)
+    await expect(page.getByText('Take 2')).toHaveCount(0)
+  })
+})
+
+test.describe('Free Hint with every hint already shown', () => {
+  test('is greyed out and says it is saved for later (owner report 2026-10-26)', async ({ page }) => {
+    await page.addInitScript(() => { if (!localStorage.getItem('plotmix_powerups')) localStorage.setItem('plotmix_powerups', JSON.stringify({ hint: 1, peek: 0 })) })
+    await resumeStandardWithCards(page, [77])
+    await page.getByRole('button', { name: 'Open hints' }).click()
+    for (const h of [/Year & Genre/, /Director/, /Lead Actors/]) await page.getByRole('button', { name: h }).click()
+    const free = page.getByRole('button', { name: 'Use a Free Hint (1 left)' })
+    await expect(free).toBeDisabled()
+    await expect(free).toContainText('no hints left to reveal')
+    expect(await free.evaluate((b) => getComputedStyle(b).opacity)).toBe('0.4')
+  })
+})
+
+test.describe('Small words that are not in the title', () => {
+  test('owner report: "the" is not ticked for "La La Land Before Time"', async ({ page }) => {
+    const { readDeck } = await import('./helpers.js')
+    const card = readDeck().find((c) => /Land Before Time/.test(c.mashedTitle))
+    await resumeStandardWithCards(page, [card.id])
+    await submitGuess(page, 'the')
+    await expect(page.getByText('Take 2')).toBeVisible() // a wrong guess, not a green tick
   })
 })

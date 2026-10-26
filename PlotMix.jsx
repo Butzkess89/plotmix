@@ -1674,7 +1674,14 @@ function guessClassification(guess, card) {
   if (!normalizedGuess) return "miss";
   // A correct film name or full title, or a guess made only of title words
   // (and grammar words), is never a miss.
-  if (isFullyCorrectGuess(guess, card) || wrongWordsInGuess(guess, card).length === 0) return "match";
+  if (isFullyCorrectGuess(guess, card)) return "match";
+  // Grammar words are free alongside real title words, but a guess of only small words that
+  // aren't in the title ("of", "on" for "...Mermaid in Manhattan") is not correct (owner report
+  // 2026-10-26: they were ticked green and revealed nothing).
+  const titleTokens = new Set(normWord(card.mashedTitle || "").split(" ").filter(Boolean).map(normalizeToken));
+  const tokens = normWord(guess).split(" ").filter(Boolean).map(normalizeToken);
+  if (!tokens.some((t) => titleTokens.has(t))) return "miss";
+  if (wrongWordsInGuess(guess, card).length === 0) return "match";
   return "miss";
 }
 
@@ -4234,6 +4241,8 @@ function BadgeToast({badges}) {
 const CINEMA_KEYFRAMES = `
   @keyframes decorSway { 0%,100%{transform:translateX(-50%) rotate(-6deg)} 50%{transform:translateX(-50%) rotate(6deg)} }
   @keyframes vhsPress { 0%,49%{transform:translateY(0); box-shadow:0 7px 0 #0B0C10} 50%,100%{transform:translateY(6px); box-shadow:0 1px 0 #0B0C10} }
+  @keyframes laserReady { 0%,100%{filter:drop-shadow(0 0 1px #FF2E63)} 50%{filter:drop-shadow(0 0 6px #FF2E63)} }
+  @keyframes zapCoach { 0%,100%{transform:translate(-50%,-50%) scale(1)} 50%{transform:translate(-50%,-50%) scale(1.15)} }
   @keyframes speedLines { 0%{opacity:0; transform:scale(1.3) rotate(0deg)} 12%{opacity:0.95} 65%{opacity:0.95} 100%{opacity:0; transform:scale(1) rotate(5deg)} }
   @keyframes speedSymbol { 0%{opacity:0; transform:scale(0.2) rotate(-20deg)} 25%{opacity:1; transform:scale(1.15) rotate(0deg)} 40%{transform:scale(1)} 80%{opacity:1; transform:scale(1)} 100%{opacity:0; transform:scale(1.4)} }
   @keyframes arcadeShakeA { 0%,100%{transform:translate(0,0)} 15%{transform:translate(-7px,3px)} 30%{transform:translate(6px,-4px)} 45%{transform:translate(-5px,-2px)} 60%{transform:translate(4px,3px)} 75%{transform:translate(-2px,1px)} }
@@ -4529,6 +4538,7 @@ const FRENZY_AT = 15, FRENZY_MS = 2500, FRENZY_SPAWN_MS = 150;
 // Laser: tap to fire straight up from the box. 3 charges; one comes back every 3 seconds.
 const LASER_MAX = 3, LASER_RECHARGE_MS = 3000, LASER_HALF_W = 26;
 const SLOWMO_MS = 4000;
+const LS_ZAP_LEARNED = "plotmix_zap_learned"; // set after the first successful laser zap
 const ARCADE_STREAK_FOR_PASS = 5;
 function comboMultiplier(c) { return c >= 10 ? 3 : c >= 5 ? 2 : 1; }
 const LS_ARCADE_PASSES = "plotmix_arcade_passes";
@@ -4774,7 +4784,7 @@ function ArcadeItemArt({kind, color, variant=0}) {
 }
 
 // The catching box: angled like a real popcorn box, with a scalloped (arched) top edge.
-function PopcornBox({x = null}) {
+function PopcornBox({x = null, charged = false}) {
   const top = 14, bottom = 96, l0 = 6, r0 = 134, l1 = 26, r1 = 114; // top corners wider than bottom
   const arches = 8, w = (r0 - l0) / arches;
   let scallop = `M${l0} ${top}`;
@@ -4798,6 +4808,13 @@ function PopcornBox({x = null}) {
       </g>
       <path d={`${scallop} L${r1} ${bottom} L${l1} ${bottom} Z`} fill="none" stroke="#1C1D21" strokeWidth="2.2" strokeLinejoin="round"/>
       <path d={scallop} fill="none" stroke="#FFFFFF" strokeWidth="1.2" opacity="0.8" transform="translate(0 3)"/>
+      {/* The laser emitter on the front: glows while there's a shot ready. */}
+      <g>
+        <rect x="56" y="44" width="28" height="22" rx="6" fill="#2A2D35" stroke="#1C1D21" strokeWidth="2"/>
+        <circle cx="70" cy="55" r="6.5" fill={charged ? "#FF2E63" : "#5B5F6A"} stroke="#1C1D21" strokeWidth="1.5"
+          style={charged ? {animation:"laserReady 1.1s ease-in-out infinite",transformBox:"fill-box",transformOrigin:"50% 50%"} : undefined}/>
+        <circle cx="68" cy="53" r="2" fill="#fff" opacity={charged ? 0.9 : 0.3}/>
+      </g>
     </svg>
   );
 }
@@ -4834,6 +4851,7 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
   const [beams, setBeams] = useState([]);   // laser shots on screen: {id, x}
   const [booms, setBooms] = useState([]);   // explosions on screen: {id, x, y}
   const pointerStartRef = useRef(null);
+  const [zapLearned, setZapLearned] = useState(() => !!readJSON(LS_ZAP_LEARNED, false));
   const [levelUp, setLevelUp] = useState(null); // {key, lv}: "LEVEL 3" banner
   useEffect(() => {
     if (!levelUp) return;
@@ -4990,6 +5008,7 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
     itemsRef.current = itemsRef.current.filter((it) => it !== target);
     explode(target.x, target.y);
     if (ARCADE_KIND[target.kind]?.bad) {
+      if (!zapLearned) { setZapLearned(true); writeJSON(LS_ZAP_LEARNED, true); }
       const pts = 2 * (boostRef.current?.type === "double" && Date.now() <= boostRef.current.until ? 2 : 1);
       scoreRef.current += pts; setScore(scoreRef.current);
       showFlash(`💥 Zapped! +${pts}`);
@@ -5207,7 +5226,21 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
               </div>
             </div>
           )}
-          {bucketX !== null && <PopcornBox x={bucketX}/>}
+          {/* Learn the laser by doing (owner question 2026-10-26: how would anyone know?): until the
+              first successful zap ever, the lowest bad piece gets a target and a "tap" bubble. */}
+          {!zapLearned && (() => {
+            const target = items.filter((it) => ARCADE_KIND[it.kind]?.bad && it.y > 30).sort((a, b) => b.y - a.y)[0];
+            if (!target) return null;
+            return (
+              <div aria-label="Zap coach" role="status" style={{position:"absolute",left:target.x,top:target.y,width:0,height:0,pointerEvents:"none",zIndex:4}}>
+                <div style={{position:"absolute",left:0,top:0,width:66,height:66,borderRadius:"50%",border:"3px dashed #FF2E63",boxShadow:"0 0 10px rgba(255,46,99,0.8)",
+                  transform:"translate(-50%,-50%)",animation:reducedMotion ? "none" : "zapCoach 0.8s ease-in-out infinite"}}/>
+                <div style={{position:"absolute",left:0,top:-58,transform:"translateX(-50%)",whiteSpace:"nowrap",padding:"4px 10px",borderRadius:10,
+                  background:"#FF2E63",border:"2px solid #1C1D21",...WHITE_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>Tap it to zap it! 🔫</div>
+              </div>
+            );
+          })()}
+          {bucketX !== null && <PopcornBox x={bucketX} charged={laser > 0}/>}
           {bucketX !== null && showSlideHint && (
             <div aria-hidden="true" style={{position:"absolute",left:bucketX,bottom:BUCKET_H + 14,transform:"translateX(-50%)",...WHITE_STICKER_TEXT,fontSize:13,whiteSpace:"nowrap",pointerEvents:"none",animation:reducedMotion?"none":"pulse 1.2s ease-in-out infinite"}}>
               ← slide · tap to zap →
@@ -5512,11 +5545,21 @@ function HintsModal({card, hintsRevealed, guessesLeft, onReveal, onClose, hintAn
           {powerups && (powerups.hint>0 || powerups.peek>0 || freeHints.length>0 || peekUsed) && (
             <div style={{marginTop:6,paddingTop:12,borderTop:"1px dashed rgba(255,255,255,0.35)",display:"flex",flexDirection:"column",gap:8}}>
               <div style={{...YELLOW_STICKER_TEXT,fontSize:11,textAlign:"center",textTransform:"uppercase"}}>Arcade power-ups</div>
-              <button onClick={onFreeHint} disabled={!powerups.hint || (yearGenreRevealed && actorsRevealed && (whisperRevealed || !whisperText))}
-                aria-label={`Use a Free Hint (${powerups.hint} left)`}
-                style={{...BTN.cyan,background:"#FFD84D",padding:"11px 0",opacity:powerups.hint?1:0.4,cursor:powerups.hint?"pointer":"not-allowed"}}>
-                <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:11.5,color:"#1C1D21",textTransform:"uppercase"}}>🎟️ Free Hint · next hint costs 0 pts · {powerups.hint} left</span>
-              </button>
+              {(() => {
+                // With every hint already shown there is nothing for it to reveal: say so and keep
+                // it for a later card (owner report 2026-10-26: it looked clickable but did nothing).
+                const nothingLeft = yearGenreRevealed && actorsRevealed && (whisperRevealed || !whisperText);
+                const usable = powerups.hint > 0 && !nothingLeft;
+                return (
+                  <button onClick={onFreeHint} disabled={!usable}
+                    aria-label={`Use a Free Hint (${powerups.hint} left)`}
+                    style={{...BTN.cyan,background:"#FFD84D",padding:"11px 0",opacity:usable?1:0.4,cursor:usable?"pointer":"not-allowed"}}>
+                    <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:11.5,color:"#1C1D21",textTransform:"uppercase"}}>
+                      {nothingLeft && powerups.hint > 0 ? `🎟️ Free Hint · no hints left to reveal · saved for later (${powerups.hint})` : `🎟️ Free Hint · next hint costs 0 pts · ${powerups.hint} left`}
+                    </span>
+                  </button>
+                );
+              })()}
               <button onClick={onPeek} disabled={!powerups.peek || peekUsed}
                 aria-label={`Use a Popcorn Peek (${powerups.peek} left)`}
                 style={{...BTN.cyan,background:"#FFF8E6",padding:"11px 0",opacity:powerups.peek && !peekUsed?1:0.4,cursor:powerups.peek && !peekUsed?"pointer":"not-allowed"}}>
@@ -6763,9 +6806,10 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,perfectRun=false,g
           <div role="status" aria-label="Post-credits scene" style={{marginTop:-6,marginBottom:16,padding:"10px 12px",borderRadius:12,background:"rgba(14,10,44,0.55)",border:"1px dashed rgba(255,255,255,0.35)",animation:reducedMotion?"none":"postCreditsIn 0.6s ease both"}}>
             <div style={{fontSize:10,letterSpacing:"0.12em",textTransform:"uppercase",color:"rgba(255,255,255,0.65)",fontFamily:"'Outfit',sans-serif"}}>🎬 Post-credits scene</div>
             <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:13,color:"#fff",marginTop:4}}>
+              {/* Always names the Daily Challenge, since it also shows after Standard and Speed Run. */}
               {teaserGenres.length===2
-                ? `Coming tomorrow: a ${teaserGenres[0]} + ${teaserGenres[1]} mashup. Same time, same theatre.`
-                : "Coming tomorrow: a brand-new Daily mashup. Same time, same theatre."}
+                ? `Tomorrow's Daily Challenge: a ${teaserGenres[0]} + ${teaserGenres[1]} mashup. Same time, same theatre.`
+                : "Tomorrow's Daily Challenge: a brand-new mashup. Same time, same theatre."}
             </div>
           </div>
         )}
