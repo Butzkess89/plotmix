@@ -93,7 +93,7 @@ test.describe('D. Daily number and countdown', () => {
     const card = await currentCard(page, 'daily')
     await submitGuess(page, card.mashedTitle)
     await page.getByRole('button', { name: 'Finish' }).click()
-    await expect(page.getByLabel('Next Daily')).toHaveText('Daily #14 · Next Daily in 12:00:00')
+    await expect(page.getByLabel('Next Daily')).toHaveText('Next Daily in 12:00:00') // no Daily number on screen (owner request 2026-10-26)
   })
 })
 

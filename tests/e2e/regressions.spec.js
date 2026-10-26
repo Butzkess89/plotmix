@@ -3,7 +3,7 @@
 import { test, expect } from '@playwright/test'
 import {
   openMenu, startMode, submitGuess, waitForSave, currentCard, readSaves, pointsCounter,
-  resumeStandardWithCards,
+  resumeStandardWithCards, readDeck,
 } from './helpers.js'
 
 // One made-up word: not a film title and not a word in any mashed title, so it costs exactly 1 point.
@@ -96,9 +96,9 @@ test.describe('A2: the OS "reduce motion" setting is respected', () => {
     const card = await currentCard(page, 'standard')
     await submitGuess(page, card.mashedTitle)
     await page.getByRole('button', { name: 'Next' }).click()
-    // The card-change countdown ("5, 4, blip!") is on screen for about 1.3 s when motion is on.
-    const leader = page.getByRole('status', { name: 'Next card countdown' })
-    try { await leader.waitFor({ state: 'visible', timeout: 1_000 }); return true } catch { return false }
+    // A card change ("5, 4, blip!" or the film-reel run, picked at random) is on screen for about 1 s.
+    const change = page.getByRole('status', { name: /^(Next card countdown|Film reel change)$/ })
+    try { await change.waitFor({ state: 'visible', timeout: 1_000 }); return true } catch { return false }
   }
 
   test('with reduce motion, the card-change animation is skipped', async ({ page }) => {
@@ -113,6 +113,7 @@ test.describe('A2: the OS "reduce motion" setting is respected', () => {
 
   test('between cards: "5, 4, blip!" then the next card, in under 2 seconds', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await page.addInitScript(() => { let n = 0; Math.random = () => 0.1 + (n++ % 4) / 10 }) // below 0.5: the countdown
     // Record what the countdown shows, and when, as it happens.
     await page.addInitScript(() => {
       window.__leader = []
@@ -127,6 +128,37 @@ test.describe('A2: the OS "reduce motion" setting is respected', () => {
     const tl = await page.evaluate(() => window.__leader)
     const start = tl.find((x) => x.v === '5').t
     expect(tl[tl.length - 1].t - start).toBeLessThan(2_000)
+  })
+
+  test('between cards: or the film-reel run, picked at random', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await page.addInitScript(() => { let n = 0; Math.random = () => 0.6 + (n++ % 4) / 10 }) // 0.5 or more: the film reel
+    expect(await playOneCardAndWatchTransition(page)).toBe(true)
+    await expect(page.getByRole('status', { name: 'Film reel change' })).toBeAttached()
+    await expect(page.getByRole('status', { name: 'Film reel change' })).toHaveCount(0, { timeout: 2_000 })
+  })
+
+  test('the same card change never plays three times running', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await page.addInitScript(() => {
+      let n = 0; Math.random = () => 0.1 + (n++ % 4) / 10 // always below 0.5: would always pick the countdown
+      window.__changes = []
+      new MutationObserver(() => {
+        const el = document.querySelector('[aria-label="Next card countdown"], [aria-label="Film reel change"]')
+        const v = el ? el.getAttribute('aria-label') : null
+        if (v && window.__last !== el) { window.__changes.push(v); window.__last = el }
+      }).observe(document, { subtree: true, childList: true })
+    })
+    const deck = readDeck()
+    const ids = [77, 1, 2, 3]
+    await resumeStandardWithCards(page, ids)
+    for (let i = 0; i < 3; i++) {
+      await submitGuess(page, deck.find((c) => c.id === ids[i]).mashedTitle)
+      await page.getByRole('button', { name: 'Next' }).click()
+      await waitForSave(page, 'standard', (x) => x.cardIdx === i + 1)
+      await page.waitForTimeout(1_500)
+    }
+    expect(await page.evaluate(() => window.__changes)).toEqual(['Next card countdown', 'Next card countdown', 'Film reel change'])
   })
 })
 

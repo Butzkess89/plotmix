@@ -30,17 +30,24 @@ test.describe('1. Blooper reel in the end credits', () => {
 })
 
 test.describe('2. The audience', () => {
-  test('groans at a miss and cheers a solve', async ({ page }) => {
+  // Only the big moments (owner request 2026-10-26): not for ordinary wrong guesses.
+  test('stays quiet for an ordinary miss, then cheers the solve', async ({ page }) => {
     await resumeStandardWithCards(page, [77])
     await submitGuess(page, 'zzqxwrong')
-    await expect(page.getByRole('status', { name: 'Audience groans' })).toBeAttached()
+    await page.waitForTimeout(400)
+    await expect(page.getByRole('status', { name: /Audience/ })).toHaveCount(0)
     await submitGuess(page, card77().mashedTitle)
     await expect(page.getByRole('status', { name: 'Audience cheers' })).toBeAttached()
+  })
+  test('groans when a card is lost', async ({ page }) => {
+    await resumeStandardWithCards(page, [77])
+    for (let i = 0; i < 6; i++) await submitGuess(page, `zzqxwrong${'abcdef'[i]}`)
+    await expect(page.getByRole('status', { name: 'Audience groans' })).toBeAttached()
   })
   test('stays home when the phone asks for less motion', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await resumeStandardWithCards(page, [77])
-    await submitGuess(page, 'zzqxwrong')
+    await submitGuess(page, card77().mashedTitle)
     await page.waitForTimeout(300)
     await expect(page.getByRole('status', { name: /Audience/ })).toHaveCount(0)
   })
@@ -60,6 +67,23 @@ test.describe('3. The usher', () => {
     await resumeStandardWithCards(page, [77])
     for (let i = 0; i < 4; i++) { await page.clock.runFor(15_000); await page.keyboard.press('a') }
     await expect(page.getByRole('status', { name: 'Usher' })).toHaveCount(0)
+  })
+})
+
+test.describe('Curtains (owner request 2026-10-26)', () => {
+  const curtainsDrawn = (page) => page.evaluate(() => [...document.querySelectorAll('div')].some((d) => d.style.animation.includes('curtainLeft')))
+  test('open when a Standard game starts', async ({ page }) => {
+    await openMenu(page)
+    await page.getByRole('button', { name: 'Standard Mode' }).click()
+    expect(await curtainsDrawn(page)).toBe(true)
+  })
+  test('open when a saved game is resumed', async ({ page }) => {
+    await resumeStandardWithCards(page, [77])
+    expect(await curtainsDrawn(page)).toBe(true)
+  })
+  test('reveal the final score at the end', async ({ page }) => {
+    await finishDaily(page)
+    await expect(page.getByText(/^Final score: \d+ points?$/)).toBeVisible()
   })
 })
 

@@ -2056,7 +2056,9 @@ const YELLOW_STICKER_TEXT = {
   fontWeight: 400,
   WebkitTextStroke: "1px #000000",
   paintOrder: "stroke fill",
-  textShadow: "0 2px 0 #000000",
+  // A hairline white rim outside the black stroke so orange text stands out on the purple
+  // checkerboard (owner request 2026-10-26).
+  textShadow: "0 2px 0 #000000, 0.75px 0.75px 0 #FFFFFF, -0.75px -0.75px 0 #FFFFFF, 0.75px -0.75px 0 #FFFFFF, -0.75px 0.75px 0 #FFFFFF",
 };
 
 const WHITE_STICKER_TEXT = {
@@ -3812,30 +3814,51 @@ function FilmLeaderCountdown({onDone, reducedMotion=false}) {
   );
 }
 
-// Owner request 2026-10-26: a row of cinema-goers along the bottom cheers a solve and groans
-// at a miss; on a cheer someone tosses popcorn at the screen. About 1.7 seconds, never blocks taps.
+// Owner request 2026-10-26: a row of seated cinema-goers (silhouettes) rises from the bottom.
+// Only for the big moments, so the screen never gets busy: a cheer when a card is solved and a
+// groan when one is lost, in the pause before the result (nothing to tap then). ~1.7 seconds.
+const AUDIENCE_HAIR = ["short", "long", "spiky", "buns", "quiff", "short", "spiky", "long", "buns", "quiff"];
+function AudienceRow({mood="cheer", animate=true}) {
+  const cheer = mood === "cheer";
+  const ink = "#26323A";
+  return (
+    <svg viewBox="0 0 402 64" width="100%" height="100%" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
+      {AUDIENCE_HAIR.map((hair, i) => {
+        const cx = 22 + i * 39.8;
+        const dy = i % 2 ? 2 : 0;
+        return (
+          <g key={i} style={animate ? {transformBox:"fill-box",transformOrigin:"50% 100%",
+            animation:cheer ? "audienceCheer 0.7s ease-in-out 2" : "audienceGroan 0.5s ease-out both",animationDelay:`${(i % 3) * 0.09}s`} : undefined}>
+            {hair === "long" && <path d={`M${cx-9} ${16+dy} Q${cx-10} ${4+dy} ${cx} ${4+dy} Q${cx+10} ${4+dy} ${cx+9} ${16+dy} L${cx+10} ${32+dy} L${cx-10} ${32+dy} Z`} fill={ink}/>}
+            <ellipse cx={cx} cy={15+dy} rx="7.5" ry="8.5" fill={ink}/>
+            {hair === "short" && <ellipse cx={cx} cy={9+dy} rx="8" ry="5" fill={ink}/>}
+            {hair === "spiky" && <path d={`M${cx-8} ${12+dy} L${cx-6} ${3+dy} L${cx-3} ${8+dy} L${cx} ${1+dy} L${cx+3} ${8+dy} L${cx+6} ${3+dy} L${cx+8} ${12+dy} Z`} fill={ink}/>}
+            {hair === "buns" && <><circle cx={cx-6} cy={6+dy} r="4.2" fill={ink}/><circle cx={cx+6} cy={6+dy} r="4.2" fill={ink}/></>}
+            {hair === "quiff" && <path d={`M${cx-8} ${12+dy} Q${cx-7} ${2+dy} ${cx+3} ${3+dy} Q${cx+11} ${4+dy} ${cx+8} ${12+dy} Z`} fill={ink}/>}
+            <rect x={cx-3.5} y={21+dy} width="7" height="8" fill={ink}/>
+            <path d={`M${cx-18} 64 L${cx-18} ${33+dy} Q${cx-18} ${27+dy} ${cx-11} ${27+dy} L${cx+11} ${27+dy} Q${cx+18} ${27+dy} ${cx+18} ${33+dy} L${cx+18} 64 Z`} fill={ink}/>
+          </g>
+        );
+      })}
+      <rect x="2" y="44" width="398" height="13" rx="3" fill={ink}/>
+      {AUDIENCE_HAIR.map((_, i) => {
+        const cx = 22 + i * 39.8;
+        return <g key={i}><rect x={cx-15} y="57" width="5" height="6" rx="2" fill={ink}/><rect x={cx+10} y="57" width="5" height="6" rx="2" fill={ink}/></g>;
+      })}
+    </svg>
+  );
+}
 function AudienceReaction({mood}) {
   const cheer = mood === "cheer";
-  const heads = [18, 62, 104, 150, 196, 240, 286, 330, 376];
   return (
     <div role="status" aria-label={cheer ? "Audience cheers" : "Audience groans"}
-      style={{position:"fixed",left:0,right:0,bottom:0,height:50,zIndex:290,pointerEvents:"none",animation:"audienceIn 1.7s ease both"}}>
-      <div style={{position:"absolute",left:"50%",bottom:44,transform:"translateX(-50%)",whiteSpace:"nowrap",padding:"3px 10px",borderRadius:10,background:"rgba(14,10,44,0.8)",...WHITE_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>
+      style={{position:"fixed",left:0,right:0,bottom:0,height:64,zIndex:290,pointerEvents:"none",animation:"audienceIn 1.7s ease both"}}>
+      <div style={{position:"absolute",left:"50%",bottom:60,transform:"translateX(-50%)",whiteSpace:"nowrap",padding:"3px 10px",borderRadius:10,background:"rgba(14,10,44,0.8)",...WHITE_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>
         {cheer ? "👏 Woo-hoo!" : "😩 Awww…"}
       </div>
-      <svg viewBox="0 0 402 74" width="100%" height="50" preserveAspectRatio="none" aria-hidden="true" style={{position:"absolute",left:0,bottom:0}}>
-        {heads.map((x, i) => (
-          <g key={i} style={{transformBox:"fill-box",transformOrigin:"50% 100%",animation:`${cheer ? "audienceCheer 0.7s ease-in-out 2" : "audienceGroan 0.5s ease-out both"}`,animationDelay:`${(i % 3) * 0.08}s`}}>
-            <circle cx={x} cy={32 + (i % 2) * 4} r="13" fill="#140E2C"/>
-            <path d={`M${x - 22} 74 Q${x - 20} ${46 + (i % 2) * 4} ${x} ${46 + (i % 2) * 4} Q${x + 20} ${46 + (i % 2) * 4} ${x + 22} 74 Z`} fill="#140E2C"/>
-            {cheer && i % 3 === 1 && <path d={`M${x - 14} 44 L${x - 24} 20 M${x + 14} 44 L${x + 24} 20`} stroke="#140E2C" strokeWidth="6" strokeLinecap="round"/>}
-          </g>
-        ))}
-        <rect x="0" y="60" width="402" height="14" fill="#8E0F1F"/>
-        {heads.map((x, i) => <rect key={i} x={x - 20} y="56" width="40" height="18" rx="5" fill="#B3192C" stroke="#5E0A14" strokeWidth="1.5"/>)}
-      </svg>
+      <AudienceRow mood={mood}/>
       {cheer && (
-        <div style={{position:"absolute",left:"62%",bottom:40,width:26,height:26,animation:"popcornToss 1.2s ease-out 0.25s both"}}>
+        <div style={{position:"absolute",left:"62%",bottom:34,width:26,height:26,animation:"popcornToss 1.2s ease-out 0.25s both"}}>
           <ArcadeItemArt kind="popcorn" variant={1}/>
         </div>
       )}
@@ -3868,6 +3891,21 @@ function CameraFlashes() {
           background:"radial-gradient(circle, #FFFFFF 0%, rgba(255,255,255,0.85) 12%, rgba(255,250,220,0.35) 32%, rgba(255,255,255,0) 62%)",
           animation:`flashPop 1.6s ease-out ${(i * 0.37) % 1.6}s 3`}}/>
       ))}
+    </div>
+  );
+}
+
+// Between cards (alternative): wide film strips race down both sides and the projector flickers.
+const FILM_REEL_MS = 950;
+function FilmReelChange() {
+  return (
+    <div role="status" aria-label="Film reel change" style={{position:"fixed",inset:0,zIndex:305,pointerEvents:"none",overflow:"hidden",animation:`filmJitter ${FILM_REEL_MS}ms steps(10) both`}}>
+      {["left","right"].map(side=>(
+        <div key={side} style={{position:"absolute",top:"-10%",bottom:"-10%",[side]:0,width:54,backgroundImage:FILM_STRIP_BG,backgroundSize:"54px 72px",backgroundRepeat:"repeat-y",
+          boxShadow:"0 0 12px rgba(0,0,0,0.5)",animation:`filmSideIn${side==="left"?"L":"R"} ${FILM_REEL_MS}ms ease both, filmRoll ${FILM_REEL_MS}ms linear both`}}/>
+      ))}
+      <div style={{position:"absolute",inset:0,background:"#FFF8E7",animation:`projectorFlicker ${FILM_REEL_MS}ms linear both`}}/>
+      <div style={{position:"absolute",inset:0,background:"repeating-linear-gradient(90deg, transparent 0 37px, rgba(28,22,12,0.35) 37px 38px, transparent 38px 113px, rgba(255,255,255,0.5) 113px 114px)",animation:`filmScratch ${FILM_REEL_MS}ms steps(6) both`}}/>
     </div>
   );
 }
@@ -5198,6 +5236,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   const [showMissShake, setShowMissShake] = useState(false);
   const [cardTransitionPhase, setCardTransitionPhase] = useState("in"); // in | out | idle
   const [genreTransition, setGenreTransition] = useState(null);
+  const recentSwapKindsRef = useRef([]);
   const missShakeTimerRef = useRef(null);
   const cardSwapTimerRef = useRef(null);
   const cardSwapSettleTimerRef = useRef(null);
@@ -5397,7 +5436,15 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       return;
     }
     const transitionMeta = GENRE_TRANSITION_META[transitionFamily.name] || GENRE_TRANSITION_META.punchy;
+    // Two card changes, picked at random but never the same one three times running
+    // (owner request 2026-10-26): the "5, 4, blip!" leader or the film-reel run.
+    const recent = recentSwapKindsRef.current;
+    let kind = Math.random() < 0.5 ? "leader" : "reel";
+    if (recent.length >= 2 && recent[0] === kind && recent[1] === kind) kind = kind === "leader" ? "reel" : "leader";
+    recentSwapKindsRef.current = [kind, ...recent].slice(0, 2);
+    if (kind === "reel") SFX.projector();
     setGenreTransition({
+      kind,
       nonce: Date.now(),
       name: transitionFamily.name,
       tag: transitionMeta.tag,
@@ -5405,7 +5452,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       anim: transitionMeta.anim,
     });
     if (genreTransitionTimerRef.current) clearTimeout(genreTransitionTimerRef.current);
-    genreTransitionTimerRef.current = setTimeout(() => setGenreTransition(null), LEADER_BLIP_MS);
+    genreTransitionTimerRef.current = setTimeout(() => setGenreTransition(null), kind === "reel" ? FILM_REEL_MS : LEADER_BLIP_MS);
 
     setCardTransitionPhase("out");
     if (cardSwapTimerRef.current) clearTimeout(cardSwapTimerRef.current);
@@ -5654,14 +5701,15 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     if(correct){ SFX.correct(); buzz(15); } else { SFX.wrong(); }
   };
 
-  // The audience reacts to each guess: a cheer for the solve, a groan for a miss.
+  // The audience only shows up for the big moments: a cheer when the card is solved and a groan
+  // when it's lost (not for ordinary wrong guesses), owner request 2026-10-26.
   const prevGuessCountRef=useRef(guesses.length);
   useEffect(()=>{
     const prev=prevGuessCountRef.current;
     prevGuessCountRef.current=guesses.length;
     if(guesses.length<=prev||reducedMotion||viewOnly) return;
     if(both) setAudience({key:Date.now(),mood:"cheer"});
-    else if(guessStates[guesses.length-1]==="miss") setAudience({key:Date.now(),mood:"groan"});
+    else if(cardLost) setAudience({key:Date.now(),mood:"groan"});
   },[guesses.length]);
   useEffect(()=>{
     if(!audience) return;
@@ -5888,12 +5936,15 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       {clapper && <ClapperTake key={clapper.key} take={clapper.take} note={clapper.note} reducedMotion={reducedMotion}/>}
       {badgeToast && <BadgeToast badges={badgeToast}/>}
       {countingDown && <FilmLeaderCountdown reducedMotion={reducedMotion} onDone={()=>setCountingDown(false)}/>}
-      {dailyLine && <CurtainReveal line={dailyLine} reducedMotion={reducedMotion} colors={themedWeek?.curtains || null}/>}
+      {/* Curtains open every time a game starts or is resumed (owner request 2026-10-26); the
+          Daily adds its trailer line. */}
+      <CurtainReveal line={dailyLine} reducedMotion={reducedMotion} colors={themedWeek?.curtains || null}/>
       {showingResult && !both && !skipped && !reducedMotion && <FilmBurn/>}
 
       {/* Card change (owner request 2026-10-25): a quick old film-leader countdown,
           "5, 4, blip!", then the next card. About 1.3 seconds, and it never blocks typing. */}
-      {!!genreTransition && <LeaderBlip key={`leader-${genreTransition.nonce}`}/>}
+      {genreTransition?.kind === "leader" && <LeaderBlip key={`leader-${genreTransition.nonce}`}/>}
+      {genreTransition?.kind === "reel" && <FilmReelChange key={`reel-${genreTransition.nonce}`}/>}
       {audience && <AudienceReaction key={audience.key} mood={audience.mood}/>}
       {usher && <Usher key={usher.key}/>}
 
@@ -6248,7 +6299,7 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,perfectRun=false,g
 
   return (
     <div style={{position:"absolute",inset:0,zIndex:700,overflowY:"auto",...CHECKER_BG,backgroundColor:T.bg,color:T.textOnDark,animation:"fadeIn 0.5s ease"}}>
-      <CurtainReveal zIndex={720} reducedMotion={reducedMotion}/>
+      <CurtainReveal zIndex={720} reducedMotion={reducedMotion} line={`Final score: ${totalScore} point${totalScore===1?"":"s"}`}/>
       {perfectRun && !reducedMotion && <CameraFlashes/>}
       <div style={{width:"min(402px, 100vw)",minHeight:"100dvh",margin:"0 auto",padding:"14px 0 24px",boxSizing:"border-box"}}>
       <div style={{width:"100%",minHeight:"calc(100dvh - 38px)",...WIN_RESULT_BG,backgroundColor:T.bgDeep,border:`2px solid ${T.border}`,borderRadius:20,boxShadow:T.shadowLg,padding:"56px 22px 24px",textAlign:"center",boxSizing:"border-box",display:"flex",flexDirection:"column",position:"relative"}}>
@@ -6257,7 +6308,7 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,perfectRun=false,g
         <div style={{...YELLOW_STICKER_TEXT,fontSize:"clamp(17px, 5.1vw, 24px)",lineHeight:1.04,marginBottom:mode.isDaily?10:24,textTransform:"uppercase"}}>Share Your Results</div>
         {mode.isDaily && (
           <div aria-label="Next Daily" style={{...WHITE_STICKER_TEXT,fontSize:12,lineHeight:1.3,marginBottom:22,letterSpacing:"0.02em"}}>
-            Daily #{getDailyNumber()} · Next Daily in <NextDailyCountdown/>
+            Next Daily in <NextDailyCountdown/>
           </div>
         )}
         {officialDaily && (
