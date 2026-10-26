@@ -3866,6 +3866,52 @@ function AudienceReaction({mood}) {
   );
 }
 
+// Holiday decorations: a garland across the top of the screen with ornaments hanging from it.
+function HolidayOrnament({decor, i}) {
+  const ink = "#1C1D21";
+  if (decor === "pumpkins") return i % 3 === 2
+    ? <svg viewBox="0 0 32 20" width="30" height="19"><path d="M16 8 C12 2 6 2 1 6 C5 7 6 10 5 13 C8 11 11 12 13 14 L16 17 L19 14 C21 12 24 11 27 13 C26 10 27 7 31 6 C26 2 20 2 16 8 Z" fill="#2B1840" stroke={ink} strokeWidth="1"/></svg>
+    : <svg viewBox="0 0 28 26" width="26" height="24"><rect x="12.5" y="1" width="3" height="6" rx="1" fill="#3E7B2C" stroke={ink} strokeWidth="0.8"/><ellipse cx="14" cy="16" rx="12" ry="9" fill="#F28C1B" stroke={ink} strokeWidth="1.2"/><path d="M8 9 Q5 16 8 24 M14 7 V25 M20 9 Q23 16 20 24" stroke="#C9650B" strokeWidth="1.2" fill="none"/><path d="M8 14 l3 -2 1 3 Z M20 14 l-3 -2 -1 3 Z M9 19 q5 4 10 0" fill="#3A1C04" stroke="#3A1C04" strokeWidth="1"/></svg>;
+  if (decor === "lights") {
+    const c = ["#E4444F", "#20B46A", "#FFD84D", "#2F6BFF"][i % 4];
+    return <svg viewBox="0 0 16 26" width="14" height="24" style={{filter:`drop-shadow(0 0 5px ${c})`}}><rect x="5" y="0" width="6" height="6" rx="1" fill="#4A4F58" stroke={ink} strokeWidth="0.8"/><path d="M8 5 C2 9 1 17 8 25 C15 17 14 9 8 5 Z" fill={c} stroke={ink} strokeWidth="1"/><ellipse cx="6" cy="12" rx="1.6" ry="3" fill="#fff" opacity="0.6"/></svg>;
+  }
+  if (decor === "dreidels") return i % 2
+    ? <svg viewBox="0 0 22 22" width="18" height="18"><circle cx="11" cy="11" r="9.5" fill="#E8B92B" stroke={ink} strokeWidth="1.2"/><circle cx="11" cy="11" r="6" fill="none" stroke="#B8860B" strokeWidth="1"/></svg>
+    : <svg viewBox="0 0 22 30" width="20" height="27"><rect x="9" y="0" width="4" height="7" rx="1" fill="#C9D6F2" stroke={ink} strokeWidth="0.8"/><path d="M3 7 H19 V19 L11 29 L3 19 Z" fill="#2F5BD3" stroke={ink} strokeWidth="1.2" strokeLinejoin="round"/><path d="M7 11 H15 V17 H7 Z" fill="#C9D6F2" opacity="0.85"/></svg>;
+  if (decor === "lanterns") return (
+    <svg viewBox="0 0 26 40" width="24" height="37"><rect x="8" y="0" width="10" height="4" rx="1" fill="#D9A21B" stroke={ink} strokeWidth="0.8"/><ellipse cx="13" cy="15" rx="12" ry="11" fill="#D7261E" stroke={ink} strokeWidth="1.2"/><path d="M7 6 Q4 15 7 24 M13 4 V26 M19 6 Q22 15 19 24" stroke="#A3140E" strokeWidth="1" fill="none"/><rect x="8" y="25" width="10" height="4" rx="1" fill="#D9A21B" stroke={ink} strokeWidth="0.8"/><path d="M11 29 V39 M13 29 V40 M15 29 V39" stroke="#D9A21B" strokeWidth="1.4"/></svg>
+  );
+  if (decor === "crescents") return i % 2
+    ? <svg viewBox="0 0 24 24" width="20" height="20"><path d="M15 2 A10 10 0 1 0 22 18 A8 8 0 1 1 15 2 Z" fill="#E8C55A" stroke={ink} strokeWidth="1"/></svg>
+    : <svg viewBox="0 0 20 34" width="18" height="31"><path d="M10 0 L13 6 H7 Z" fill="#C9A227" stroke={ink} strokeWidth="0.8"/><path d="M5 6 H15 L17 12 V24 L13 30 H7 L3 24 V12 Z" fill="#1F6B54" stroke={ink} strokeWidth="1.1"/><path d="M6 13 H14 V23 H6 Z" fill="#FFD97A" opacity="0.9"/><path d="M10 13 V23 M6 18 H14" stroke="#C9A227" strokeWidth="0.8"/></svg>;
+  if (decor === "eggs") {
+    const [a, b] = [["#F4B6C2", "#8FD3F4"], ["#BDE8A6", "#F8D86A"], ["#C9B6F2", "#F4B6C2"], ["#8FD3F4", "#F8D86A"]][i % 4];
+    return <svg viewBox="0 0 20 26" width="17" height="22"><path d="M10 1 C3 1 1 12 1 16 C1 22 5 25 10 25 C15 25 19 22 19 16 C19 12 17 1 10 1 Z" fill={a} stroke={ink} strokeWidth="1.1"/><path d="M2 14 l3 -3 3 3 3 -3 3 3 3 -3 1.5 1.5" stroke={b} strokeWidth="2.2" fill="none"/></svg>;
+  }
+  // newyear: gold stars and streamers
+  return i % 2
+    ? <svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 1 L14.8 8.6 L23 9 L16.6 14 L18.8 22 L12 17.4 L5.2 22 L7.4 14 L1 9 L9.2 8.6 Z" fill="#FFD84D" stroke={ink} strokeWidth="1"/></svg>
+    : <svg viewBox="0 0 12 34" width="10" height="30"><path d="M6 0 Q1 6 6 12 Q11 18 6 24 Q1 30 6 34" stroke={["#E4444F", "#2F6BFF", "#20B46A"][i % 3]} strokeWidth="3.5" fill="none" strokeLinecap="round"/></svg>;
+}
+function HolidayDecor({holiday, reducedMotion=false}) {
+  const count = 11;
+  return (
+    <div role="img" aria-label={`${holiday.name} decorations`} style={{position:"fixed",top:0,left:0,right:0,height:58,zIndex:60,pointerEvents:"none"}}>
+      <svg viewBox="0 0 402 20" width="100%" height="20" preserveAspectRatio="none" aria-hidden="true" style={{position:"absolute",top:0,left:0}}>
+        <path d={`M0 3 ${Array.from({length:count},(_,i)=>`Q${(i+0.5)*402/count} 16 ${(i+1)*402/count} 3`).join(" ")}`} stroke={holiday.curtains[1]} strokeWidth="2.2" fill="none"/>
+      </svg>
+      {Array.from({length:count},(_,i)=>(
+        <div key={i} style={{position:"absolute",top:9 + (i % 2) * 3,left:`${(i+0.5)*100/count}%`,transform:"translateX(-50%)",transformOrigin:"50% 0",
+          animation:reducedMotion ? "none" : `decorSway ${2.4 + (i % 3) * 0.4}s ease-in-out ${-(i * 0.3)}s infinite`}}>
+          <div style={{width:1.5,height:4 + (i % 3) * 3,background:holiday.curtains[1],margin:"0 auto"}}/>
+          <HolidayOrnament decor={holiday.decor} i={i}/>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // Owner request 2026-10-26: sit idle too long and the usher's flashlight sweeps across.
 const USHER_IDLE_MS = 30000;
 function Usher() {
@@ -4007,6 +4053,8 @@ function BadgeToast({badges}) {
 }
 
 const CINEMA_KEYFRAMES = `
+  @keyframes decorSway { 0%,100%{transform:translateX(-50%) rotate(-6deg)} 50%{transform:translateX(-50%) rotate(6deg)} }
+  @keyframes vhsPress { 0%,49%{transform:translateY(0); box-shadow:0 7px 0 #0B0C10} 50%,100%{transform:translateY(6px); box-shadow:0 1px 0 #0B0C10} }
   @keyframes speedLines { 0%{opacity:0; transform:scale(1.3) rotate(0deg)} 12%{opacity:0.95} 65%{opacity:0.95} 100%{opacity:0; transform:scale(1) rotate(5deg)} }
   @keyframes speedSymbol { 0%{opacity:0; transform:scale(0.2) rotate(-20deg)} 25%{opacity:1; transform:scale(1.15) rotate(0deg)} 40%{transform:scale(1)} 80%{opacity:1; transform:scale(1)} 100%{opacity:0; transform:scale(1.4)} }
   @keyframes arcadeShakeA { 0%,100%{transform:translate(0,0)} 15%{transform:translate(-7px,3px)} 30%{transform:translate(6px,-4px)} 45%{transform:translate(-5px,-2px)} 60%{transform:translate(4px,3px)} 75%{transform:translate(-2px,1px)} }
@@ -4079,7 +4127,7 @@ function usePowerup(kind) { const p = loadPowerups(); if (!p[kind]) return false
 const CURTAINS = [
   { id: "red",     name: "Red Velvet",    colors: ["#8E0F1F", "#C21E32"], prize: null },
   { id: "blue",    name: "Midnight Blue", colors: ["#0E1A4F", "#2A3FA8"], prize: "bronze" },
-  { id: "emerald", name: "Emerald",       colors: ["#0B4A33", "#16875C"], prize: "silver" },
+  { id: "emerald", name: "Emerald Green",       colors: ["#0B4A33", "#16875C"], prize: "silver" },
   // The hardest to get (owner decision 2026-10-25): 3 Dailies in a row with no wrong guess at all.
   { id: "gold",    name: "Gold Lamé",     colors: ["#8A5A00", "#E0A82E"], prize: "perfectDaily3" },
 ];
@@ -4099,23 +4147,66 @@ function curtainColors() {
   return (c || CURTAINS[0]).colors;
 }
 
-// Themed weeks: the Daily is drawn from matching cards and the curtains change colour.
-const THEMED_WEEKS = [
-  {
-    id: "fright", name: "Fright Week", emoji: "🎃",
-    // 24–31 October each year (month is 0-based)
-    month: 9, fromDay: 24, toDay: 31,
-    genres: /horror|thriller/i,
-    curtains: ["#2B0A3D", "#E8650A"],
-    lines: ["In a town… where nobody sleeps tonight…", "This week… the mashups bite back…", "Lock the doors. Dim the lights. Name both films."],
-  },
+// Holiday weeks (owner request 2026-10-26): major holidays get decorations around the edges and
+// themed curtains for about a week around the day. Lunar and lunisolar dates follow the real
+// Chinese, Hebrew and Islamic calendars (built into the browser), so they move with the years.
+// Fright Week also draws the Daily from horror and thriller cards.
+const CAL_FORMATS = {};
+function calendarParts(date, cal, monthStyle = "numeric") {
+  try {
+    const key = `${cal}-${monthStyle}`;
+    CAL_FORMATS[key] = CAL_FORMATS[key] || new Intl.DateTimeFormat(`en-u-ca-${cal}`, { month: monthStyle, day: "numeric", timeZone: "UTC" });
+    const parts = CAL_FORMATS[key].formatToParts(new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 12)));
+    return { month: parts.find((x) => x.type === "month")?.value, day: Number(parts.find((x) => x.type === "day")?.value) };
+  } catch { return { month: null, day: null }; }
+}
+// Western Easter Sunday (anonymous Gregorian algorithm).
+function easterSunday(y) {
+  const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31), day = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(y, month - 1, day);
+}
+const isDay = (d, month, day) => d.getMonth() === month && d.getDate() === day;
+// Each holiday: its main day, and how many days before/after it the theme runs.
+const HOLIDAYS = [
+  { id: "newyear", name: "New Year", emoji: "🎆", decor: "newyear", before: 3, after: 3,
+    isMain: (d) => isDay(d, 0, 1), curtains: ["#0E1A4F", "#C9A227"],
+    lines: ["Out with the old films… in with the mashup.", "New year. New mashups. Same popcorn."] },
+  { id: "lunar", name: "Lunar New Year", emoji: "🏮", decor: "lanterns", before: 2, after: 5,
+    isMain: (d) => { const p = calendarParts(d, "chinese"); return p.month === "1" && p.day === 1; }, curtains: ["#7A0A10", "#D9A21B"],
+    lines: ["A new year… a new mashup. Fortune favours the film buff.", "Lanterns lit. Popcorn ready. Name both films."] },
+  { id: "easter", name: "Easter", emoji: "🐣", decor: "eggs", before: 3, after: 3,
+    isMain: (d) => { const e = easterSunday(d.getFullYear()); return isDay(d, e.getMonth(), e.getDate()); }, curtains: ["#6B4FA0", "#E9A3C0"],
+    lines: ["This spring… the mashups hatch.", "Hidden somewhere in this plot… two films."] },
+  { id: "eid", name: "Eid al-Fitr", emoji: "🌙", decor: "crescents", before: 2, after: 4,
+    isMain: (d) => { const p = calendarParts(d, "islamic-umalqura"); return p.month === "10" && p.day === 1; }, curtains: ["#0B3D2E", "#C9A227"],
+    lines: ["Eid Mubarak! Tonight's double feature…", "Lanterns up. Lights down. Name both films."] },
+  { id: "fright", name: "Fright Week", emoji: "🎃", decor: "pumpkins", before: 7, after: 0,
+    isMain: (d) => isDay(d, 9, 31), genres: /horror|thriller/i, curtains: ["#2B0A3D", "#E8650A"],
+    lines: ["In a town… where nobody sleeps tonight…", "This week… the mashups bite back…", "Lock the doors. Dim the lights. Name both films."] },
+  { id: "hanukkah", name: "Hanukkah", emoji: "🕎", decor: "dreidels", before: 1, after: 7,
+    isMain: (d) => { const p = calendarParts(d, "hebrew", "long"); return p.month === "Kislev" && p.day === 25; }, curtains: ["#0E3A8A", "#C9D6F2"],
+    lines: ["Eight nights. Two films. One mashup.", "Spin the dreidel… name both films."] },
+  { id: "christmas", name: "Christmas", emoji: "🎄", decor: "lights", before: 5, after: 1,
+    isMain: (d) => isDay(d, 11, 25), curtains: ["#0B4A33", "#B3192C"],
+    lines: ["This holiday season… two films, one stocking.", "Deck the halls. Dim the lights. Name both films."] },
 ];
-function activeThemedWeek(date = new Date()) {
-  return THEMED_WEEKS.find((w) => date.getMonth() === w.month && date.getDate() >= w.fromDay && date.getDate() <= w.toDay) || null;
+// The holiday whose week covers this date (the nearest main day wins if two overlap), or null.
+function activeHoliday(date = new Date()) {
+  let best = null;
+  for (const h of HOLIDAYS) {
+    for (let o = -h.after; o <= h.before; o++) {
+      const d = new Date(date.getFullYear(), date.getMonth(), date.getDate() + o);
+      if (h.isMain(d) && (!best || Math.abs(o) < best.dist)) best = { holiday: h, dist: Math.abs(o) };
+    }
+  }
+  return best ? best.holiday : null;
 }
 function themedDailyCard(sourceDeck, date) {
-  const week = activeThemedWeek(date);
-  if (!week) return null;
+  const week = activeHoliday(date);
+  if (!week || !week.genres) return null;
   const pool = sourceDeck
     .filter((c) => (c.hintData?.films || []).some((f) => week.genres.test(f.genre || "")))
     .sort((a, b) => a.id - b.id);
@@ -4802,7 +4893,8 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
     livesRef.current -= 1;
     setLives(livesRef.current);
     showFlash({ burnt: "Burnt! −1 life", unpopped: "Unpopped! −1 life", phone: "📵 Phones off in the theatre! −1 life", bat: "🦇 Bitten! −1 life" }[it.kind] || "Ouch! −1 life", true);
-    SFX.wrong(); buzz([40, 60, 40]);
+    // Negative haptic: a long, harsh double buzz (Android; iPhones don't allow web vibration).
+    SFX.wrong(); buzz([120, 60, 120]);
     if (livesRef.current <= 0) finishRef.current?.();
   };
 
@@ -4919,11 +5011,15 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
                   WebkitMaskImage:"radial-gradient(circle at 50% 50%, transparent 0 22%, #000 50%)",maskImage:"radial-gradient(circle at 50% 50%, transparent 0 22%, #000 50%)",
                   animation:"speedLines 0.9s ease-out both"}}/>
               )}
-              <div style={{position:"absolute",left:"50%",top:"38%",width:120,height:120,marginLeft:-60,marginTop:-60,animation:reducedMotion ? "none" : "speedSymbol 1.1s ease both"}}>
-                <svg viewBox="0 0 120 120" width="120" height="120" aria-hidden="true">
-                  <circle cx="60" cy="60" r="54" fill="#E4444F" stroke="#1C1D21" strokeWidth="5"/>
-                  <path d="M28 34 L60 60 L28 86 Z M60 34 L92 60 L60 86 Z" fill="#FFD84D" stroke="#1C1D21" strokeWidth="5" strokeLinejoin="round"/>
-                </svg>
+              {/* A VCR fast-forward key being pressed again and again (owner request 2026-10-26). */}
+              <div style={{position:"absolute",left:"50%",top:"38%",width:150,height:110,marginLeft:-75,marginTop:-55,animation:reducedMotion ? "none" : "speedSymbol 1.1s ease both"}}>
+                <div style={{position:"absolute",inset:0,borderRadius:12,background:"#2A2D35",border:"3px solid #0B0C10",boxShadow:"inset 0 2px 0 rgba(255,255,255,0.18)"}}/>
+                <div data-vhs-key="" style={{position:"absolute",left:16,right:16,top:12,height:72,borderRadius:8,border:"3px solid #0B0C10",
+                  background:"linear-gradient(180deg,#D9DCE3 0%,#AEB3BE 100%)",boxShadow:"0 7px 0 #0B0C10",
+                  display:"flex",alignItems:"center",justifyContent:"center",animation:reducedMotion ? "none" : "vhsPress 0.28s steps(1) infinite"}}>
+                  <svg viewBox="0 0 60 30" width="64" height="32" aria-hidden="true"><path d="M4 2 L28 15 L4 28 Z M30 2 L54 15 L30 28 Z" fill="#1C1D21"/></svg>
+                </div>
+                <div style={{position:"absolute",left:0,right:0,bottom:4,textAlign:"center",fontFamily:FONT_FIGMA_STICKER,fontSize:10,letterSpacing:"0.2em",color:"#C9CCD3"}}>FF</div>
               </div>
             </div>
           )}
@@ -5317,8 +5413,8 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   // 5 in a row earns a Popcorn Panic play; on Next the player chooses to play it now or keep guessing.
   const [arcadeOffer,setArcadeOffer]=useState(null); // null | {stage:"ask"|"playing", badges}
   const badgeToastTimerRef=useRef(null);
-  const [themedWeek]=useState(()=>mode.isDaily ? activeThemedWeek() : null);
-  const [dailyLine]=useState(()=>mode.isDaily && !initialState ? pickRandom("trailer", themedWeek ? themedWeek.lines : TRAILER_OPENERS) : null);
+  const [themedWeek]=useState(()=>activeHoliday());
+  const [dailyLine]=useState(()=>mode.isDaily && !initialState ? pickRandom("trailer", themedWeek?.lines || TRAILER_OPENERS) : null);
 
   useEffect(() => {
     const invalidDeck = !Array.isArray(deck) || deck.length !== mode.roundCount;
@@ -6508,6 +6604,7 @@ function usePrefersReducedMotion() {
 
 function PlotMixApp() {
   const reducedMotion=usePrefersReducedMotion();
+  const [holiday]=useState(()=>activeHoliday()); // holiday-week decorations (owner request 2026-10-26)
   // Inject background into document.head immediately — before React renders anything
   // This prevents Android WebView from showing its default dark background
   useEffect(()=>{
@@ -6696,6 +6793,7 @@ function PlotMixApp() {
         ${CINEMA_KEYFRAMES}
         .pmtc { display:inline-block !important; width:32px !important; height:20px !important; min-width:32px !important; min-height:20px !important; border-radius:5px !important; flex-shrink:0 !important; vertical-align:middle !important; }
       `}</style>
+      {holiday && screen!=="intro" && <HolidayDecor holiday={holiday} reducedMotion={reducedMotion}/>}
       {screen==="intro"&&<IntroVideoScreen onDone={()=>setScreen(hasOnboarded()?"menu":"onboarding")}/>}
       {screen==="onboarding"&&<Onboarding onDone={()=>{markOnboarded();setScreen("menu");}} onSkip={()=>{markOnboarded();setScreen("menu");}} showSkip/>}
       {screen==="menu"&&<ModeSelect onSelect={handleModeSelect} onArcade={()=>setScreen("arcade")}/>}

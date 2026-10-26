@@ -173,3 +173,51 @@ test.describe('7. Which came first? bonus', () => {
     await expect(page.getByRole('group', { name: 'Which came first?' })).toHaveCount(0)
   })
 })
+
+// Holiday weeks (owner request 2026-10-26): decorations for about a week around major holidays,
+// following the real Chinese, Hebrew and Islamic calendars.
+test.describe('Holiday decorations', () => {
+  for (const [date, name] of [
+    ['2026-10-14T12:00:00', null],
+    ['2026-10-26T12:00:00', 'Fright Week'],
+    ['2026-12-08T12:00:00', 'Hanukkah'],      // Hanukkah 2026: 5–12 Dec
+    ['2026-12-23T12:00:00', 'Christmas'],
+    ['2027-01-01T12:00:00', 'New Year'],
+    ['2027-02-07T12:00:00', 'Lunar New Year'], // Lunar New Year 2027: 6 Feb
+    ['2026-03-20T12:00:00', 'Eid al-Fitr'],    // Eid al-Fitr 2026: 20 Mar
+    ['2027-03-28T12:00:00', 'Easter'],         // Easter 2027: 28 Mar
+  ]) {
+    test(`${date.slice(0, 10)}: ${name || 'no holiday'}`, async ({ page }) => {
+      await page.clock.setFixedTime(new Date(date))
+      await openMenu(page)
+      if (name) await expect(page.getByRole('img', { name: `${name} decorations` })).toBeVisible()
+      else await expect(page.getByRole('img', { name: /decorations$/ })).toHaveCount(0)
+    })
+  }
+})
+
+test.describe('Popcorn Panic feedback', () => {
+  test('each speed-up shows a VHS fast-forward key being pressed', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('plotmix_arcade_passes', '1'))
+    await openMenu(page)
+    await page.getByRole('button', { name: 'Popcorn Panic', exact: true }).click()
+    await page.getByRole('button', { name: 'Play Popcorn Panic' }).click()
+    await expect(page.getByRole('status', { name: 'Speeding up' }).locator('[data-vhs-key]')).toBeAttached({ timeout: 8_000 })
+  })
+  test('catching a bad piece buzzes the phone', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('plotmix_arcade_passes', '1')
+      window.__vib = []
+      Object.defineProperty(navigator, 'vibrate', { value: (p) => { window.__vib.push(p); return true }, configurable: true })
+      let n = 0; Math.random = () => 0.6 + (n++ % 2) * 0.01 // only burnt popcorn, falling in one spot
+    })
+    await openMenu(page)
+    await page.getByRole('button', { name: 'Popcorn Panic', exact: true }).click()
+    await page.getByRole('button', { name: 'Play Popcorn Panic' }).click()
+    const bad = page.getByRole('img', { name: 'Burnt popcorn', exact: true }).first()
+    await expect(bad).toBeAttached({ timeout: 10_000 })
+    const box = await bad.boundingBox()
+    await page.mouse.move(box.x + box.width / 2, 800)
+    await expect.poll(() => page.evaluate(() => window.__vib), { timeout: 10_000 }).toContainEqual([120, 60, 120])
+  })
+})
