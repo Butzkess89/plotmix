@@ -81,9 +81,19 @@ test.describe('Curtains (owner request 2026-10-26)', () => {
     await resumeStandardWithCards(page, [77])
     expect(await curtainsDrawn(page)).toBe(true)
   })
-  test('reveal the final score at the end', async ({ page }) => {
+  test('reveal the final score at the end, long enough to read', async ({ page }) => {
     await finishDaily(page)
     await expect(page.getByText(/^Final score: \d+ points?$/)).toBeVisible()
+    await page.waitForTimeout(1_800)
+    await expect(page.getByText(/^Final score: \d+ points?$/)).toBeVisible() // still there ~2 s later
+  })
+  test('the curtain picker shows drawn curtains, not colour squares', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('plotmix_prizes', JSON.stringify({ won: ['bronze'], best: 50, curtain: 'red' })))
+    await openMenu(page)
+    await page.getByRole('button', { name: 'Popcorn Panic', exact: true }).click()
+    for (const name of ['Red Velvet', 'Midnight Blue']) {
+      await expect(page.getByRole('button', { name: `Curtains: ${name}` }).locator('svg')).toBeVisible()
+    }
   })
 })
 
@@ -113,6 +123,9 @@ test.describe('7. Which came first? bonus', () => {
     await submitGuess(page, card77().mashedTitle)
     const bonus = page.getByRole('group', { name: 'Which came first?' })
     await expect(bonus).toBeVisible()
+    // Readable: the unanswered buttons keep their coloured (cyan) background behind the white text.
+    const bg = await bonus.getByRole('button', { name: `${older()} came first` }).evaluate((b) => getComputedStyle(b).backgroundColor)
+    expect(bg).not.toMatch(/rgba\(0, 0, 0, 0\)|rgb\(2[0-9]{2}, 2[0-9]{2}, 2[0-9]{2}\)/)
     await bonus.getByRole('button', { name: `${older()} came first` }).click()
     await expect(page.getByRole('status', { name: 'Bonus result' })).toHaveText('✓ Film buff! +1 point')
     await expect(bonus.getByRole('button', { name: `${newer()} came first` })).toBeDisabled() // one answer only

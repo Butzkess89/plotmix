@@ -3458,7 +3458,7 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
                   return (
                     <button key={i} onClick={(e)=>{ e.stopPropagation(); onBonus?.(i); }} disabled={!!a} aria-label={`${f} came first`}
                       style={{flex:1,...BTN.cyan,padding:"8px 6px",cursor:a?"default":"pointer",
-                        background:a ? (older ? "#16A34A" : picked ? "#DC2626" : "#4B4F78") : undefined}}>
+                        ...(a ? {background: older ? "#16A34A" : picked ? "#DC2626" : "#4B4F78"} : {})}}>
                       <span style={{...WHITE_STICKER_TEXT,fontSize:10.5,textTransform:"uppercase",lineHeight:1.25}}>{f}{a ? ` · ${bonus.years[i]}` : ""}</span>
                     </button>
                   );
@@ -3944,11 +3944,12 @@ function CurtainReveal({line=null, zIndex=600, reducedMotion=false, colors=null}
   useEffect(()=>{
     if(reducedMotion) return;
     SFX.curtain();
-    const id=setTimeout(()=>setVisible(false), line ? 2600 : 1700);
+    const id=setTimeout(()=>setVisible(false), line ? 3600 : 1700);
     return ()=>clearTimeout(id);
   },[reducedMotion, line]);
   if(reducedMotion || !visible) return null;
-  const delay = line ? 1.3 : 0.25;
+  // With a line, the curtains wait until it has been read (owner feedback 2026-10-26).
+  const delay = line ? 2.3 : 0.25;
   const [c0, c1] = colors || curtainColors();
   const velvet = `repeating-linear-gradient(90deg, ${c0} 0px, ${c1} 14px, ${c0} 28px)`;
   return (
@@ -3957,7 +3958,7 @@ function CurtainReveal({line=null, zIndex=600, reducedMotion=false, colors=null}
       <div style={{position:"absolute",top:0,bottom:0,right:0,width:"51%",background:velvet,boxShadow:"inset 10px 0 18px rgba(0,0,0,0.45)",animation:`curtainRight 1.1s ease-in-out ${delay}s both`}}/>
       <div style={{position:"absolute",top:0,left:0,right:0,height:34,background:"linear-gradient(#6E0A17,#A3192B)",borderBottom:"3px solid #F6A507",animation:`curtainValance 1.1s ease-in-out ${delay+0.2}s both`}}/>
       {line && (
-        <div style={{position:"absolute",left:24,right:24,top:"42%",textAlign:"center",...YELLOW_STICKER_TEXT,fontSize:"clamp(16px, 5vw, 22px)",lineHeight:1.3,textTransform:"uppercase",animation:"trailerLine 1.6s ease both"}}>
+        <div style={{position:"absolute",left:24,right:24,top:"42%",textAlign:"center",...YELLOW_STICKER_TEXT,fontSize:"clamp(16px, 5vw, 22px)",lineHeight:1.3,textTransform:"uppercase",animation:"trailerLine 2.8s ease both"}}>
           {line}
         </div>
       )}
@@ -4006,6 +4007,10 @@ function BadgeToast({badges}) {
 }
 
 const CINEMA_KEYFRAMES = `
+  @keyframes speedLines { 0%{opacity:0; transform:scale(1.3) rotate(0deg)} 12%{opacity:0.95} 65%{opacity:0.95} 100%{opacity:0; transform:scale(1) rotate(5deg)} }
+  @keyframes speedSymbol { 0%{opacity:0; transform:scale(0.2) rotate(-20deg)} 25%{opacity:1; transform:scale(1.15) rotate(0deg)} 40%{transform:scale(1)} 80%{opacity:1; transform:scale(1)} 100%{opacity:0; transform:scale(1.4)} }
+  @keyframes arcadeShakeA { 0%,100%{transform:translate(0,0)} 15%{transform:translate(-7px,3px)} 30%{transform:translate(6px,-4px)} 45%{transform:translate(-5px,-2px)} 60%{transform:translate(4px,3px)} 75%{transform:translate(-2px,1px)} }
+  @keyframes arcadeShakeB { 0%,100%{transform:translate(0,0)} 15%{transform:translate(-7px,3px)} 30%{transform:translate(6px,-4px)} 45%{transform:translate(-5px,-2px)} 60%{transform:translate(4px,3px)} 75%{transform:translate(-2px,1px)} }
   @keyframes audienceIn { 0%{transform:translateY(100%)} 14%{transform:translateY(0)} 84%{transform:translateY(0)} 100%{transform:translateY(100%)} }
   @keyframes audienceCheer { 0%,100%{transform:translateY(0)} 30%{transform:translateY(-12px)} 60%{transform:translateY(0)} 80%{transform:translateY(-6px)} }
   @keyframes audienceGroan { 0%{transform:translateY(0)} 40%,100%{transform:translateY(7px) rotate(-4deg)} }
@@ -4189,6 +4194,27 @@ function PopcornBucketIcon({size=34}) {
 
 // Curtain colours won in Popcorn Panic; shown in the arcade only once one has been won
 // (the Film Vault was removed, owner decision 2026-10-25).
+// A little stage curtain in the given colours (for the curtain picker).
+function CurtainSwatch({colors}) {
+  const [c0, c1] = colors;
+  const id = `cs-${c0.slice(1)}-${c1.slice(1)}`;
+  return (
+    <svg viewBox="0 0 64 48" width="64" height="48" aria-hidden="true">
+      <defs>
+        <linearGradient id={id} x1="0" x2="1" y1="0" y2="0" spreadMethod="repeat" gradientTransform="scale(0.14 1)">
+          <stop offset="0" stopColor={c0}/><stop offset="0.5" stopColor={c1}/><stop offset="1" stopColor={c0}/>
+        </linearGradient>
+      </defs>
+      <rect x="0" y="0" width="64" height="48" rx="4" fill="#120C26"/>
+      <path d="M2 6 H30 C30 20 22 30 14 34 C10 36 8 42 10 47 H2 Z" fill={`url(#${id})`} stroke="#1C1D21" strokeWidth="1"/>
+      <path d="M62 6 H34 C34 20 42 30 50 34 C54 36 56 42 54 47 H62 Z" fill={`url(#${id})`} stroke="#1C1D21" strokeWidth="1"/>
+      <path d="M12 33 q4 2 8 0 M44 33 q4 2 8 0" stroke="#F6A507" strokeWidth="2" fill="none" strokeLinecap="round"/>
+      <rect x="0" y="0" width="64" height="8" rx="2" fill={c0} stroke="#1C1D21" strokeWidth="1"/>
+      <path d="M0 8 Q4 12 8 8 Q12 12 16 8 Q20 12 24 8 Q28 12 32 8 Q36 12 40 8 Q44 12 48 8 Q52 12 56 8 Q60 12 64 8" fill={c1} stroke="#1C1D21" strokeWidth="0.8"/>
+    </svg>
+  );
+}
+
 function CurtainPicker() {
   const [prizes, setPrizes] = useState(loadPrizes);
   if (!prizes.won.length) return null;
@@ -4199,9 +4225,9 @@ function CurtainPicker() {
       <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"center"}}>
         {CURTAINS.filter((c) => !c.prize || prizes.won.includes(c.prize)).map((c) => (
           <button key={c.id} onClick={() => pick(c.id)} aria-pressed={prizes.curtain === c.id} aria-label={`Curtains: ${c.name}`}
-            style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:10,cursor:"pointer",
+            style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"6px 8px",borderRadius:10,cursor:"pointer",
               background:prizes.curtain === c.id ? "#FFD84D" : "rgba(255,255,255,0.12)",border:"2px solid #1C1D21"}}>
-            <span style={{width:16,height:16,borderRadius:4,background:`linear-gradient(90deg,${c.colors[0]},${c.colors[1]})`,border:"1px solid #1C1D21"}}/>
+            <CurtainSwatch colors={c.colors}/>
             <span style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:12,color:prizes.curtain === c.id ? "#1C1D21" : "#fff"}}>{c.name}</span>
           </button>
         ))}
@@ -4584,7 +4610,8 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
       writeJSON(LS_PRIZES, { ...p, best: Math.max(p.best || 0, final), won: prize && isNew ? [...p.won, prize.id] : p.won });
       if (prize) addPowerups(prize.powerups);
       if (prize || isRecord) SFX.complete();
-      setResult({ score: final, prize, isNew, isRecord, level: levelNow(), reason });
+      setResult({ score: final, prize, isNew, isRecord, level: levelNow(), reason,
+        seconds: Math.min(ARCADE_GAME_MS / 1000, Math.round((Date.now() - startedAt) / 1000)) });
       itemsRef.current = [];
       setItems([]);
       setPhase("done");
@@ -4783,7 +4810,9 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
   const mult = comboMultiplier(combo);
   return (
     <div style={{minHeight:"100dvh",...CHECKER_BG,color:T.textOnDark,position:"relative",overflow:"hidden",boxSizing:"border-box",
-      boxShadow:frenzy && !reducedMotion ? "inset 0 0 60px 10px rgba(255,216,77,0.55)" : "none",transition:"box-shadow 0.3s ease"}}>
+      boxShadow:frenzy && !reducedMotion ? "inset 0 0 60px 10px rgba(255,216,77,0.55)" : "none",transition:"box-shadow 0.3s ease",
+      // Camera shake on each speed-up (two identical keyframes so it restarts every time).
+      animation:levelUp && levelUp.lv > 1 && !reducedMotion ? `${levelUp.lv % 2 ? "arcadeShakeA" : "arcadeShakeB"} 0.45s ease` : "none"}}>
       {phase === "lobby" && (
         <button onClick={onBack} aria-label="Back" style={{position:"absolute",top:20,left:16,zIndex:5,...BTN.cyan,padding:"8px 14px"}}>
           <span style={{...WHITE_STICKER_TEXT,fontSize:11,textTransform:"uppercase"}}>← Back</span>
@@ -4812,7 +4841,7 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
           <div style={{display:"flex",justifyContent:"center",gap:8,margin:"10px 0",flexWrap:"wrap"}}>
             <div style={HUD_STAT_PILL}><span aria-label={`Score: ${score}`} style={HUD_COUNTER_TEXT}>🍿 {score}</span></div>
             <div style={HUD_STAT_PILL}><span aria-label={`Lives: ${lives}`} style={HUD_COUNTER_TEXT}>{"❤️".repeat(Math.max(0, lives))}{"🖤".repeat(Math.max(0, ARCADE_LIVES - lives))}</span></div>
-            <div style={HUD_STAT_PILL}><span aria-label={`Level ${level}`} style={HUD_COUNTER_TEXT}>LV {level}</span></div>
+            <div style={HUD_STAT_PILL}><span aria-label={`Speed ${level}`} style={HUD_COUNTER_TEXT}>⏩ {level}</span></div>
             {phase === "playing" && <div style={HUD_STAT_PILL}><span aria-label={`Time left: ${timeLeft}`} style={{...HUD_COUNTER_TEXT,color:timeLeft <= 10 ? "#FF6B6B" : undefined}}>⏱ {timeLeft}</span></div>}
             {phase === "playing" && <div style={HUD_STAT_PILL}><span aria-label={`Laser charges: ${laser}`} style={HUD_COUNTER_TEXT}>🔫 {"⚡".repeat(laser)}{"·".repeat(LASER_MAX - laser)}</span></div>}
           </div>
@@ -4840,7 +4869,7 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
               {result.prize ? `${result.prize.emoji} ${result.prize.name}!` : "No prize this time"}
             </div>
             <div style={{fontFamily:"'Outfit',sans-serif",fontSize:14,margin:"8px 0 14px"}}>
-              {result.reason === "time" ? `Time's up! You lasted all 45 seconds and reached level ${result.level}.` : `Out of lives on level ${result.level}!`} You scored {result.score} point{result.score === 1 ? "" : "s"}.
+              {result.reason === "time" ? "Time's up! You lasted all 45 seconds." : `Out of lives after ${result.seconds} second${result.seconds === 1 ? "" : "s"}!`} You scored {result.score} point{result.score === 1 ? "" : "s"}.
               {result.prize ? ` You won ${result.prize.reward} to use in Standard or Speed Run.` : " Keep popping!"}
               {result.prize && result.isNew && CURTAINS.some((c) => c.prize === result.prize.id) ? ` New curtains unlocked: ${CURTAINS.find((c) => c.prize === result.prize.id).name} (choose them on the Popcorn Panic screen).` : ""}
             </div>
@@ -4880,13 +4909,21 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
               ))}
             </div>
           ))}
+          {/* Every 5 seconds it speeds up (owner request 2026-10-26: no "levels" wording): a
+              fast-forward symbol with anime speed lines, while the screen shakes. */}
           {levelUp && levelUp.lv > 1 && (
-            <div key={levelUp.key} role="status" aria-label={`Level up: ${levelUp.lv}`}
-              style={{position:"absolute",left:"50%",top:"30%",textAlign:"center",whiteSpace:"nowrap",pointerEvents:"none",zIndex:5,
-                animation:reducedMotion ? "none" : "clapperIn 1.4s ease both",transform:"translateX(-50%)"}}>
-              <div style={{...YELLOW_STICKER_TEXT,fontSize:30,textTransform:"uppercase"}}>Level {levelUp.lv}</div>
-              <div style={{...WHITE_STICKER_TEXT,fontSize:13,textTransform:"uppercase",marginTop:4}}>
-                {levelUp.lv === 3 ? "Faster! Pieces start drifting" : "Faster!"}
+            <div key={levelUp.key} role="status" aria-label="Speeding up" style={{position:"absolute",inset:0,pointerEvents:"none",zIndex:5}}>
+              {!reducedMotion && (
+                <div style={{position:"absolute",inset:"-20%",
+                  background:"repeating-conic-gradient(from 0deg at 50% 50%, rgba(255,255,255,0) 0deg 3deg, #FFFFFF 3deg 4.6deg, rgba(255,255,255,0) 4.6deg 7deg, #1C1D21 7deg 7.8deg, rgba(255,255,255,0) 7.8deg 11deg, #FFE9A8 11deg 12.2deg)",
+                  WebkitMaskImage:"radial-gradient(circle at 50% 50%, transparent 0 22%, #000 50%)",maskImage:"radial-gradient(circle at 50% 50%, transparent 0 22%, #000 50%)",
+                  animation:"speedLines 0.9s ease-out both"}}/>
+              )}
+              <div style={{position:"absolute",left:"50%",top:"38%",width:120,height:120,marginLeft:-60,marginTop:-60,animation:reducedMotion ? "none" : "speedSymbol 1.1s ease both"}}>
+                <svg viewBox="0 0 120 120" width="120" height="120" aria-hidden="true">
+                  <circle cx="60" cy="60" r="54" fill="#E4444F" stroke="#1C1D21" strokeWidth="5"/>
+                  <path d="M28 34 L60 60 L28 86 Z M60 34 L92 60 L60 86 Z" fill="#FFD84D" stroke="#1C1D21" strokeWidth="5" strokeLinejoin="round"/>
+                </svg>
               </div>
             </div>
           )}

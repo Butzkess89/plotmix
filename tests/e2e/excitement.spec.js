@@ -388,13 +388,15 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
     await fixRandomOnLoad(page, 0.1)
     await startGame(page)
     await holdBoxUnderFirst(page, 'Popcorn')
-    await expect(page.getByLabel('Level 1')).toBeVisible()
-    await expect(page.getByLabel('Level 2')).toBeVisible({ timeout: 7_000 })
-    await expect(page.getByLabel('Level up: 2')).toContainText('Faster!') // each new level is announced
+    await expect(page.getByLabel('Speed 1')).toBeVisible()
+    await expect(page.getByLabel('Speed 2')).toBeVisible({ timeout: 7_000 })
+    // Each speed-up is shown with a fast-forward symbol, speed lines and a shake; no "levels" wording.
+    await expect(page.getByRole('status', { name: 'Speeding up' })).toBeAttached()
+    await expect(page.getByText(/level/i)).toHaveCount(0)
     await expect(page.getByLabel('Lives: 3')).toBeVisible()
     await fixRandom(page, 0.7) // from now on only bad pieces, all falling in one spot
     await holdBoxUnderFirst(page, BAD)
-    await expect(page.getByLabel('Arcade result')).toContainText('Out of lives on level', { timeout: 20_000 })
+    await expect(page.getByLabel('Arcade result')).toContainText(/Out of lives after \d+ seconds?!/, { timeout: 20_000 })
     // No paying to play again: the only way out is Done, and the play is used up.
     await expect(page.getByRole('button', { name: /play again/i })).toHaveCount(0)
     await page.getByRole('button', { name: 'Done' }).click()
@@ -435,7 +437,7 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
     await startGame(page)
     await expect(page.getByLabel('Time left: 45')).toBeVisible()
     await expect(page.getByLabel('Time left: 40')).toBeVisible({ timeout: 7_000 })
-    await expect(page.getByLabel('Arcade result')).toContainText("Time's up!", { timeout: 45_000 })
+    await expect(page.getByLabel('Arcade result')).toContainText("Time's up! You lasted all 45 seconds.", { timeout: 45_000 })
     await expect(page.getByLabel('Lives: 3')).toBeVisible()
   })
 
