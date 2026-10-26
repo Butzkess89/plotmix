@@ -2056,9 +2056,9 @@ const YELLOW_STICKER_TEXT = {
   fontWeight: 400,
   WebkitTextStroke: "1px #000000",
   paintOrder: "stroke fill",
-  // A hairline white rim outside the black stroke so orange text stands out on the purple
-  // checkerboard (owner request 2026-10-26).
-  textShadow: "0 2px 0 #000000, 0.75px 0.75px 0 #FFFFFF, -0.75px -0.75px 0 #FFFFFF, 0.75px -0.75px 0 #FFFFFF, -0.75px 0.75px 0 #FFFFFF",
+  // A slightly heavier black rim so orange text stands out on the purple checkerboard
+  // (owner request 2026-10-26; a white rim was tried first and read worse).
+  textShadow: "0 2px 0 #000000, 1px 1px 0 #000000, -1px -1px 0 #000000, 1px -1px 0 #000000, -1px 1px 0 #000000",
 };
 
 const WHITE_STICKER_TEXT = {
