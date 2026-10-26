@@ -3,7 +3,7 @@
 import { test, expect } from '@playwright/test'
 import {
   openMenu, startMode, submitGuess, waitForSave, currentCard, readSaves, pointsCounter,
-  resumeStandardWithCards, readDeck,
+  resumeStandardWithCards, readDeck, continueToCard,
 } from './helpers.js'
 
 // One made-up word: not a film title and not a word in any mashed title, so it costs exactly 1 point.
@@ -161,11 +161,7 @@ test.describe('A2: the OS "reduce motion" setting is respected', () => {
     for (let i = 0; i < 6; i++) {
       await submitGuess(page, deck.find((c) => c.id === ids[i]).mashedTitle)
       await expect(page.getByRole('button', { name: 'Next', exact: true })).toBeVisible()
-      await page.waitForTimeout(300) // the 5-in-a-row offer, if any, comes with the result
-      const offer = page.getByRole('button', { name: 'Continue to the next PlotMix' })
-      if (await offer.isVisible()) await offer.click()
-      else await page.getByRole('button', { name: 'Next', exact: true }).click()
-      await waitForSave(page, 'standard', (x) => x.cardIdx === i + 1)
+      await continueToCard(page, 'standard', i + 1)
       await page.waitForTimeout(1_500)
     }
     const changes = await page.evaluate(() => window.__changes)

@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-  openMenu, startMode, submitGuess, guessInput, currentCard, pinDailyDate, resumeStandardWithCards, waitForSave, readDeck,
+  openMenu, startMode, submitGuess, guessInput, currentCard, pinDailyDate, resumeStandardWithCards, waitForSave, readDeck, continueToCard,
 } from './helpers.js'
 
 const nextButton = (page) => page.getByRole('button', { name: 'Next' })
@@ -159,11 +159,13 @@ test.describe('Gold Lamé curtains: 3 perfect Dailies in a row, or one perfect r
       await submitGuess(page, card.mashedTitle)
       const go = page.getByRole('button', { name: /^(Next|Finish|Continue to the next PlotMix)$/ })
       await expect(go.first()).toBeVisible()
-      await page.waitForTimeout(300) // the 5-in-a-row offer, if any, appears with the result
-      const offer = page.getByRole('button', { name: 'Continue to the next PlotMix' })
-      if (await offer.isVisible()) await offer.click()
-      else await page.getByRole('button', { name: /^(Next|Finish)$/ }).click()
-      if (i < ids.length - 1) await waitForSave(page, 'standard', (s) => s.cardIdx === i + 1)
+      if (i < ids.length - 1) await continueToCard(page, 'standard', i + 1)
+      else {
+        await page.waitForTimeout(300) // the 5-in-a-row offer, if any, appears with the result
+        const offer = page.getByRole('button', { name: 'Continue to the next PlotMix' })
+        if (await offer.isVisible()) await offer.click()
+        else await page.getByRole('button', { name: 'Finish' }).click()
+      }
     }
     await expect(page.getByText('The End')).toBeVisible()
   }

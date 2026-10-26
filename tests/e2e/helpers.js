@@ -69,6 +69,20 @@ export async function waitForSave(page, modeId, predicate = () => true) {
   return session
 }
 
+// After a solved card, move on to card `nextIdx`. Every 5 in a row the Popcorn Panic offer
+// box opens with the result, and on slow engines it can open just after Next is tapped, so
+// keep choosing "Continue" or "Next" until the save shows the next card.
+export async function continueToCard(page, modeId, nextIdx) {
+  const offer = page.getByRole('button', { name: 'Continue to the next PlotMix' })
+  const next = page.getByRole('button', { name: /^(Next|Finish)$/ })
+  await expect(async () => {
+    if (((await readSaves(page))[modeId] || {}).cardIdx === nextIdx) return
+    if (await offer.isVisible()) await offer.click({ timeout: 2_000 })
+    else if (await next.isVisible()) await next.click({ timeout: 2_000 })
+    await expect.poll(async () => ((await readSaves(page))[modeId] || {}).cardIdx, { timeout: 2_000 }).toBe(nextIdx)
+  }).toPass({ timeout: 20_000 })
+}
+
 export async function currentCard(page, modeId) {
   const session = await waitForSave(page, modeId)
   return session.deck[session.cardIdx]
