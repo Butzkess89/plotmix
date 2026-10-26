@@ -172,6 +172,7 @@ test.describe('Gold Lamé curtains: 3 perfect Dailies in a row, or one perfect r
     test.setTimeout(240_000)
     await playStandardRun(page)
     await expect(page.getByLabel('Perfect run')).toHaveText('✨ A perfect run: no hints, no mistakes! Gold Lamé curtains unlocked!')
+    await expect(page.getByLabel('Camera flashes')).toBeAttached() // red-carpet flashes (owner request 2026-10-26)
     expect(await won(page)).toContain('perfectDaily3')
   })
 
@@ -179,6 +180,7 @@ test.describe('Gold Lamé curtains: 3 perfect Dailies in a row, or one perfect r
     test.setTimeout(240_000)
     await playStandardRun(page, { hintOnCard: 3 })
     await expect(page.getByLabel('Perfect run')).toHaveCount(0)
+    await expect(page.getByLabel('Camera flashes')).toHaveCount(0)
     expect(await won(page)).not.toContain('perfectDaily3')
   })
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef, useCallback, forwardRef, useImperativeHandle, useId } from "react";
+import { useState, useEffect, useMemo, useLayoutEffect, useRef, useCallback, forwardRef, useImperativeHandle, useId } from "react";
 import lottie from "lottie-web";
 
 // 
@@ -1363,6 +1363,10 @@ function uniqueCardsByMoviePair(deck) {
 const DAILY_ROTATION_START = new Date(2026, 10, 1); // 1 November 2026
 const DAILY_ROTATION_SEED = 20261101;
 function localDayNumber(d) { return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000); }
+// The Daily card for a date (themed weeks first, then the fixed rotation); null before the rotation starts.
+function dailyCardFor(sourceDeck, date) {
+  return themedDailyCard(sourceDeck, date) || dailyRotationCard(sourceDeck, date);
+}
 function dailyRotationCard(sourceDeck, date) {
   const dayIndex = localDayNumber(date) - localDayNumber(DAILY_ROTATION_START);
   if (dayIndex < 0 || sourceDeck.length === 0) return null;
@@ -1375,10 +1379,8 @@ function buildDeck(mode) {
   const sourceDeck = uniqueCardsByMoviePair(MASTER_DECK);
   const cap = Math.min(roundCount, sourceDeck.length);
   if (isDaily) {
-    const themedCard = themedDailyCard(sourceDeck, new Date());
-    if (themedCard) return [themedCard].slice(0, cap);
-    const rotationCard = dailyRotationCard(sourceDeck, new Date());
-    if (rotationCard) return [rotationCard].slice(0, cap);
+    const dayCard = dailyCardFor(sourceDeck, new Date());
+    if (dayCard) return [dayCard].slice(0, cap);
     const todayShuffled = shuffleRng(sourceDeck, mulberry32(getDailySeed()));
     if (todayShuffled.length <= 1) return todayShuffled.slice(0, cap);
 
@@ -3149,7 +3151,7 @@ function getResultMessage(both, hintsUsed, guessCount, maxGuesses, skipped=false
 // 
 // ROUND RESULT POPUP — auto-shown the moment a round ends
 // 
-function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, roundScore, cardIdx, totalCards, results=[], isLast, onNext, onMenu, skipped=false, timedOut=false, showSticker=false, stickerSrc=null, stickerDurationMs=2200, onStickerEnded, reducedMotion=false, transitionFamily=TRANSITION_FAMILIES.punchy}) {
+function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, roundScore, bonus=null, onBonus, cardIdx, totalCards, results=[], isLast, onNext, onMenu, skipped=false, timedOut=false, showSticker=false, stickerSrc=null, stickerDurationMs=2200, onStickerEnded, reducedMotion=false, transitionFamily=TRANSITION_FAMILIES.punchy}) {
   const both = found[0] && found[1];
   const won = both;
   const msgRef = useRef(null);
@@ -3444,6 +3446,29 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
               })}
             </div>
           </div>
+
+          {bonus && (
+            <div role="group" aria-label="Which came first?" style={{padding:"10px 16px 12px",borderTop:`1px solid ${T.border}`,background:"rgba(14,10,44,0.6)",textAlign:"center",position:"relative",zIndex:3}}>
+              <div style={{...POPUP_YELLOW_TEXT,fontSize:12,textTransform:"uppercase",marginBottom:8}}>🎞️ Bonus +1: which came out first?</div>
+              <div style={{display:"flex",gap:8}}>
+                {bonus.films.map((f,i)=>{
+                  const a=bonus.answer, picked=a?.pick===i, older=bonus.years[i]<bonus.years[1-i];
+                  return (
+                    <button key={i} onClick={(e)=>{ e.stopPropagation(); onBonus?.(i); }} disabled={!!a} aria-label={`${f} came first`}
+                      style={{flex:1,...BTN.cyan,padding:"8px 6px",cursor:a?"default":"pointer",
+                        background:a ? (older ? "#16A34A" : picked ? "#DC2626" : "#4B4F78") : undefined}}>
+                      <span style={{...WHITE_STICKER_TEXT,fontSize:10.5,textTransform:"uppercase",lineHeight:1.25}}>{f}{a ? ` · ${bonus.years[i]}` : ""}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {bonus.answer && (
+                <div role="status" aria-label="Bonus result" style={{...WHITE_STICKER_TEXT,fontSize:11.5,marginTop:8}}>
+                  {bonus.answer.correct ? "✓ Film buff! +1 point" : "✗ Nope, the other one. No bonus."}
+                </div>
+              )}
+            </div>
+          )}
 
           <div style={{aspectRatio:"402 / 94",marginTop:0,...RESULT_FOOTER_BG,borderTop:`1px solid ${T.border}`,position:"relative"}}>
             <button onClick={()=>setShowConnection(true)} aria-label="The Connection"
@@ -3787,6 +3812,66 @@ function FilmLeaderCountdown({onDone, reducedMotion=false}) {
   );
 }
 
+// Owner request 2026-10-26: a row of cinema-goers along the bottom cheers a solve and groans
+// at a miss; on a cheer someone tosses popcorn at the screen. About 1.7 seconds, never blocks taps.
+function AudienceReaction({mood}) {
+  const cheer = mood === "cheer";
+  const heads = [18, 62, 104, 150, 196, 240, 286, 330, 376];
+  return (
+    <div role="status" aria-label={cheer ? "Audience cheers" : "Audience groans"}
+      style={{position:"fixed",left:0,right:0,bottom:0,height:50,zIndex:290,pointerEvents:"none",animation:"audienceIn 1.7s ease both"}}>
+      <div style={{position:"absolute",left:"50%",bottom:44,transform:"translateX(-50%)",whiteSpace:"nowrap",padding:"3px 10px",borderRadius:10,background:"rgba(14,10,44,0.8)",...WHITE_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>
+        {cheer ? "👏 Woo-hoo!" : "😩 Awww…"}
+      </div>
+      <svg viewBox="0 0 402 74" width="100%" height="50" preserveAspectRatio="none" aria-hidden="true" style={{position:"absolute",left:0,bottom:0}}>
+        {heads.map((x, i) => (
+          <g key={i} style={{transformBox:"fill-box",transformOrigin:"50% 100%",animation:`${cheer ? "audienceCheer 0.7s ease-in-out 2" : "audienceGroan 0.5s ease-out both"}`,animationDelay:`${(i % 3) * 0.08}s`}}>
+            <circle cx={x} cy={32 + (i % 2) * 4} r="13" fill="#140E2C"/>
+            <path d={`M${x - 22} 74 Q${x - 20} ${46 + (i % 2) * 4} ${x} ${46 + (i % 2) * 4} Q${x + 20} ${46 + (i % 2) * 4} ${x + 22} 74 Z`} fill="#140E2C"/>
+            {cheer && i % 3 === 1 && <path d={`M${x - 14} 44 L${x - 24} 20 M${x + 14} 44 L${x + 24} 20`} stroke="#140E2C" strokeWidth="6" strokeLinecap="round"/>}
+          </g>
+        ))}
+        <rect x="0" y="60" width="402" height="14" fill="#8E0F1F"/>
+        {heads.map((x, i) => <rect key={i} x={x - 20} y="56" width="40" height="18" rx="5" fill="#B3192C" stroke="#5E0A14" strokeWidth="1.5"/>)}
+      </svg>
+      {cheer && (
+        <div style={{position:"absolute",left:"62%",bottom:40,width:26,height:26,animation:"popcornToss 1.2s ease-out 0.25s both"}}>
+          <ArcadeItemArt kind="popcorn" variant={1}/>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Owner request 2026-10-26: sit idle too long and the usher's flashlight sweeps across.
+const USHER_IDLE_MS = 30000;
+function Usher() {
+  return (
+    <div role="status" aria-label="Usher" style={{position:"fixed",inset:0,zIndex:320,pointerEvents:"none",overflow:"hidden",animation:"usherDim 3.2s ease both"}}>
+      <div style={{position:"absolute",inset:0,background:"rgba(6,4,18,0.55)"}}/>
+      <div style={{position:"absolute",left:"50%",top:"38%",width:260,height:260,marginLeft:-130,marginTop:-130,borderRadius:"50%",
+        background:"radial-gradient(circle, rgba(255,244,190,0.55) 0%, rgba(255,244,190,0.22) 45%, rgba(255,244,190,0) 70%)",animation:"usherSweep 3.2s ease-in-out both"}}/>
+      <div style={{position:"absolute",left:"50%",bottom:"22%",transform:"translateX(-50%)",whiteSpace:"nowrap",padding:"10px 16px",borderRadius:12,background:"rgba(14,10,44,0.85)",border:"2px solid #1C1D21",...WHITE_STICKER_TEXT,fontSize:13}}>
+        🔦 Psst… the film's started.
+      </div>
+    </div>
+  );
+}
+
+// Owner request 2026-10-26: paparazzi flashes on the end screen after a perfect run.
+function CameraFlashes() {
+  const spots = [[12, 18], [82, 12], [30, 34], [70, 30], [8, 58], [90, 52], [22, 80], [78, 76], [50, 8], [55, 64]];
+  return (
+    <div aria-label="Camera flashes" role="img" style={{position:"fixed",inset:0,zIndex:730,pointerEvents:"none"}}>
+      {spots.map(([x, y], i) => (
+        <div key={i} style={{position:"absolute",left:`${x}%`,top:`${y}%`,width:90,height:90,opacity:0,
+          background:"radial-gradient(circle, #FFFFFF 0%, rgba(255,255,255,0.85) 12%, rgba(255,250,220,0.35) 32%, rgba(255,255,255,0) 62%)",
+          animation:`flashPop 1.6s ease-out ${(i * 0.37) % 1.6}s 3`}}/>
+      ))}
+    </div>
+  );
+}
+
 // Between cards: an old film-leader countdown, "5, 4, blip!" (owner request 2026-10-25).
 const LEADER_BLIP_MS = 1300;
 function LeaderBlip() {
@@ -3883,6 +3968,16 @@ function BadgeToast({badges}) {
 }
 
 const CINEMA_KEYFRAMES = `
+  @keyframes audienceIn { 0%{transform:translateY(100%)} 14%{transform:translateY(0)} 84%{transform:translateY(0)} 100%{transform:translateY(100%)} }
+  @keyframes audienceCheer { 0%,100%{transform:translateY(0)} 30%{transform:translateY(-12px)} 60%{transform:translateY(0)} 80%{transform:translateY(-6px)} }
+  @keyframes audienceGroan { 0%{transform:translateY(0)} 40%,100%{transform:translateY(7px) rotate(-4deg)} }
+  @keyframes popcornToss { 0%{opacity:0; transform:translate(0,0) rotate(0)} 10%{opacity:1} 100%{opacity:0; transform:translate(-60px,-260px) rotate(540deg)} }
+  @keyframes usherDim { 0%,100%{opacity:0} 12%,85%{opacity:1} }
+  @keyframes usherSweep { 0%{transform:translateX(-40vw)} 50%{transform:translateX(40vw)} 100%{transform:translateX(-10vw)} }
+  @keyframes flashPop { 0%{opacity:0; transform:translate(-50%,-50%) scale(0.3)} 8%{opacity:1; transform:translate(-50%,-50%) scale(1)} 26%,100%{opacity:0; transform:translate(-50%,-50%) scale(1.2)} }
+  @keyframes spoilerTear { 0%{transform:rotate(-6deg)} 25%{transform:rotate(-6deg) translateX(4px)} 100%{opacity:0; transform:translate(130%,-24px) rotate(18deg)} }
+  @keyframes spoilerTearL { 0%{transform:rotate(5deg)} 25%{transform:rotate(5deg) translateX(-4px)} 100%{opacity:0; transform:translate(-130%,-18px) rotate(-16deg)} }
+  @keyframes postCreditsIn { from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:translateY(0)} }
   @keyframes boomBurst { 0%{opacity:1; transform:translate(-50%,-50%) scale(0.25)} 60%{opacity:1} 100%{opacity:0; transform:translate(-50%,-50%) scale(1.5)} }
   @keyframes boomSpark { 0%{opacity:1; transform:translate(-50%,-50%)} 100%{opacity:0; transform:translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0.3)} }
   @keyframes laserBeam { 0%{opacity:1; transform:scaleX(1.6)} 100%{opacity:0; transform:scaleX(0.4)} }
@@ -4984,6 +5079,17 @@ function HintsModal({card, hintsRevealed, guessesLeft, onReveal, onClose, hintAn
           {!actorsRevealed && (
             <div style={{position:"absolute",inset:0,background:"repeating-linear-gradient(130deg,#0b0a16 0 9px,#201d38 9px 18px)",opacity:0.9,pointerEvents:"none"}}/>
           )}
+          {/* Owner request 2026-10-26: "SPOILER" tape rips off the Lead Actors as they're revealed. */}
+          {actorsRevealed && recentlyUnlocked===HINT_TIERS[1].id && !reducedMotion && (
+            <div data-spoiler-tape="" aria-hidden="true" style={{position:"absolute",inset:0,zIndex:2,pointerEvents:"none"}}>
+              {[["8%","spoilerTear"],["46%","spoilerTearL"]].map(([top,anim])=>(
+                <div key={anim} style={{position:"absolute",left:-16,right:-16,top,height:15,display:"flex",alignItems:"center",justifyContent:"center",gap:10,
+                  background:"#FFD84D",borderTop:"2px solid #1C1D21",borderBottom:"2px solid #1C1D21",animation:`${anim} 0.55s ease-in both`}}>
+                  {[0,1,2].map(k=><span key={k} style={{fontFamily:FONT_FIGMA_STICKER,fontSize:8.5,color:"#1C1D21",letterSpacing:"0.08em"}}>SPOILER</span>)}
+                </div>
+              ))}
+            </div>
+          )}
           <span style={{position:"relative",zIndex:1,fontFamily:FONT_FIGMA_STICKER,fontSize:14,color:T.textPrimary,textDecoration:actorsRevealed&&f?"underline":"none",animation:!reducedMotion && actorsRevealed && recentlyUnlocked===HINT_TIERS[1].id ? "tapePeelReveal 0.45s ease" : "none",display:"inline-block"}}>
             {actorsRevealed&&f ? f.actors[0].toUpperCase() : "?????"}
           </span>
@@ -5125,6 +5231,9 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   const speedrunRafRef=useRef(null);
   // Cinema extras: Speed Run countdown, clapperboard takes, popcorn meter, badges, Daily curtains.
   const [countingDown,setCountingDown]=useState(()=>!!mode.timeLimit && !initialState);
+  const [whichFirst,setWhichFirst]=useState(null); // "Which came first?" bonus answer: {pick, correct}
+  const [audience,setAudience]=useState(null);     // {key, mood: "cheer"|"groan"}
+  const [usher,setUsher]=useState(null);
   const [clapper,setClapper]=useState(null);
   const clapperTimerRef=useRef(null);
   const [popKey,setPopKey]=useState(0);
@@ -5438,7 +5547,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     if(resultAppliedRef.current) return;
     resultAppliedRef.current=true;
     if(skipped){
-      const skipResult={card,found:[false,false],solved:false,guesses:guesses.length,hints:hintsRevealed.length,guessList:[...guesses],hintList:[...hintsRevealed],pts:0,reward:currentReward,skipped:true};
+      const skipResult={card,found:[false,false],solved:false,guesses:guesses.length,wrongList:guesses.filter((g,i)=>guessStates[i]==="miss"),hints:hintsRevealed.length,guessList:[...guesses],hintList:[...hintsRevealed],pts:0,reward:currentReward,skipped:true};
       const nextResults = upsertRoundResult(results, cardIdx, skipResult);
       if(isLast||lives<=0){
         clearSession(mode.id);
@@ -5449,13 +5558,13 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       runCardSwap(() => {
         setResults(nextResults);
         setCardIdx(idx=>idx+1);
-        setGuesses([]); setHintsRevealed([]); setFreeHints([]); setPeek(false);
+        setGuesses([]); setHintsRevealed([]); setFreeHints([]); setPeek(false); setWhichFirst(null);
         setPerfectSolveStreak(0);
         setSkipped(false); setPhase("playing");
       });
       return;
     }
-    const pts=calcScore(both,currentReward);
+    const pts=calcScore(both,currentReward)+bonusPts;
     const lostCard = !both;
     const livesAfterLoss = Math.max(0, lives - (lostCard ? 1 : 0));
     if (lostCard) {
@@ -5475,7 +5584,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     setStreak(newStreak);
     const newTotal=totalScore+pts;
     setTotalScore(newTotal);
-    const roundResult={card,found:effectiveFound,solved:both,guesses:guesses.length,wrong:wrongGuessCount,peek,hints:hintsRevealed.length,guessList:[...guesses],hintList:[...hintsRevealed],pts,reward:currentReward};
+    const roundResult={card,found:effectiveFound,solved:both,guesses:guesses.length,wrong:wrongGuessCount,wrongList:guesses.filter((g,i)=>guessStates[i]==="miss"),peek,bonus:bonusPts,hints:hintsRevealed.length,guessList:[...guesses],hintList:[...hintsRevealed],pts,reward:currentReward};
     const nextResults = upsertRoundResult(results, activeIdx, roundResult);
 
     if (isRewound && activeIdx !== cardIdx) {
@@ -5503,7 +5612,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     runCardSwap(() => {
       setResults(nextResults);
       setCardIdx(idx=>idx+1);
-      setGuesses([]); setHintsRevealed([]); setFreeHints([]); setPeek(false);
+      setGuesses([]); setHintsRevealed([]); setFreeHints([]); setPeek(false); setWhichFirst(null);
       setTimeLeft(mode.timeLimit||0); setTimedOut(false);
       speedrunDeadlineRef.current = null;
       setSkipped(false); setPhase("playing");
@@ -5513,8 +5622,8 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   const handleRevealDone=()=>{ setPhase("intermission"); };
 
   const handleIntermissionNext=()=>{
-    const pts=calcScore(both,currentReward);
-    const roundResult={card,found:effectiveFound,solved:both,guesses:guesses.length,wrong:wrongGuessCount,peek,hints:hintsRevealed.length,guessList:[...guesses],hintList:[...hintsRevealed],pts,reward:currentReward};
+    const pts=calcScore(both,currentReward)+bonusPts;
+    const roundResult={card,found:effectiveFound,solved:both,guesses:guesses.length,wrong:wrongGuessCount,wrongList:guesses.filter((g,i)=>guessStates[i]==="miss"),peek,bonus:bonusPts,hints:hintsRevealed.length,guessList:[...guesses],hintList:[...hintsRevealed],pts,reward:currentReward};
     const nextResults = upsertRoundResult(results, activeIdx, roundResult);
     if(isLast){
       clearSession(mode.id);
@@ -5525,12 +5634,64 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     runCardSwap(() => {
       setResults(nextResults);
       setCardIdx(idx=>idx+1);
-      setGuesses([]); setHintsRevealed([]); setFreeHints([]); setPeek(false);
+      setGuesses([]); setHintsRevealed([]); setFreeHints([]); setPeek(false); setWhichFirst(null);
       setTimeLeft(mode.timeLimit||0); setTimedOut(false);
       speedrunDeadlineRef.current = null;
       setSkipped(false); setPhase("playing");
     });
   };
+
+  // "Which came first?" bonus (owner request 2026-10-26): +1 for naming the older film, offered
+  // only after a solve with no hints or power-ups used at all.
+  const filmYears=(card.hintData?.films||[]).map(f=>Number(f.year));
+  const bonusEligible = both && !viewOnly && !isRewound && hintsRevealed.length===0 && !peek &&
+    filmYears.length===2 && filmYears.every(Boolean) && filmYears[0]!==filmYears[1];
+  const bonusPts = bonusEligible && whichFirst?.correct ? 1 : 0;
+  const handleBonus=(i)=>{
+    if(!bonusEligible||whichFirst) return;
+    const correct = filmYears[i] < filmYears[1-i];
+    setWhichFirst({pick:i, correct});
+    if(correct){ SFX.correct(); buzz(15); } else { SFX.wrong(); }
+  };
+
+  // The audience reacts to each guess: a cheer for the solve, a groan for a miss.
+  const prevGuessCountRef=useRef(guesses.length);
+  useEffect(()=>{
+    const prev=prevGuessCountRef.current;
+    prevGuessCountRef.current=guesses.length;
+    if(guesses.length<=prev||reducedMotion||viewOnly) return;
+    if(both) setAudience({key:Date.now(),mood:"cheer"});
+    else if(guessStates[guesses.length-1]==="miss") setAudience({key:Date.now(),mood:"groan"});
+  },[guesses.length]);
+  useEffect(()=>{
+    if(!audience) return;
+    const id=setTimeout(()=>setAudience(null),1700);
+    return ()=>clearTimeout(id);
+  },[audience]);
+
+  // The usher: no typing or tapping for 30 seconds mid-card brings the flashlight.
+  const lastActivityRef=useRef(Date.now());
+  useEffect(()=>{
+    const bump=()=>{ lastActivityRef.current=Date.now(); };
+    window.addEventListener("keydown",bump); window.addEventListener("pointerdown",bump); window.addEventListener("input",bump,true);
+    return ()=>{ window.removeEventListener("keydown",bump); window.removeEventListener("pointerdown",bump); window.removeEventListener("input",bump,true); };
+  },[]);
+  useEffect(()=>{
+    if(phase!=="playing"||showHints||countingDown||viewOnly) return;
+    lastActivityRef.current=Date.now();
+    const id=setInterval(()=>{
+      if(Date.now()-lastActivityRef.current>=USHER_IDLE_MS && !document.hidden){
+        lastActivityRef.current=Date.now();
+        setUsher({key:Date.now()});
+      }
+    },1000);
+    return ()=>clearInterval(id);
+  },[phase,showHints,countingDown,viewOnly,cardIdx]);
+  useEffect(()=>{
+    if(!usher) return;
+    const id=setTimeout(()=>setUsher(null),3200);
+    return ()=>clearTimeout(id);
+  },[usher]);
 
   const roundScore=calcScore(both,currentReward);
   const showFooterBar = !showingResult && (!both || canReturnToCurrent);
@@ -5733,6 +5894,8 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       {/* Card change (owner request 2026-10-25): a quick old film-leader countdown,
           "5, 4, blip!", then the next card. About 1.3 seconds, and it never blocks typing. */}
       {!!genreTransition && <LeaderBlip key={`leader-${genreTransition.nonce}`}/>}
+      {audience && <AudienceReaction key={audience.key} mood={audience.mood}/>}
+      {usher && <Usher key={usher.key}/>}
 
       {/*  AUTO POPUP when round ends (never while rewinding/view-only)  */}
       {showingResult&&(
@@ -5742,7 +5905,9 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
           guessCount={guesses.length}
           hintCount={hintCount}
           maxGuesses={mode.maxGuesses}
-          roundScore={roundScore}
+          roundScore={roundScore+bonusPts}
+          bonus={bonusEligible ? {films:card.movies, years:filmYears, answer:whichFirst} : null}
+          onBonus={handleBonus}
           cardIdx={cardIdx}
           totalCards={deck.length}
           results={results}
@@ -6057,11 +6222,19 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,perfectRun=false,g
   const filmsFound = results.reduce((n,r)=>n+(isRoundSolved(r)?2:(r.found||[]).filter(Boolean).length),0);
   const takes = results.reduce((n,r)=>n+(r.guesses||0),0);
   const hintsUsed = results.reduce((n,r)=>n+(r.hints||0),0);
+  const bloopers = results.flatMap(r=>r?.wrongList||[]).filter(g=>String(g).trim()).slice(0,4);
+  // Post-credits scene (owner request 2026-10-26): a teaser for tomorrow's Daily, after the credits.
+  const [postCredits,setPostCredits]=useState(reducedMotion);
+  useEffect(()=>{ if(reducedMotion) return; const id=setTimeout(()=>setPostCredits(true),6000); return ()=>clearTimeout(id); },[reducedMotion]);
+  const tomorrowCard = useMemo(()=>{ const d=new Date(); d.setDate(d.getDate()+1); return dailyCardFor(uniqueCardsByMoviePair(MASTER_DECK), d); },[]);
+  const teaserGenres = (tomorrowCard?.hintData?.films||[]).map(f=>String(f.genre||"").split(/[,/]/)[0].trim()).filter(Boolean);
   const credits = [
     ["", "A PlotMix Production"],
     ["Starring", "You"],
     ["Films identified", String(filmsFound)],
     ["Takes", String(takes)],
+    // Blooper reel (owner request 2026-10-26): the run's wrong guesses, played back.
+    ...(bloopers.length ? bloopers.map((g,i)=>[i===0?"Blooper reel":"", `“${g}”`]) : [["Blooper reel","Empty. Not one bad take."]]),
     ["Hints supplied by", hintsUsed>0 ? "Your Wallet of Points" : "Nobody. You did it alone."],
     ["Catering", "One Large Popcorn"],
     ["Best Boy", "Still Unsure What That Is"],
@@ -6076,6 +6249,7 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,perfectRun=false,g
   return (
     <div style={{position:"absolute",inset:0,zIndex:700,overflowY:"auto",...CHECKER_BG,backgroundColor:T.bg,color:T.textOnDark,animation:"fadeIn 0.5s ease"}}>
       <CurtainReveal zIndex={720} reducedMotion={reducedMotion}/>
+      {perfectRun && !reducedMotion && <CameraFlashes/>}
       <div style={{width:"min(402px, 100vw)",minHeight:"100dvh",margin:"0 auto",padding:"14px 0 24px",boxSizing:"border-box"}}>
       <div style={{width:"100%",minHeight:"calc(100dvh - 38px)",...WIN_RESULT_BG,backgroundColor:T.bgDeep,border:`2px solid ${T.border}`,borderRadius:20,boxShadow:T.shadowLg,padding:"56px 22px 24px",textAlign:"center",boxSizing:"border-box",display:"flex",flexDirection:"column",position:"relative"}}>
 
@@ -6195,6 +6369,17 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,perfectRun=false,g
             ))}
           </div>
         </div>
+
+        {postCredits && (
+          <div role="status" aria-label="Post-credits scene" style={{marginTop:-6,marginBottom:16,padding:"10px 12px",borderRadius:12,background:"rgba(14,10,44,0.55)",border:"1px dashed rgba(255,255,255,0.35)",animation:reducedMotion?"none":"postCreditsIn 0.6s ease both"}}>
+            <div style={{fontSize:10,letterSpacing:"0.12em",textTransform:"uppercase",color:"rgba(255,255,255,0.65)",fontFamily:"'Outfit',sans-serif"}}>🎬 Post-credits scene</div>
+            <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:13,color:"#fff",marginTop:4}}>
+              {teaserGenres.length===2
+                ? `Coming tomorrow: a ${teaserGenres[0]} + ${teaserGenres[1]} mashup. Same time, same theatre.`
+                : "Coming tomorrow: a brand-new Daily mashup. Same time, same theatre."}
+            </div>
+          </div>
+        )}
 
         <button onClick={handleShare} style={{...BTN.cyan,width:"100%",padding:"16px 0",marginBottom:18}}>
           <span style={{...WHITE_STICKER_TEXT,fontSize:"clamp(18px, 5.2vw, 24px)",lineHeight:1.02,letterSpacing:"0.03em",textTransform:"uppercase"}}>{canNativeShare?"Share":(copied?"Copied ✓":"Copy")}</span>
