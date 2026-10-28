@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useLayoutEffect, useRef, useCallback, forwardRef, useImperativeHandle, useId } from "react";
-import lottie from "lottie-web";
+// The light player has no expression engine, so it never needs eval (keeps the CSP strict).
+import lottie from "lottie-web/build/player/lottie_light";
 
 // 
 // MASTER DECK

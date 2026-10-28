@@ -365,7 +365,14 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
   })
 
   test('pieces look like popcorn, burnt popcorn, unpopped kernels and chocolate candies', async ({ page }) => {
-    await seedRandom(page)
+    // Every random draw lands on one of the four kinds (0.1/0.2 popcorn, 0.6/0.65 burnt,
+    // 0.78/0.8 kernel, 0.955 candy). A cycle of 7 keeps all four coming whatever else
+    // uses random numbers, so the test never depends on a lucky seed.
+    await page.addInitScript(() => {
+      const cycle = [0.1, 0.6, 0.8, 0.955, 0.2, 0.65, 0.78]
+      let i = 0
+      Math.random = () => cycle[i++ % cycle.length]
+    })
     await startGame(page)
     for (const name of ['Popcorn', 'Burnt popcorn', 'Unpopped kernel', 'Chocolate candy']) {
       await expect(piece(page, name)).toBeAttached({ timeout: 20_000 })
