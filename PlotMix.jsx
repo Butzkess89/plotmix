@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useLayoutEffect, useRef, useCallback, forwardRef, useImperativeHandle, useId } from "react";
-import lottie from "lottie-web";
+// The light player has no expression engine, so it never needs eval (keeps the CSP strict).
+import lottie from "lottie-web/build/player/lottie_light";
 
 // 
 // MASTER DECK
@@ -2504,6 +2505,33 @@ function ChromaKeyVideo({
 // Paths/masks copied exactly from source, not redrawn. useId() keeps mask refs
 // collision-free across repeated renders of the same icon.
 // 
+// Home: a little cinema (owner request 2026-10-28), drawn in code so it stays crisp.
+function IconCinema({size=24}) {
+  const ink="#3B2416";
+  return (
+    <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true" style={{display:"block",flexShrink:0}}>
+      {/* clapperboard and popcorn on the roof */}
+      <rect x="24" y="15" width="16" height="11" rx="1.5" fill="#6B6E78" stroke={ink} strokeWidth="2"/>
+      <path d="M24 19h16" stroke={ink} strokeWidth="1.5"/>
+      <path d="M27 15.5l2 3.5M31 15.5l2 3.5M35 15.5l2 3.5" stroke="#E6E6EA" strokeWidth="1.6"/>
+      <path d="M38 12h11l-2 15h-7z" fill="#E8262C" stroke={ink} strokeWidth="2" strokeLinejoin="round"/>
+      <path d="M41.5 13v13M45 13v13" stroke="#fff" strokeWidth="1.3"/>
+      <path d="M37.5 12.5c-1-3 2-4.5 3.5-3 0-2.5 3.5-3 4.5-1 1.5-1.8 4.5-.8 4 1.8 1.5.6 1.3 2.2.5 2.4z" fill="#FFE7A3" stroke={ink} strokeWidth="1.8" strokeLinejoin="round"/>
+      {/* building */}
+      <rect x="12" y="23" width="40" height="34" rx="3" fill="#BFE9FF" stroke={ink} strokeWidth="2.2"/>
+      <rect x="7" y="29" width="50" height="7" fill="#2B9BEA" stroke={ink} strokeWidth="2"/>
+      <rect x="13" y="26" width="38" height="13" rx="4" fill="#FFCB5C" stroke={ink} strokeWidth="2.2"/>
+      <text x="32" y="35.6" textAnchor="middle" fontFamily="'Outfit',sans-serif" fontWeight="800" fontSize="8" letterSpacing="0.6" fill={ink}>CINEMA</text>
+      {/* doors */}
+      <rect x="21" y="42" width="22" height="2.6" fill="#E8262C" stroke={ink} strokeWidth="1.6"/>
+      <rect x="23" y="44.6" width="18" height="12.4" fill="#4A73E0" stroke={ink} strokeWidth="1.8"/>
+      <path d="M32 44.6v12.4" stroke={ink} strokeWidth="1.6"/>
+      <path d="M25 52l4-5M34 52l4-5" stroke="#B9CCFF" strokeWidth="1.4" strokeLinecap="round"/>
+      <rect x="8" y="56" width="48" height="3.4" fill="#E8262C" stroke={ink} strokeWidth="1.8"/>
+    </svg>
+  );
+}
+
 function IconStar({size=21}) {
   return (
     <svg width={size} height={size*(21/21)} viewBox="156 77 22 22" xmlns="http://www.w3.org/2000/svg">
@@ -4335,7 +4363,7 @@ const CINEMA_KEYFRAMES = `
   @keyframes tileFlip { 0%{transform:rotateX(90deg) scale(0.9)} 60%{transform:rotateX(-12deg) scale(1.06)} 100%{transform:rotateX(0) scale(1)} }
   @keyframes itemSpin { from{transform:rotate(var(--r0))} to{transform:rotate(var(--r1))} }
   @keyframes kernelArc { 0%{transform:translateY(0) scale(0.5);opacity:0} 10%{opacity:1} 50%{transform:translateY(-46vh) scale(1)} 90%{opacity:1} 100%{transform:translateY(-6vh) scale(0.9);opacity:0} }
-  @keyframes creditsRoll { from{transform:translateY(118px)} to{transform:translateY(-100%)} }
+  @keyframes creditsRoll { from{transform:translateY(160px)} to{transform:translateY(-100%)} }
 `;
 
 //
@@ -6431,7 +6459,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
               <div style={{fontSize:38,marginBottom:8}}>{m.emoji}</div>
               <div style={{...YELLOW_STICKER_TEXT,fontSize:15,textTransform:"uppercase",marginBottom:10,lineHeight:1.45}}>{m.headline}</div>
               <p style={{margin:"0 0 22px",fontFamily:"'Outfit',sans-serif",fontSize:14,color:"rgba(255,255,255,0.9)",lineHeight:1.6}}>{m.sub}</p>
-              <button onClick={()=>{clearSession(mode.id);onQuit();}} style={{...BTN.primary,width:"100%",padding:"14px 0"}}>Home</button>
+              <button onClick={()=>{clearSession(mode.id);onQuit();}} style={{...BTN.primary,width:"100%",padding:"14px 0",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}><IconCinema size={24}/>Home</button>
             </div>
           </div>
         );
@@ -6677,12 +6705,19 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,perfectRun=false,g
     }
   };
 
+  // Each fact appears once (owner request 2026-10-28). The Daily is one card with no Skip,
+  // so its 🔥 tile is the Daily streak in days instead of a "best run" that copies ✓.
+  const dailySt = mode.isDaily ? loadDailyStreak() : null;
+  const fireIcon = <span style={{fontSize:13,lineHeight:1,display:"inline-block",transform:"translateY(0.5px)"}}>🔥</span>;
   const chips=[
-    {icon:<IconCheck size={12} color="#005242"/>, bg:"#6AE89D", value:correct},
-    {icon:<IconXMark size={11} color="#5E0311"/>, bg:"#F08D87", value:missed},
-    {icon:<IconSkip size={13} color="#fff"/>, bg:T.orange, value:skippedCount},
-    {icon:<span style={{fontSize:13,lineHeight:1,display:"inline-block",transform:"translateY(0.5px)"}}>🔥</span>, bg:"linear-gradient(135deg,#FF4A18,#FFCB2E,#FCEF25)", value:displayStreakValue},
-    {icon:<IconStar size={13}/>, bg:T.surfaceRaised, value:totalScore.toLocaleString()},
+    {icon:<IconCheck size={12} color="#005242"/>, bg:"#6AE89D", value:correct, info:`Solved: ${correct}`},
+    {icon:<IconXMark size={11} color="#5E0311"/>, bg:"#F08D87", value:missed, info:`Missed: ${missed}`},
+    ...(mode.isDaily ? [] : [{icon:<IconSkip size={13} color="#fff"/>, bg:T.orange, value:skippedCount, info:`Skipped: ${skippedCount}`}]),
+    dailySt
+      ? {icon:fireIcon, bg:"linear-gradient(135deg,#FF4A18,#FFCB2E,#FCEF25)", value:dailySt.count,
+         info:`Daily streak: ${dailySt.count} day${dailySt.count===1?"":"s"}${dailySt.saverDay===localDayNumber(new Date())?" · 🧊 streak saver covered a missed day":""}`}
+      : {icon:fireIcon, bg:"linear-gradient(135deg,#FF4A18,#FFCB2E,#FCEF25)", value:displayStreakValue, info:`Best run in a row: ${displayStreakValue}`},
+    {icon:<IconStar size={13}/>, bg:T.surfaceRaised, value:totalScore.toLocaleString(), info:`Total score: ${totalScore.toLocaleString()}`},
   ];
   const totalCards = Math.max(1, results.length);
   const correctRatio = correct / totalCards;
@@ -6704,8 +6739,10 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,perfectRun=false,g
   });
   const ownedBadges = loadBadges();
   const [canInstall,setCanInstall]=useState(()=>!!deferredInstallPrompt && mode.isDaily && correct===results.length && results.length>0);
-  const [badgeInfo,setBadgeInfo]=useState(()=>runBadges[0]||null);
-  const shownBadge = BADGES.find(b=>b.id===badgeInfo);
+  // End screen is symbols only (owner request 2026-10-28: "TMI"); tapping a symbol, tile
+  // or badge shows what it is in one line below the shelf. Tapping it again hides it.
+  const [info,setInfo]=useState(null);
+  const toggleInfo=(key)=>setInfo(k=>k===key?null:key);
   const filmsFound = results.reduce((n,r)=>n+(isRoundSolved(r)?2:(r.found||[]).filter(Boolean).length),0);
   const takes = results.reduce((n,r)=>n+(r.guesses||0),0);
   const hintsUsed = results.reduce((n,r)=>n+(r.hints||0),0);
@@ -6715,6 +6752,42 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,perfectRun=false,g
   useEffect(()=>{ if(reducedMotion) return; const id=setTimeout(()=>setPostCredits(true),6000); return ()=>clearTimeout(id); },[reducedMotion]);
   const tomorrowCard = useMemo(()=>{ const d=new Date(); d.setDate(d.getDate()+1); return dailyCardFor(uniqueCardsByMoviePair(MASTER_DECK), d); },[]);
   const teaserGenres = (tomorrowCard?.hintData?.films||[]).map(f=>String(f.genre||"").split(/[,/]/)[0].trim()).filter(Boolean);
+  const today = localDayNumber(new Date());
+  // Only what the tiles and badges don't already show, each with its own symbol
+  // (🍿 and 🎬 belong to badges, 🔥 to the tiles).
+  const statusSymbols = (()=>{
+    const list=[];
+    const passes=arcadePasses();
+    if(passes>0) list.push({id:"stubs", icon:"🕹️", value:passes, label:`${passes} Popcorn Panic play${passes===1?"":"s"} saved`});
+    const gold = loadPrizes();
+    const goldToday = goldWon || gold.goldJustWon===today;
+    if(perfectRun) list.push({id:"perfect", icon:goldWon?"🏆":"✨", value:"", isNew:true,
+      label: goldWon ? "A perfect run: no hints, no mistakes! Gold Lamé curtains unlocked!" : "A perfect run: no hints, no mistakes!"});
+    else if(mode.isDaily && goldToday) list.push({id:"gold", icon:"🏆", value:"", isNew:true,
+      label:"3 perfect Dailies in a row: Gold Lamé curtains unlocked!"});
+    else if(mode.isDaily && !gold.won.includes("perfectDaily3")){
+      const pd=loadPerfectDaily();
+      list.push({id:"perfectDailies", icon:"🏅", value:`${pd.lastDay===today?pd.count:0}/${PERFECT_DAILY_FOR_GOLD}`,
+        label:`Perfect Dailies in a row: ${pd.lastDay===today?pd.count:0} of ${PERFECT_DAILY_FOR_GOLD} (no wrong guesses) for the Gold Lamé curtains`});
+    }
+    // Post-credits scene: a ticket for tomorrow pops in after the credits; tap it for the teaser.
+    // Always names the Daily Challenge, since it also shows after Standard and Speed Run.
+    if(postCredits) list.push({id:"postCredits", icon:"🎟️", value:"", isNew:true, name:"Post-credits scene",
+      label: teaserGenres.length===2
+        ? `Tomorrow's Daily Challenge: a ${teaserGenres[0]} + ${teaserGenres[1]} mashup. Same time, same theatre.`
+        : "Tomorrow's Daily Challenge: a brand-new mashup. Same time, same theatre."});
+    return list;
+  })();
+  const infoText = (()=>{
+    if(!info) return null;
+    const [kind,id]=info.split(":");
+    if(kind==="stat") return chips[Number(id)]?.info;
+    if(kind==="badge"){ const b=BADGES.find(x=>x.id===id); return b && <><b>{b.name}</b>: {b.desc}{ownedBadges.includes(b.id)?" ✓":" (not yet)"}</>; }
+    const sym=statusSymbols.find(x=>x.id===id);
+    return sym && (sym.name ? <><b>{sym.name}</b>: {sym.label}</> : sym.label);
+  })();
+  const CREDITS_H = 160; // keep in step with the creditsRoll keyframe's start
+  const CREDITS_FADE = "linear-gradient(to bottom, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%)";
   const credits = [
     ["", "A PlotMix Production"],
     ["Starring", "You"],
@@ -6765,10 +6838,11 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,perfectRun=false,g
         {/* Stat chip row */}
         <div style={{display:"flex",justifyContent:"center",gap:6,marginBottom:24,flexWrap:"nowrap"}}>
           {chips.map((c,i)=>(
-            <div key={i} style={{background:c.bg,border:`1.5px solid ${T.border}`,borderRadius:10,boxShadow:"0 3px 0 #1C1D21",padding:"12px 0",display:"flex",flexDirection:"column",alignItems:"center",gap:7,flex:"1 1 0",maxWidth:62,minHeight:104,justifyContent:"center",boxSizing:"border-box"}}>
+            <button key={i} onClick={()=>toggleInfo(`stat:${i}`)} aria-label={c.info} aria-pressed={info===`stat:${i}`}
+              style={{background:c.bg,border:`1.5px solid ${T.border}`,borderRadius:10,boxShadow:"0 3px 0 #1C1D21",padding:"12px 0",display:"flex",flexDirection:"column",alignItems:"center",gap:7,flex:"1 1 0",maxWidth:62,minHeight:104,justifyContent:"center",boxSizing:"border-box",cursor:"pointer",outline:info===`stat:${i}`?"2px solid #fff":"none",outlineOffset:2}}>
               <div style={{height:22,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>{c.icon}</div>
               <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:16,color:T.textPrimary,lineHeight:1,display:"inline-block",transform:"translateY(1px)"}}>{c.value}</span>
-            </div>
+            </button>
           ))}
         </div>
 
@@ -6792,7 +6866,7 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,perfectRun=false,g
             const has=ownedBadges.includes(b.id);
             const isNew=runBadges.includes(b.id);
             return (
-              <button key={b.id} onClick={()=>setBadgeInfo(b.id)} aria-label={`Badge: ${b.name}${has?"":" (locked)"}`}
+              <button key={b.id} onClick={()=>toggleInfo(`badge:${b.id}`)} aria-pressed={info===`badge:${b.id}`} aria-label={`Badge: ${b.name}${has?"":" (locked)"}`}
                 style={{width:44,height:44,borderRadius:"50%",padding:0,cursor:"pointer",background:has?"#FFD84D":"rgba(255,255,255,0.12)",border:`2px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,lineHeight:1,position:"relative",
                   filter:has?"none":"grayscale(1)",opacity:has?1:0.5,animation:isNew&&!reducedMotion?"titlePop 0.5s ease 0.9s both":"none"}}>
                 {b.emoji}
@@ -6801,43 +6875,22 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,perfectRun=false,g
             );
           })}
         </div>
-        <div style={{minHeight:18,marginBottom:14,fontFamily:"'Outfit',sans-serif",fontSize:12.5,color:"rgba(255,255,255,0.85)",lineHeight:1.4}}>
-          {shownBadge ? <><b>{shownBadge.name}</b>: {shownBadge.desc}{ownedBadges.includes(shownBadge.id)?" ✓":" (not yet)"}</> : `Badges: ${ownedBadges.length}/${BADGES.length}. Tap one to see how to earn it.`}
+        {/* Status symbols: stubs, Daily streak, perfect run, gold progress, post-credits */}
+        <div style={{display:"flex",justifyContent:"center",gap:8,marginBottom:8,marginTop:6}}>
+          {statusSymbols.map(sym=>(
+            <button key={sym.id} onClick={()=>toggleInfo(`sym:${sym.id}`)} aria-pressed={info===`sym:${sym.id}`}
+              aria-label={sym.name ? `${sym.name}: ${sym.label}` : sym.label}
+              style={{minWidth:44,height:44,borderRadius:22,padding:sym.value!==""?"0 10px":0,cursor:"pointer",background:"rgba(14,10,44,0.45)",border:`2px solid ${info===`sym:${sym.id}`?"#fff":T.border}`,display:"flex",alignItems:"center",justifyContent:"center",gap:4,position:"relative",
+                animation:sym.isNew&&!reducedMotion?"postCreditsIn 0.6s ease both":"none"}}>
+              <span aria-hidden="true" style={{fontSize:19,lineHeight:1}}>{sym.icon}</span>
+              {sym.value!=="" && <span aria-hidden="true" style={{fontFamily:FONT_FIGMA_STICKER,fontSize:12,color:"#fff",lineHeight:1}}>{sym.value}</span>}
+              {sym.isNew&&<span aria-hidden="true" style={{position:"absolute",top:-8,right:-10,padding:"2px 4px",borderRadius:5,background:"#FF4A6E",border:"1.5px solid #1C1D21",fontFamily:FONT_FIGMA_STICKER,fontSize:7,color:"#fff"}}>NEW</span>}
+            </button>
+          ))}
         </div>
-
-        {/* Stubs, Daily streak, install */}
-        <div aria-label="Stubs" style={{fontFamily:"'Outfit',sans-serif",fontSize:12.5,color:"rgba(255,255,255,0.9)",marginBottom:mode.isDaily?6:14}}>
-          🍿 {arcadePasses()} Popcorn Panic play{arcadePasses()===1?"":"s"} saved
+        <div role="status" aria-label="Symbol info" style={{minHeight:18,marginBottom:14,fontFamily:"'Outfit',sans-serif",fontSize:12.5,color:"rgba(255,255,255,0.9)",lineHeight:1.4}}>
+          {infoText}
         </div>
-        {mode.isDaily && (()=>{
-          const st=loadDailyStreak();
-          const today=localDayNumber(new Date());
-          return (
-            <div aria-label="Daily streak" style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:13,color:"#FFD84D",marginBottom:14}}>
-              🔥 Daily streak: {st.count} day{st.count===1?"":"s"}{st.saverDay===today ? " · 🧊 streak saver covered a missed day" : ""}
-            </div>
-          );
-        })()}
-        {perfectRun && (
-          <div aria-label="Perfect run" style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:13,color:"#FFD84D",marginBottom:14}}>
-            {goldWon ? "✨ A perfect run: no hints, no mistakes! Gold Lamé curtains unlocked!" : "✨ A perfect run: no hints, no mistakes!"}
-          </div>
-        )}
-        {mode.isDaily && (()=>{
-          const pd=loadPerfectDaily();
-          const gold=loadPrizes();
-          const today=localDayNumber(new Date());
-          if(gold.won.includes("perfectDaily3")) return (
-            <div aria-label="Gold curtains" style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:13,color:"#FFD84D",marginBottom:14}}>
-              {gold.goldJustWon===today ? "✨ 3 perfect Dailies in a row: Gold Lamé curtains unlocked!" : "✨ Gold Lamé curtains: yours"}
-            </div>
-          );
-          return (
-            <div aria-label="Perfect Dailies in a row" style={{fontFamily:"'Outfit',sans-serif",fontSize:12.5,color:"rgba(255,255,255,0.9)",marginBottom:14}}>
-              🏅 Perfect Dailies in a row: {pd.lastDay===today ? pd.count : 0} of {PERFECT_DAILY_FOR_GOLD} (no wrong guesses) for the Gold Lamé curtains
-            </div>
-          );
-        })()}
         {canInstall && (
           <button onClick={()=>{ const e=deferredInstallPrompt; deferredInstallPrompt=null; setCanInstall(false); e?.prompt?.(); }}
             style={{...BTN.cyan,background:"#8F7BFD",width:"100%",padding:"11px 0",marginBottom:14}}>
@@ -6845,29 +6898,21 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,perfectRun=false,g
           </button>
         )}
 
-        {/* End credits */}
-        <div aria-label="Credits" style={{height:118,overflow:reducedMotion?"auto":"hidden",marginBottom:18,borderTop:"1px solid rgba(255,255,255,0.2)",borderBottom:"1px solid rgba(255,255,255,0.2)",position:"relative"}}>
-          <div style={{display:"flex",flexDirection:"column",gap:8,padding:"8px 0",animation:reducedMotion?"none":"creditsRoll 14s linear 0.6s infinite"}}>
+        {/* End credits: a cinema screen, bold white names rolling up on see-through black,
+            fading in and out at the edges (owner request 2026-10-28). */}
+        <div aria-label="Credits" style={{marginBottom:18,borderRadius:12,background:"rgba(0,0,0,0.72)",boxShadow:"inset 0 0 24px rgba(0,0,0,0.6)"}}>
+          <div style={{height:CREDITS_H,overflow:reducedMotion?"auto":"hidden",position:"relative",
+            WebkitMaskImage:reducedMotion?"none":CREDITS_FADE, maskImage:reducedMotion?"none":CREDITS_FADE}}>
+          <div style={{display:"flex",flexDirection:"column",gap:14,padding:"14px 16px",textAlign:"center",animation:reducedMotion?"none":"creditsRoll 18s linear 0.6s infinite"}}>
             {credits.map(([role,name],i)=>(
-              <div key={i} style={{fontFamily:"'Outfit',sans-serif",fontSize:12.5,lineHeight:1.3,color:"#fff"}}>
-                {role && <div style={{fontSize:10,letterSpacing:"0.12em",textTransform:"uppercase",color:"rgba(255,255,255,0.65)"}}>{role}</div>}
-                <div style={{fontWeight:700}}>{name}</div>
+              <div key={i} style={{fontFamily:"'Outfit',sans-serif",lineHeight:1.25,color:"#fff"}}>
+                {role && <div style={{fontSize:10.5,fontWeight:600,letterSpacing:"0.22em",textTransform:"uppercase",color:"rgba(255,255,255,0.6)",marginBottom:3}}>{role}</div>}
+                <div data-credit-name style={{fontSize:16,fontWeight:800,letterSpacing:"0.02em",textShadow:"0 1px 2px rgba(0,0,0,0.8)"}}>{name}</div>
               </div>
             ))}
           </div>
-        </div>
-
-        {postCredits && (
-          <div role="status" aria-label="Post-credits scene" style={{marginTop:-6,marginBottom:16,padding:"10px 12px",borderRadius:12,background:"rgba(14,10,44,0.55)",border:"1px dashed rgba(255,255,255,0.35)",animation:reducedMotion?"none":"postCreditsIn 0.6s ease both"}}>
-            <div style={{fontSize:10,letterSpacing:"0.12em",textTransform:"uppercase",color:"rgba(255,255,255,0.65)",fontFamily:"'Outfit',sans-serif"}}>🎬 Post-credits scene</div>
-            <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:13,color:"#fff",marginTop:4}}>
-              {/* Always names the Daily Challenge, since it also shows after Standard and Speed Run. */}
-              {teaserGenres.length===2
-                ? `Tomorrow's Daily Challenge: a ${teaserGenres[0]} + ${teaserGenres[1]} mashup. Same time, same theatre.`
-                : "Tomorrow's Daily Challenge: a brand-new mashup. Same time, same theatre."}
-            </div>
           </div>
-        )}
+        </div>
 
         <button onClick={handleShare} style={{...BTN.cyan,width:"100%",padding:"16px 0",marginBottom:18}}>
           <span style={{...WHITE_STICKER_TEXT,fontSize:"clamp(18px, 5.2vw, 24px)",lineHeight:1.02,letterSpacing:"0.03em",textTransform:"uppercase"}}>{canNativeShare?"Share":(copied?"Copied ✓":"Copy")}</span>
@@ -6875,7 +6920,7 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,perfectRun=false,g
 
         <div style={{marginTop:"auto",display:"flex",gap:10}}>
           <button onClick={onMenu} style={{...BTN.cyan,flex:1,padding:"13px 0",display:"flex",alignItems:"center",justifyContent:"center",gap:8,fontSize:12}}>
-            <span aria-hidden="true">🎬</span>
+            <IconCinema size={32}/>
             <span style={{...WHITE_STICKER_TEXT,fontSize:12,letterSpacing:"0.03em",textTransform:"uppercase"}}>Home</span>
           </button>
           <button onClick={onPlayAgain} style={{...BTN.primary,flex:1,padding:"13px 0",fontSize:12}}>
