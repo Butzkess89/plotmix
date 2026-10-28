@@ -6678,11 +6678,18 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,perfectRun=false,g
     }
   };
 
+  // Each fact appears once (owner request 2026-10-28). The Daily is one card with no Skip,
+  // so its 🔥 tile is the Daily streak in days instead of a "best run" that copies ✓.
+  const dailySt = mode.isDaily ? loadDailyStreak() : null;
+  const fireIcon = <span style={{fontSize:13,lineHeight:1,display:"inline-block",transform:"translateY(0.5px)"}}>🔥</span>;
   const chips=[
     {icon:<IconCheck size={12} color="#005242"/>, bg:"#6AE89D", value:correct, info:`Solved: ${correct}`},
     {icon:<IconXMark size={11} color="#5E0311"/>, bg:"#F08D87", value:missed, info:`Missed: ${missed}`},
-    {icon:<IconSkip size={13} color="#fff"/>, bg:T.orange, value:skippedCount, info:`Skipped: ${skippedCount}`},
-    {icon:<span style={{fontSize:13,lineHeight:1,display:"inline-block",transform:"translateY(0.5px)"}}>🔥</span>, bg:"linear-gradient(135deg,#FF4A18,#FFCB2E,#FCEF25)", value:displayStreakValue, info:`Best run in a row: ${displayStreakValue}`},
+    ...(mode.isDaily ? [] : [{icon:<IconSkip size={13} color="#fff"/>, bg:T.orange, value:skippedCount, info:`Skipped: ${skippedCount}`}]),
+    dailySt
+      ? {icon:fireIcon, bg:"linear-gradient(135deg,#FF4A18,#FFCB2E,#FCEF25)", value:dailySt.count,
+         info:`Daily streak: ${dailySt.count} day${dailySt.count===1?"":"s"}${dailySt.saverDay===localDayNumber(new Date())?" · 🧊 streak saver covered a missed day":""}`}
+      : {icon:fireIcon, bg:"linear-gradient(135deg,#FF4A18,#FFCB2E,#FCEF25)", value:displayStreakValue, info:`Best run in a row: ${displayStreakValue}`},
     {icon:<IconStar size={13}/>, bg:T.surfaceRaised, value:totalScore.toLocaleString(), info:`Total score: ${totalScore.toLocaleString()}`},
   ];
   const totalCards = Math.max(1, results.length);
@@ -6719,27 +6726,26 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,perfectRun=false,g
   const tomorrowCard = useMemo(()=>{ const d=new Date(); d.setDate(d.getDate()+1); return dailyCardFor(uniqueCardsByMoviePair(MASTER_DECK), d); },[]);
   const teaserGenres = (tomorrowCard?.hintData?.films||[]).map(f=>String(f.genre||"").split(/[,/]/)[0].trim()).filter(Boolean);
   const today = localDayNumber(new Date());
+  // Only what the tiles and badges don't already show, each with its own symbol
+  // (🍿 and 🎬 belong to badges, 🔥 to the tiles).
   const statusSymbols = (()=>{
     const list=[];
     const passes=arcadePasses();
-    list.push({id:"stubs", icon:"🍿", value:passes, label:`${passes} Popcorn Panic play${passes===1?"":"s"} saved`});
-    if(mode.isDaily){
-      const st=loadDailyStreak();
-      list.push({id:"daily", icon:"🔥", value:st.count, label:`Daily streak: ${st.count} day${st.count===1?"":"s"}${st.saverDay===today?" · 🧊 streak saver covered a missed day":""}`});
-    }
-    if(perfectRun) list.push({id:"perfect", icon:"✨", value:"", isNew:true,
+    if(passes>0) list.push({id:"stubs", icon:"🕹️", value:passes, label:`${passes} Popcorn Panic play${passes===1?"":"s"} saved`});
+    const gold = loadPrizes();
+    const goldToday = goldWon || gold.goldJustWon===today;
+    if(perfectRun) list.push({id:"perfect", icon:goldWon?"🏆":"✨", value:"", isNew:true,
       label: goldWon ? "A perfect run: no hints, no mistakes! Gold Lamé curtains unlocked!" : "A perfect run: no hints, no mistakes!"});
-    if(mode.isDaily){
+    else if(mode.isDaily && goldToday) list.push({id:"gold", icon:"🏆", value:"", isNew:true,
+      label:"3 perfect Dailies in a row: Gold Lamé curtains unlocked!"});
+    else if(mode.isDaily && !gold.won.includes("perfectDaily3")){
       const pd=loadPerfectDaily();
-      const gold=loadPrizes();
-      if(gold.won.includes("perfectDaily3")) list.push({id:"gold", icon:"🏆", value:"", isNew:gold.goldJustWon===today,
-        label: gold.goldJustWon===today ? "3 perfect Dailies in a row: Gold Lamé curtains unlocked!" : "Gold Lamé curtains: yours"});
-      else list.push({id:"perfectDailies", icon:"🏅", value:`${pd.lastDay===today?pd.count:0}/${PERFECT_DAILY_FOR_GOLD}`,
+      list.push({id:"perfectDailies", icon:"🏅", value:`${pd.lastDay===today?pd.count:0}/${PERFECT_DAILY_FOR_GOLD}`,
         label:`Perfect Dailies in a row: ${pd.lastDay===today?pd.count:0} of ${PERFECT_DAILY_FOR_GOLD} (no wrong guesses) for the Gold Lamé curtains`});
     }
-    // Post-credits scene: a clapperboard pops in after the credits; tap it for tomorrow's teaser.
+    // Post-credits scene: a ticket for tomorrow pops in after the credits; tap it for the teaser.
     // Always names the Daily Challenge, since it also shows after Standard and Speed Run.
-    if(postCredits) list.push({id:"postCredits", icon:"🎬", value:"", isNew:true, name:"Post-credits scene",
+    if(postCredits) list.push({id:"postCredits", icon:"🎟️", value:"", isNew:true, name:"Post-credits scene",
       label: teaserGenres.length===2
         ? `Tomorrow's Daily Challenge: a ${teaserGenres[0]} + ${teaserGenres[1]} mashup. Same time, same theatre.`
         : "Tomorrow's Daily Challenge: a brand-new mashup. Same time, same theatre."});

@@ -91,7 +91,34 @@ test.describe('Badges', () => {
 })
 
 test.describe('End screen extras', () => {
+  test('each fact shows once: a Daily has one 🔥 (the Daily streak), no Skip tile and no "best run" (owner request 2026-10-28)', async ({ page }) => {
+    await finishDailyPerfectly(page)
+    await expect(page.getByRole('button', { name: /^Daily streak/ })).toHaveCount(1)
+    await expect(page.getByRole('button', { name: /^Best run in a row/ })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /^Skipped/ })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /Popcorn Panic play/ })).toHaveCount(0) // none saved: nothing to show
+    // The post-credits ticket has its own symbol, not the Director's Cut clapperboard.
+    const ticket = page.getByRole('button', { name: /^Post-credits scene/ })
+    await expect(ticket).toBeVisible({ timeout: 9_000 })
+    await expect(ticket).toContainText('🎟️')
+  })
+
+  test('Standard keeps its run tiles: Skipped and best run in a row, and no Daily streak', async ({ page }) => {
+    await openMenu(page)
+    await startMode(page, 'standard')
+    for (let i = 0; i < 6; i++) { // six skips use up the hearts and end the run
+      await page.getByRole('button', { name: 'Skip card' }).click()
+      await page.getByRole('button', { name: 'Skip It' }).click()
+      await page.getByRole('button', { name: /^(Next|Finish)$/ }).click()
+    }
+    await expect(page.getByText('The End')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Skipped: 6' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Best run in a row: 0' })).toBeVisible()
+    await expect(page.getByRole('button', { name: /^Daily streak/ })).toHaveCount(0)
+  })
+
   test('the end screen shows symbols, not sentences; tapping one says what it is (owner request 2026-10-28)', async ({ page }) => {
+    await page.addInitScript(() => { if (!sessionStorage.getItem('seeded')) { localStorage.setItem('plotmix_arcade_passes', '2'); sessionStorage.setItem('seeded', '1') } })
     await finishDailyPerfectly(page)
     const info = page.getByRole('status', { name: 'Symbol info' })
     await expect(info).toHaveText('')
@@ -99,7 +126,7 @@ test.describe('End screen extras', () => {
       await expect(page.getByText(gone)).toHaveCount(0)
     }
     await expect(await tapSymbol(page, 'Solved: 1')).toHaveText('Solved: 1')
-    await expect(await tapSymbol(page, /Popcorn Panic play/)).toHaveText(/^\d+ Popcorn Panic plays? saved$/)
+    await expect(await tapSymbol(page, /Popcorn Panic play/)).toHaveText('2 Popcorn Panic plays saved')
     await expect(await tapSymbol(page, "Badge: Director's Cut")).toContainText("Director's Cut")
     await page.getByRole('button', { name: "Badge: Director's Cut" }).click() // tapping again hides it
     await expect(info).toHaveText('')
