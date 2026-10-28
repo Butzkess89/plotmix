@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef, useCallback, forwardRef, useImperativeHandle, useId } from "react";
+import { useState, useEffect, useMemo, useLayoutEffect, useRef, useCallback, forwardRef, useImperativeHandle, useId } from "react";
 import lottie from "lottie-web";
 
 // 
@@ -1363,6 +1363,10 @@ function uniqueCardsByMoviePair(deck) {
 const DAILY_ROTATION_START = new Date(2026, 10, 1); // 1 November 2026
 const DAILY_ROTATION_SEED = 20261101;
 function localDayNumber(d) { return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000); }
+// The Daily card for a date (themed weeks first, then the fixed rotation); null before the rotation starts.
+function dailyCardFor(sourceDeck, date) {
+  return themedDailyCard(sourceDeck, date) || dailyRotationCard(sourceDeck, date);
+}
 function dailyRotationCard(sourceDeck, date) {
   const dayIndex = localDayNumber(date) - localDayNumber(DAILY_ROTATION_START);
   if (dayIndex < 0 || sourceDeck.length === 0) return null;
@@ -1375,10 +1379,8 @@ function buildDeck(mode) {
   const sourceDeck = uniqueCardsByMoviePair(MASTER_DECK);
   const cap = Math.min(roundCount, sourceDeck.length);
   if (isDaily) {
-    const themedCard = themedDailyCard(sourceDeck, new Date());
-    if (themedCard) return [themedCard].slice(0, cap);
-    const rotationCard = dailyRotationCard(sourceDeck, new Date());
-    if (rotationCard) return [rotationCard].slice(0, cap);
+    const dayCard = dailyCardFor(sourceDeck, new Date());
+    if (dayCard) return [dayCard].slice(0, cap);
     const todayShuffled = shuffleRng(sourceDeck, mulberry32(getDailySeed()));
     if (todayShuffled.length <= 1) return todayShuffled.slice(0, cap);
 
@@ -1529,10 +1531,9 @@ function wrongWordsInGuess(guess, card) {
 
 // If players reveal every meaningful word in the mashed title, treat the round
 // as solved even when guesses were entered as separate words.
-function areAllMashedTitleWordsGuessed(guesses, mashedTitle = "") {
-  const titleTokens = normWord(mashedTitle)
-    .split(" ")
-    .filter(Boolean)
+function areAllMashedTitleWordsGuessed(guesses, mashedTitle = "", movies = [], found = [false, false]) {
+  const rawTitleWords = normWord(mashedTitle).split(" ").filter(Boolean);
+  const titleTokens = rawTitleWords
     .map(normalizeToken)
     .filter((token) => token && !STOPWORDS.has(token));
 
@@ -1549,6 +1550,24 @@ function areAllMashedTitleWordsGuessed(guesses, mashedTitle = "") {
       .split(" ")
       .filter(Boolean)
       .map(normalizeToken)
+      .forEach((token) => { if (required.has(token)) guessed.add(token); });
+    // Title words typed run together ("officespace") count for each word they join.
+    normWord(g).split(" ").filter(Boolean).forEach((typed) => {
+      for (let i = 0; i < rawTitleWords.length; i++) {
+        for (let len = 2; len <= 3 && i + len <= rawTitleWords.length; len++) {
+          const run = rawTitleWords.slice(i, i + len);
+          if (normalizeToken(typed) === normalizeToken(run.join(""))) {
+            run.map(normalizeToken).forEach((token) => { if (required.has(token)) guessed.add(token); });
+          }
+        }
+      }
+    });
+  });
+  // A film already named reveals all of its words too (owner report 2026-10-26: "officespace"
+  // then "cowboys" showed the whole of "Office Space Cowboys" but didn't solve it).
+  movies.forEach((m, i) => {
+    if (!found[i]) return;
+    normWord(m).split(" ").filter(Boolean).map(normalizeToken)
       .forEach((token) => { if (required.has(token)) guessed.add(token); });
   });
 
@@ -1655,7 +1674,14 @@ function guessClassification(guess, card) {
   if (!normalizedGuess) return "miss";
   // A correct film name or full title, or a guess made only of title words
   // (and grammar words), is never a miss.
-  if (isFullyCorrectGuess(guess, card) || wrongWordsInGuess(guess, card).length === 0) return "match";
+  if (isFullyCorrectGuess(guess, card)) return "match";
+  // Grammar words are free alongside real title words, but a guess of only small words that
+  // aren't in the title ("of", "on" for "...Mermaid in Manhattan") is not correct (owner report
+  // 2026-10-26: they were ticked green and revealed nothing).
+  const titleTokens = new Set(normWord(card.mashedTitle || "").split(" ").filter(Boolean).map(normalizeToken));
+  const tokens = normWord(guess).split(" ").filter(Boolean).map(normalizeToken);
+  if (!tokens.some((t) => titleTokens.has(t))) return "miss";
+  if (wrongWordsInGuess(guess, card).length === 0) return "match";
   return "miss";
 }
 
@@ -1735,9 +1761,13 @@ function hasDoneDaily() { try{return !!localStorage.getItem(getDailyKey());}catc
 // The first Daily result of the day is the one kept and shared; replays don't
 // overwrite it. Returns true when this call recorded the day's first result.
 // First completion of today's Daily also counts toward the Daily streak.
-function completeDaily(score, shareText) {
+// It also counts toward the Gold Lamé curtains: 3 Dailies in a row solved with no wrong guess.
+function completeDaily(score, shareText, results = []) {
   const first = markDailyDone(score, shareText);
-  if (first) recordDailyPlayed();
+  if (first) {
+    recordDailyPlayed();
+    recordPerfectDaily(results.length > 0 && results.every((r) => r.solved && (r.wrong || 0) === 0));
+  }
   return first;
 }
 function markDailyDone(score, shareText) {
@@ -1864,6 +1894,78 @@ function playTone(frequency, type, duration, gain, delayStart=0, rampDown=true) 
   } catch(e) {}
 }
 
+// Filtered noise with a soft swell, for whooshes, rustles, rattles and splats.
+// filter: {type, from, to, q} sweeps the filter frequency over the sound.
+let _noiseBuf = null;
+function playNoise(duration, gain, delayStart = 0, filter = { type: "bandpass", from: 800, to: 800, q: 1 }, attack = 0.05) {
+  if (!isSoundOn()) return;
+  try {
+    const ctx = getACtx(); if (!ctx) return;
+    if (!_noiseBuf) {
+      _noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+      const d = _noiseBuf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    const t0 = ctx.currentTime + delayStart;
+    const src = ctx.createBufferSource(); src.buffer = _noiseBuf;
+    const f = ctx.createBiquadFilter(); f.type = filter.type; f.Q.value = filter.q || 1;
+    f.frequency.setValueAtTime(filter.from, t0);
+    f.frequency.linearRampToValueAtTime(filter.to, t0 + duration);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.linearRampToValueAtTime(gain, t0 + Math.min(attack, duration / 2));
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + duration);
+    src.connect(f); f.connect(g); g.connect(ctx.destination);
+    src.start(t0); src.stop(t0 + duration + 0.02);
+  } catch (e) {}
+}
+
+// One synth voice with an optional pitch slide and a low-pass filter (brass, whistles, voices).
+function playSynth({ type = "sawtooth", freq, slideTo = null, dur, gain, delay = 0, lp = null, attack = 0.02, vibrato = 0 }) {
+  if (!isSoundOn()) return;
+  try {
+    const ctx = getACtx(); if (!ctx) return;
+    const t0 = ctx.currentTime + delay;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t0);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t0 + dur);
+    let node = o;
+    if (lp) { const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = lp; o.connect(f); node = f; }
+    if (vibrato) {
+      const lfo = ctx.createOscillator(), lg = ctx.createGain();
+      lfo.frequency.value = 6; lg.gain.value = vibrato; lfo.connect(lg); lg.connect(o.frequency); lfo.start(t0); lfo.stop(t0 + dur + 0.05);
+    }
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.linearRampToValueAtTime(gain, t0 + attack);
+    g.gain.setValueAtTime(gain, t0 + Math.max(attack, dur * 0.6));
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+    node.connect(g); g.connect(ctx.destination);
+    o.start(t0); o.stop(t0 + dur + 0.05);
+  } catch (e) {}
+}
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+// A brass-ish chord: a few detuned sawtooth voices through a warm filter.
+function playChord(freqs, dur, gain, delay = 0) {
+  freqs.forEach((f) => { playSynth({ freq: f, dur, gain, delay, lp: 1800, attack: 0.03 }); playSynth({ freq: f * 1.005, dur, gain: gain * 0.6, delay, lp: 1400, attack: 0.03 }); });
+}
+// Light applause: many tiny hand-claps, thinning out, at a random density.
+function playClapping(seconds, density, gain, delay = 0) {
+  const n = Math.round(seconds * density);
+  for (let i = 0; i < n; i++) {
+    const t = delay + Math.random() * seconds * (0.4 + 0.6 * Math.random());
+    playNoise(0.03 + Math.random() * 0.02, gain * (0.5 + Math.random() * 0.5), t, { type: "bandpass", from: 900 + Math.random() * 1600, to: 900 + Math.random() * 1600, q: 1.2 }, 0.002);
+  }
+}
+function playWhistle(delay = 0) {
+  if (Math.random() < 0.5) { // wolf whistle: up, then up-and-down
+    playSynth({ type: "sine", freq: 1100, slideTo: 2300, dur: 0.22, gain: 0.05, delay, attack: 0.02 });
+    playSynth({ type: "sine", freq: 1000, slideTo: 2500, dur: 0.18, gain: 0.05, delay: delay + 0.3, attack: 0.02 });
+    playSynth({ type: "sine", freq: 2500, slideTo: 900, dur: 0.3, gain: 0.045, delay: delay + 0.48, attack: 0.01 });
+  } else { // a long rising "woo" whistle
+    playSynth({ type: "sine", freq: 1500, slideTo: 2900, dur: 0.55, gain: 0.045, delay, attack: 0.05, vibrato: 18 });
+  }
+}
+
 // Vibration on Android phones (iPhone browsers don't support it). Follows the sound button.
 function buzz(pattern) {
   if (!isSoundOn()) return;
@@ -1871,6 +1973,15 @@ function buzz(pattern) {
 }
 
 const SFX = {
+  laser: () => {
+    playTone(1500, "sawtooth", 0.06, 0.05);
+    playTone(900, "sawtooth", 0.08, 0.05, 0.04);
+    playTone(500, "square", 0.08, 0.03, 0.09);
+  },
+  boom: () => {
+    playTone(120, "square", 0.22, 0.09);
+    playTone(70, "sawtooth", 0.3, 0.08, 0.03);
+  },
   correct: () => {
     // Rising chime — two bright tones
     playTone(523.25, "sine", 0.18, 0.22);        // C5
@@ -1898,16 +2009,80 @@ const SFX = {
   pop: () => {
     [0,0.05,0.11].forEach((d,i)=>playTone(1150+i*260,"sine",0.04,0.06,d));
   },
-  projector: () => {
-    // Projector clatter: quick low ticks
-    for(let i=0;i<6;i++) playTone(90,"square",0.025,0.035,i*0.07);
+  projector: (seconds = 0.95) => {
+    // A film reel running: the sprocket clatter (about 20 clicks a second) over a low motor hum.
+    const clicks = Math.round(seconds * 20);
+    for (let i = 0; i < clicks; i++) playNoise(0.022, 0.09, i * 0.05, { type: "highpass", from: 2200, to: 2200, q: 0.8 }, 0.002);
+    for (let i = 0; i < clicks; i += 2) playTone(70, "square", 0.03, 0.025, i * 0.05);
+    playTone(55, "sawtooth", seconds, 0.018);
   },
   leaderBeep: (go=false) => {
     playTone(go?1320:880,"sine",go?0.32:0.12,0.12);
   },
-  curtain: () => {
-    playTone(160,"triangle",0.6,0.04);
-    playTone(220,"sine",0.5,0.025,0.15);
+  curtain: (delay = 0.25) => {
+    // Heavy velvet sliding open: two swells of filtered noise (one per side) plus a soft rustle.
+    playNoise(1.2, 0.16, delay, { type: "bandpass", from: 380, to: 1400, q: 0.7 }, 0.35);
+    playNoise(1.0, 0.1, delay + 0.08, { type: "bandpass", from: 520, to: 1800, q: 0.9 }, 0.3);
+    playNoise(0.5, 0.05, delay + 0.6, { type: "highpass", from: 2500, to: 4000, q: 0.5 }, 0.1);
+  },
+  // A solved card (owner request 2026-10-26): a "ta-da!" then light applause and the odd
+  // whistle, mixed differently every time so it never sounds the same twice.
+  winCheer: () => {
+    const C = 261.63, E = 329.63, G = 392, C5 = 523.25, E5 = 659.25, G5 = 783.99;
+    const fanfare = pick([
+      () => { playChord([G, C5 * 0.5 * 2, E5 * 0.5 * 2].map((f) => f), 0.14, 0.035); playChord([C5, E5, G5], 0.7, 0.04, 0.16); },     // ta-DAA
+      () => { [C5, E5, G5].forEach((f, i) => playSynth({ freq: f, dur: 0.12, gain: 0.05, delay: i * 0.09, lp: 2200 })); playChord([C5, E5, G5, C5 * 2], 0.7, 0.03, 0.27); }, // da-da-da-DAA
+      () => { playChord([E, G, C5], 0.12, 0.035); playChord([E, G, C5], 0.12, 0.035, 0.14); playChord([G, C5, E5], 0.75, 0.04, 0.3); }, // ta-ta-DAA
+      () => { playChord([C, E, G], 0.18, 0.035); playChord([C5, E5, G5], 0.8, 0.04, 0.2); playSynth({ type: "triangle", freq: C5 * 2, dur: 0.6, gain: 0.03, delay: 0.25 }); }, // ta-DAA with sparkle
+    ]);
+    fanfare();
+    playClapping(1.4 + Math.random() * 0.6, 14 + Math.random() * 14, 0.07, 0.25);
+    if (Math.random() < 0.75) playWhistle(0.45 + Math.random() * 0.5);
+    if (Math.random() < 0.3) playWhistle(0.9 + Math.random() * 0.4);
+  },
+  groan: () => {
+    // The audience going "awww": voices sliding down.
+    [196, 220, 247, 262].forEach((f, i) => playSynth({ freq: f, slideTo: f * 0.7, dur: 1.0, gain: 0.03, delay: i * 0.04, lp: 900, attack: 0.15, vibrato: 4 }));
+  },
+  skip: () => {
+    // A record scratch, then a sad two-note "wah-wah".
+    playNoise(0.12, 0.18, 0, { type: "bandpass", from: 400, to: 3000, q: 2 }, 0.005);
+    playNoise(0.1, 0.14, 0.12, { type: "bandpass", from: 3000, to: 500, q: 2 }, 0.005);
+    playSynth({ freq: 233, slideTo: 220, dur: 0.3, gain: 0.05, delay: 0.3, lp: 900, vibrato: 3 });
+    playSynth({ freq: 208, slideTo: 175, dur: 0.6, gain: 0.05, delay: 0.62, lp: 900, vibrato: 6 });
+  },
+  page: () => playNoise(0.18, 0.06, 0, { type: "highpass", from: 1500, to: 4500, q: 0.7 }, 0.03), // hints opened: paper rustle
+  tick: () => playTone(1400, "sine", 0.03, 0.025), // any button tap
+  ticket: () => { for (let i = 0; i < 6; i++) playNoise(0.02, 0.08, i * 0.025, { type: "highpass", from: 3000, to: 3000, q: 1 }, 0.002); }, // ticket tear
+  psst: () => playNoise(0.6, 0.06, 0, { type: "highpass", from: 3500, to: 5500, q: 0.8 }, 0.08), // the usher
+  rip: () => playNoise(0.35, 0.12, 0, { type: "bandpass", from: 1200, to: 4000, q: 0.9 }, 0.01), // spoiler tape
+  shutter: (n = 6) => { for (let i = 0; i < n; i++) { const d = 0.2 + i * 0.37 + Math.random() * 0.15; playNoise(0.03, 0.12, d, { type: "highpass", from: 2500, to: 2500, q: 1 }, 0.002); playNoise(0.05, 0.06, d + 0.05, { type: "bandpass", from: 1200, to: 1200, q: 1 }, 0.002); } },
+  iris: () => { playNoise(0.5, 0.06, 0, { type: "lowpass", from: 1400, to: 300, q: 0.7 }, 0.1); playNoise(0.5, 0.06, 0.6, { type: "lowpass", from: 300, to: 1400, q: 0.7 }, 0.1); },
+  slate: () => {
+    // The clapper arm comes down with a sharp CLACK just after the board lands.
+    playNoise(0.2, 0.08, 0.05, { type: "bandpass", from: 300, to: 900, q: 0.8 }, 0.05);
+    playNoise(0.06, 0.3, 0.48, { type: "highpass", from: 1500, to: 1500, q: 0.8 }, 0.001);
+    playTone(220, "triangle", 0.08, 0.14, 0.48);
+  },
+  boo: () => {
+    // A crowd booing: several low, slightly out-of-tune voices sliding down.
+    [118, 131, 142, 156, 171].forEach((f, i) => {
+      try {
+        if (!isSoundOn()) return;
+        const ctx = getACtx(); if (!ctx) return;
+        const t0 = ctx.currentTime + i * 0.03;
+        const o = ctx.createOscillator(), lp = ctx.createBiquadFilter(), g = ctx.createGain();
+        o.type = "sawtooth"; o.frequency.setValueAtTime(f, t0); o.frequency.linearRampToValueAtTime(f * 0.78, t0 + 1.1);
+        lp.type = "lowpass"; lp.frequency.value = 700;
+        g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.035, t0 + 0.2); g.gain.exponentialRampToValueAtTime(0.001, t0 + 1.2);
+        o.connect(lp); lp.connect(g); g.connect(ctx.destination); o.start(t0); o.stop(t0 + 1.25);
+      } catch (e) {}
+    });
+    playNoise(1.1, 0.04, 0, { type: "bandpass", from: 500, to: 380, q: 0.6 }, 0.2);
+  },
+  splat: (delay = 0) => {
+    playNoise(0.25, 0.22, delay, { type: "lowpass", from: 1800, to: 300, q: 0.7 }, 0.005);
+    playTone(95, "sine", 0.18, 0.12, delay);
   },
   // Combo ladder: each correct guess in a row plays the next note of a pentatonic scale
   comboNote: (step=0) => {
@@ -2041,7 +2216,9 @@ const YELLOW_STICKER_TEXT = {
   fontWeight: 400,
   WebkitTextStroke: "1px #000000",
   paintOrder: "stroke fill",
-  textShadow: "0 2px 0 #000000",
+  // A slightly heavier black rim so orange text stands out on the purple checkerboard
+  // (owner request 2026-10-26; a white rim was tried first and read worse).
+  textShadow: "0 2px 0 #000000, 1px 1px 0 #000000, -1px -1px 0 #000000, 1px -1px 0 #000000, -1px 1px 0 #000000",
 };
 
 const WHITE_STICKER_TEXT = {
@@ -2192,11 +2369,11 @@ const BTN = {
 };
 
 const STICKER_ASSETS = {
-  // Timings are tuned to the provided MP4 clips:
-  // clapboard ~1s, popcorn ~2s, hint ~2s.
+  // Real clip lengths (checked by a test against the files): popcorn 3.67 s, clapboard 2.03 s.
+  // They were listed as 2.1 s and 1.2 s, so the sticker was hidden before the clip finished.
   winAnimations: [
-    { src: "/stickers/popcorn.mp4", durationMs: 2100 },
-    { src: "/stickers/clapboard.mp4", durationMs: 1200 },
+    { src: "/stickers/popcorn.mp4", durationMs: 3700 },
+    { src: "/stickers/clapboard.mp4", durationMs: 2050 },
   ],
   hintAnimation: { src: "/stickers/hint.mp4", width: 320, aboveGap: 8, liftY: -120 },
   trex: {
@@ -2902,8 +3079,9 @@ const MODE_CARD_HITS = [
 ];
 const MODE_CARD_ORDER = ["daily", "standard", "speedrun"];
 
-function ModeSelect({onSelect}) {
+function ModeSelect({onSelect, onArcade}) {
   const [sessions,setSessions]=useState(()=>loadAllSessionsList());
+  const passes=arcadePasses();
   const dailyDone=hasDoneDaily();
   const mostRecentSession = sessions[0];
   const byId = Object.fromEntries(GAME_MODES.map(m=>[m.id,m]));
@@ -2934,13 +3112,27 @@ function ModeSelect({onSelect}) {
           );
         })}
 
+        {/* Popcorn Panic sits under Speed Run (owner request 2026-10-25): plays are won by
+            solving 5 mashups in a row in Standard or Speed Run. */}
+        <button onClick={onArcade} aria-label="Popcorn Panic"
+          style={{position:"absolute",top:`${571/874*100}%`,left:"50%",transform:"translateX(-50%)",zIndex:3,
+            display:"flex",alignItems:"center",gap:8,padding:"4px 14px 4px 8px",height:42,boxSizing:"border-box",
+            background:"#FFF8E6",border:"2px solid #1C1D21",borderRadius:21,boxShadow:"0 3px 0 #1C1D21",cursor:"pointer",whiteSpace:"nowrap"}}>
+          <PopcornBucketIcon size={30}/>
+          <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:14,color:"#1C1D21",textTransform:"uppercase",letterSpacing:"0.01em"}}>Popcorn Panic</span>
+          <span style={{fontFamily:"'Outfit',sans-serif",fontSize:12,fontWeight:700,color:"#7A5C00"}}>{passes>0?`${passes} play${passes===1?"":"s"}`:"🔒"}</span>
+        </button>
+
+        {/* The T-rex fills only the gap between Popcorn Panic and Resume Game, so it never
+            covers or hides under a button on shorter phones. */}
         <div
           aria-hidden="true"
           style={{
             position:"absolute",
-            left:"50%",
-            top:mostRecentSession?"80.8%":"84.6%",
-            transform:"translate(-50%, -50%)",
+            left:0,right:0,
+            top:`calc(${571/874*100}% + 50px)`,
+            bottom:mostRecentSession?"calc(1.7% + 90px)":"2%",
+            display:"flex",alignItems:"center",justifyContent:"center",
             pointerEvents:"none",
             zIndex:1,
           }}
@@ -2952,7 +3144,8 @@ function ModeSelect({onSelect}) {
             style={{
               display:"block",
               width:"auto",
-              height:"clamp(148px, 21vh, 188px)",
+              height:"100%",
+              maxHeight:188,
               filter:"drop-shadow(0 12px 16px rgba(0,0,0,0.42))",
               animation:"homeTrexFloat 3s ease-in-out infinite",
               transformOrigin:"50% 75%",
@@ -3120,7 +3313,7 @@ function getResultMessage(both, hintsUsed, guessCount, maxGuesses, skipped=false
 // 
 // ROUND RESULT POPUP — auto-shown the moment a round ends
 // 
-function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, roundScore, cardIdx, totalCards, results=[], isLast, onNext, onMenu, skipped=false, timedOut=false, showSticker=false, stickerSrc=null, stickerDurationMs=2200, onStickerEnded, reducedMotion=false, transitionFamily=TRANSITION_FAMILIES.punchy}) {
+function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, roundScore, bonus=null, onBonus, cardIdx, totalCards, results=[], isLast, onNext, onMenu, skipped=false, timedOut=false, showSticker=false, stickerSrc=null, stickerDurationMs=2200, onStickerEnded, reducedMotion=false, transitionFamily=TRANSITION_FAMILIES.punchy}) {
   const both = found[0] && found[1];
   const won = both;
   const msgRef = useRef(null);
@@ -3416,6 +3609,29 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
             </div>
           </div>
 
+          {bonus && (
+            <div role="group" aria-label="Which came first?" style={{padding:"10px 16px 12px",borderTop:`1px solid ${T.border}`,background:"rgba(14,10,44,0.6)",textAlign:"center",position:"relative",zIndex:3}}>
+              <div style={{...POPUP_YELLOW_TEXT,fontSize:12,textTransform:"uppercase",marginBottom:8}}>🎞️ Bonus +1: which came out first?</div>
+              <div style={{display:"flex",gap:8}}>
+                {bonus.films.map((f,i)=>{
+                  const a=bonus.answer, picked=a?.pick===i, older=bonus.years[i]<bonus.years[1-i];
+                  return (
+                    <button key={i} onClick={(e)=>{ e.stopPropagation(); onBonus?.(i); }} disabled={!!a} aria-label={`${f} came first`}
+                      style={{flex:1,...BTN.cyan,padding:"8px 6px",cursor:a?"default":"pointer",
+                        ...(a ? {background: older ? "#16A34A" : picked ? "#DC2626" : "#4B4F78"} : {})}}>
+                      <span style={{...WHITE_STICKER_TEXT,fontSize:10.5,textTransform:"uppercase",lineHeight:1.25}}>{f}{a ? ` · ${bonus.years[i]}` : ""}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {bonus.answer && (
+                <div role="status" aria-label="Bonus result" style={{...WHITE_STICKER_TEXT,fontSize:11.5,marginTop:8}}>
+                  {bonus.answer.correct ? "✓ Film buff! +1 point" : "✗ Nope, the other one. No bonus."}
+                </div>
+              )}
+            </div>
+          )}
+
           <div style={{aspectRatio:"402 / 94",marginTop:0,...RESULT_FOOTER_BG,borderTop:`1px solid ${T.border}`,position:"relative"}}>
             <button onClick={()=>setShowConnection(true)} aria-label="The Connection"
               style={{position:"absolute",left:rx(24),top:rfy(17),width:rx(207),height:rfy(57),...BTN.cyan,padding:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
@@ -3645,6 +3861,11 @@ function trailingSolvedStreak(results, upto) {
   return n;
 }
 
+// Film strip tiles drawn as small SVGs: dark film, sprocket holes on both edges, a lighter frame.
+const svgUrl = (svg) => `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+const FILM_STRIP_BG = svgUrl('<svg xmlns="http://www.w3.org/2000/svg" width="54" height="72"><rect width="54" height="72" fill="#1C1D21"/><rect x="3" y="12" width="8" height="11" rx="2" fill="#F3F4FF"/><rect x="3" y="48" width="8" height="11" rx="2" fill="#F3F4FF"/><rect x="43" y="12" width="8" height="11" rx="2" fill="#F3F4FF"/><rect x="43" y="48" width="8" height="11" rx="2" fill="#F3F4FF"/><rect x="15" y="5" width="24" height="62" rx="2" fill="#8F86C4"/><rect x="15" y="5" width="24" height="62" rx="2" fill="url(#g)" opacity="0.5"/><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFF"/><stop offset="1" stop-color="#3D3A55"/></linearGradient></defs></svg>');
+const FILM_STRIP_BG_H = svgUrl('<svg xmlns="http://www.w3.org/2000/svg" width="72" height="72"><rect width="72" height="72" fill="#1C1D21"/><rect x="12" y="3" width="11" height="8" rx="2" fill="#F3F4FF"/><rect x="48" y="3" width="11" height="8" rx="2" fill="#F3F4FF"/><rect x="12" y="61" width="11" height="8" rx="2" fill="#F3F4FF"/><rect x="48" y="61" width="11" height="8" rx="2" fill="#F3F4FF"/><rect x="5" y="15" width="62" height="42" rx="2" fill="#8F86C4"/></svg>');
+
 // Wrong guess: a clapperboard snaps shut on the next take, with a note from the director.
 // Points counter: rolls to the new value and shakes harder the more points were lost.
 function RollingPoints({value, reducedMotion=false, style}) {
@@ -3701,13 +3922,12 @@ function ClapperTake({take, note, reducedMotion=false}) {
 
 // Run streak shown as a popcorn bucket that fills up; kernels pop on every film found.
 function PopcornMeter({streak, popKey, reducedMotion=false}) {
-  // Hidden until there is a streak, so an empty bucket never needs explaining.
-  if (streak < 1) return null;
+  // Shown from the start (empty at 0), with its "N in a row" label underneath.
   const level = Math.min(5, streak);
   const kernels = [[-26,-30],[-12,-42],[4,-46],[18,-38],[28,-24]];
   return (
-    <div aria-label={`Streak: ${streak}`} style={{position:"absolute",top:20,left:"50%",transform:"translateX(-50%)",zIndex:250,width:48,height:44,pointerEvents:"none",display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
-      <svg width="34" height="40" viewBox="0 0 34 40" aria-hidden="true" style={{overflow:"visible"}}>
+    <div aria-label={`Streak: ${streak}`} style={{position:"absolute",top:12,left:"50%",transform:"translateX(-50%)",zIndex:250,width:80,height:58,pointerEvents:"none",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start"}}>
+      <svg width="26" height="31" viewBox="0 0 34 40" aria-hidden="true" style={{overflow:"visible",marginTop:6}}>
         {Array.from({length:level}).map((_,i)=>(
           <g key={i} transform={`translate(${5 + (i%3)*8 + (i>2?4:0)}, ${14 - (i>2?7:0)})`}>
             <circle r="5.5" fill="#FFF6D8" stroke="#1C1D21" strokeWidth="1.2"/>
@@ -3718,9 +3938,9 @@ function PopcornMeter({streak, popKey, reducedMotion=false}) {
         <path d="M9 14 L11 39 M17 14 V39 M25 14 L23 39" stroke="#E4444F" strokeWidth="4"/>
         <path d="M2 14 H32 L28 39 H6 Z" fill="none" stroke="#1C1D21" strokeWidth="1.6" strokeLinejoin="round"/>
       </svg>
-      <span style={{position:"absolute",left:"calc(100% + 2px)",bottom:6,height:20,padding:"0 7px",borderRadius:10,background:"#FFD84D",border:"1.5px solid #1C1D21",fontFamily:FONT_FIGMA_STICKER,fontSize:9,color:"#1C1D21",display:"flex",alignItems:"center",whiteSpace:"nowrap",boxSizing:"border-box",animation:reducedMotion?"none":"titlePop 0.35s ease both"}}>{streak} in a row</span>
+      <span style={{marginTop:3,height:17,padding:"0 7px",borderRadius:9,background:"#FFD84D",border:"1.5px solid #1C1D21",fontFamily:FONT_FIGMA_STICKER,fontSize:8.5,color:"#1C1D21",display:"flex",alignItems:"center",whiteSpace:"nowrap",boxSizing:"border-box",animation:reducedMotion?"none":"titlePop 0.35s ease both"}}>{streak} in a row</span>
       {!reducedMotion && popKey > 0 && kernels.map(([dx,dy],i)=>(
-        <span key={`${popKey}-${i}`} style={{position:"absolute",left:21,top:14,width:9,height:9,borderRadius:"50%",background:"#FFF6D8",border:"1px solid #1C1D21",
+        <span key={`${popKey}-${i}`} style={{position:"absolute",left:36,top:14,width:9,height:9,borderRadius:"50%",background:"#FFF6D8",border:"1px solid #1C1D21",
           "--dx":`${dx}px`,"--dy":`${dy}px`,animation:`kernelPop 0.7s cubic-bezier(.2,.8,.3,1) ${i*30}ms both`}}/>
       ))}
     </div>
@@ -3754,17 +3974,253 @@ function FilmLeaderCountdown({onDone, reducedMotion=false}) {
   );
 }
 
+// Owner request 2026-10-26: a row of seated cinema-goers (silhouettes) rises from the bottom.
+// Only for the big moments, so the screen never gets busy: a cheer when a card is solved and a
+// groan when one is lost, in the pause before the result (nothing to tap then). ~1.7 seconds.
+const AUDIENCE_HAIR = ["short", "long", "spiky", "buns", "quiff", "short", "spiky", "long", "buns", "quiff"];
+function AudienceRow({mood="cheer", animate=true}) {
+  const cheer = mood === "cheer";
+  const ink = "#26323A";
+  return (
+    <svg viewBox="0 0 402 64" width="100%" height="100%" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
+      {AUDIENCE_HAIR.map((hair, i) => {
+        const cx = 22 + i * 39.8;
+        const dy = i % 2 ? 2 : 0;
+        return (
+          <g key={i} style={animate ? {transformBox:"fill-box",transformOrigin:"50% 100%",
+            animation:cheer ? "audienceCheer 0.7s ease-in-out 2" : "audienceGroan 0.5s ease-out both",animationDelay:`${(i % 3) * 0.09}s`} : undefined}>
+            {hair === "long" && <path d={`M${cx-9} ${16+dy} Q${cx-10} ${4+dy} ${cx} ${4+dy} Q${cx+10} ${4+dy} ${cx+9} ${16+dy} L${cx+10} ${32+dy} L${cx-10} ${32+dy} Z`} fill={ink}/>}
+            <ellipse cx={cx} cy={15+dy} rx="7.5" ry="8.5" fill={ink}/>
+            {hair === "short" && <ellipse cx={cx} cy={9+dy} rx="8" ry="5" fill={ink}/>}
+            {hair === "spiky" && <path d={`M${cx-8} ${12+dy} L${cx-6} ${3+dy} L${cx-3} ${8+dy} L${cx} ${1+dy} L${cx+3} ${8+dy} L${cx+6} ${3+dy} L${cx+8} ${12+dy} Z`} fill={ink}/>}
+            {hair === "buns" && <><circle cx={cx-6} cy={6+dy} r="4.2" fill={ink}/><circle cx={cx+6} cy={6+dy} r="4.2" fill={ink}/></>}
+            {hair === "quiff" && <path d={`M${cx-8} ${12+dy} Q${cx-7} ${2+dy} ${cx+3} ${3+dy} Q${cx+11} ${4+dy} ${cx+8} ${12+dy} Z`} fill={ink}/>}
+            <rect x={cx-3.5} y={21+dy} width="7" height="8" fill={ink}/>
+            <path d={`M${cx-18} 64 L${cx-18} ${33+dy} Q${cx-18} ${27+dy} ${cx-11} ${27+dy} L${cx+11} ${27+dy} Q${cx+18} ${27+dy} ${cx+18} ${33+dy} L${cx+18} 64 Z`} fill={ink}/>
+          </g>
+        );
+      })}
+      <rect x="2" y="44" width="398" height="13" rx="3" fill={ink}/>
+      {AUDIENCE_HAIR.map((_, i) => {
+        const cx = 22 + i * 39.8;
+        return <g key={i}><rect x={cx-15} y="57" width="5" height="6" rx="2" fill={ink}/><rect x={cx+10} y="57" width="5" height="6" rx="2" fill={ink}/></g>;
+      })}
+    </svg>
+  );
+}
+function AudienceReaction({mood}) {
+  const cheer = mood === "cheer";
+  return (
+    <div role="status" aria-label={cheer ? "Audience cheers" : "Audience groans"}
+      style={{position:"fixed",left:0,right:0,bottom:0,height:64,zIndex:290,pointerEvents:"none",animation:"audienceIn 1.7s ease both"}}>
+      <div style={{position:"absolute",left:"50%",bottom:60,transform:"translateX(-50%)",whiteSpace:"nowrap",padding:"3px 10px",borderRadius:10,background:"rgba(14,10,44,0.8)",...WHITE_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>
+        {cheer ? "👏 Woo-hoo!" : "😩 Awww…"}
+      </div>
+      <AudienceRow mood={mood}/>
+      {cheer && (
+        <div style={{position:"absolute",left:"62%",bottom:34,width:26,height:26,animation:"popcornToss 1.2s ease-out 0.25s both"}}>
+          <ArcadeItemArt kind="popcorn" variant={1}/>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Holiday decorations: a garland across the top of the screen with ornaments hanging from it.
+function HolidayOrnament({decor, i}) {
+  const ink = "#1C1D21";
+  if (decor === "pumpkins") return i % 3 === 2
+    ? <svg viewBox="0 0 32 20" width="30" height="19"><path d="M16 8 C12 2 6 2 1 6 C5 7 6 10 5 13 C8 11 11 12 13 14 L16 17 L19 14 C21 12 24 11 27 13 C26 10 27 7 31 6 C26 2 20 2 16 8 Z" fill="#2B1840" stroke={ink} strokeWidth="1"/></svg>
+    : <svg viewBox="0 0 28 26" width="26" height="24"><rect x="12.5" y="1" width="3" height="6" rx="1" fill="#3E7B2C" stroke={ink} strokeWidth="0.8"/><ellipse cx="14" cy="16" rx="12" ry="9" fill="#F28C1B" stroke={ink} strokeWidth="1.2"/><path d="M8 9 Q5 16 8 24 M14 7 V25 M20 9 Q23 16 20 24" stroke="#C9650B" strokeWidth="1.2" fill="none"/><path d="M8 14 l3 -2 1 3 Z M20 14 l-3 -2 -1 3 Z M9 19 q5 4 10 0" fill="#3A1C04" stroke="#3A1C04" strokeWidth="1"/></svg>;
+  if (decor === "lights") {
+    const c = ["#E4444F", "#20B46A", "#FFD84D", "#2F6BFF"][i % 4];
+    return <svg viewBox="0 0 16 26" width="14" height="24" style={{filter:`drop-shadow(0 0 5px ${c})`}}><rect x="5" y="0" width="6" height="6" rx="1" fill="#4A4F58" stroke={ink} strokeWidth="0.8"/><path d="M8 5 C2 9 1 17 8 25 C15 17 14 9 8 5 Z" fill={c} stroke={ink} strokeWidth="1"/><ellipse cx="6" cy="12" rx="1.6" ry="3" fill="#fff" opacity="0.6"/></svg>;
+  }
+  if (decor === "dreidels") return i % 2
+    ? <svg viewBox="0 0 22 22" width="18" height="18"><circle cx="11" cy="11" r="9.5" fill="#E8B92B" stroke={ink} strokeWidth="1.2"/><circle cx="11" cy="11" r="6" fill="none" stroke="#B8860B" strokeWidth="1"/></svg>
+    : <svg viewBox="0 0 22 30" width="20" height="27"><rect x="9" y="0" width="4" height="7" rx="1" fill="#C9D6F2" stroke={ink} strokeWidth="0.8"/><path d="M3 7 H19 V19 L11 29 L3 19 Z" fill="#2F5BD3" stroke={ink} strokeWidth="1.2" strokeLinejoin="round"/><path d="M7 11 H15 V17 H7 Z" fill="#C9D6F2" opacity="0.85"/></svg>;
+  if (decor === "lanterns") return (
+    <svg viewBox="0 0 26 40" width="24" height="37"><rect x="8" y="0" width="10" height="4" rx="1" fill="#D9A21B" stroke={ink} strokeWidth="0.8"/><ellipse cx="13" cy="15" rx="12" ry="11" fill="#D7261E" stroke={ink} strokeWidth="1.2"/><path d="M7 6 Q4 15 7 24 M13 4 V26 M19 6 Q22 15 19 24" stroke="#A3140E" strokeWidth="1" fill="none"/><rect x="8" y="25" width="10" height="4" rx="1" fill="#D9A21B" stroke={ink} strokeWidth="0.8"/><path d="M11 29 V39 M13 29 V40 M15 29 V39" stroke="#D9A21B" strokeWidth="1.4"/></svg>
+  );
+  if (decor === "crescents") return i % 2
+    ? <svg viewBox="0 0 24 24" width="20" height="20"><path d="M15 2 A10 10 0 1 0 22 18 A8 8 0 1 1 15 2 Z" fill="#E8C55A" stroke={ink} strokeWidth="1"/></svg>
+    : <svg viewBox="0 0 20 34" width="18" height="31"><path d="M10 0 L13 6 H7 Z" fill="#C9A227" stroke={ink} strokeWidth="0.8"/><path d="M5 6 H15 L17 12 V24 L13 30 H7 L3 24 V12 Z" fill="#1F6B54" stroke={ink} strokeWidth="1.1"/><path d="M6 13 H14 V23 H6 Z" fill="#FFD97A" opacity="0.9"/><path d="M10 13 V23 M6 18 H14" stroke="#C9A227" strokeWidth="0.8"/></svg>;
+  if (decor === "eggs") {
+    const [a, b] = [["#F4B6C2", "#8FD3F4"], ["#BDE8A6", "#F8D86A"], ["#C9B6F2", "#F4B6C2"], ["#8FD3F4", "#F8D86A"]][i % 4];
+    return <svg viewBox="0 0 20 26" width="17" height="22"><path d="M10 1 C3 1 1 12 1 16 C1 22 5 25 10 25 C15 25 19 22 19 16 C19 12 17 1 10 1 Z" fill={a} stroke={ink} strokeWidth="1.1"/><path d="M2 14 l3 -3 3 3 3 -3 3 3 3 -3 1.5 1.5" stroke={b} strokeWidth="2.2" fill="none"/></svg>;
+  }
+  // newyear: gold stars and streamers
+  return i % 2
+    ? <svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 1 L14.8 8.6 L23 9 L16.6 14 L18.8 22 L12 17.4 L5.2 22 L7.4 14 L1 9 L9.2 8.6 Z" fill="#FFD84D" stroke={ink} strokeWidth="1"/></svg>
+    : <svg viewBox="0 0 12 34" width="10" height="30"><path d="M6 0 Q1 6 6 12 Q11 18 6 24 Q1 30 6 34" stroke={["#E4444F", "#2F6BFF", "#20B46A"][i % 3]} strokeWidth="3.5" fill="none" strokeLinecap="round"/></svg>;
+}
+function HolidayDecor({holiday, reducedMotion=false}) {
+  const count = 11;
+  return (
+    <div role="img" aria-label={`${holiday.name} decorations`} style={{position:"fixed",top:0,left:0,right:0,height:58,zIndex:60,pointerEvents:"none"}}>
+      <svg viewBox="0 0 402 20" width="100%" height="20" preserveAspectRatio="none" aria-hidden="true" style={{position:"absolute",top:0,left:0}}>
+        <path d={`M0 3 ${Array.from({length:count},(_,i)=>`Q${(i+0.5)*402/count} 16 ${(i+1)*402/count} 3`).join(" ")}`} stroke={holiday.curtains[1]} strokeWidth="2.2" fill="none"/>
+      </svg>
+      {Array.from({length:count},(_,i)=>(
+        <div key={i} style={{position:"absolute",top:9 + (i % 2) * 3,left:`${(i+0.5)*100/count}%`,transform:"translateX(-50%)",transformOrigin:"50% 0",
+          animation:reducedMotion ? "none" : `decorSway ${2.4 + (i % 3) * 0.4}s ease-in-out ${-(i * 0.3)}s infinite`}}>
+          <div style={{width:1.5,height:4 + (i % 3) * 3,background:holiday.curtains[1],margin:"0 auto"}}/>
+          <HolidayOrnament decor={holiday.decor} i={i}/>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Owner request 2026-10-26: the 3rd wrong guess on a card brings the crowd back to boo and throw
+// a tomato at the screen. 2.8 seconds, never blocks taps.
+const TOMATO_MS = 2800;
+function TomatoBoo() {
+  return (
+    <div role="status" aria-label="Boo" style={{position:"fixed",inset:0,zIndex:330,pointerEvents:"none",overflow:"hidden"}}>
+      {/* The splat stays on the "screen" a moment, dripping, then fades. */}
+      <div style={{position:"absolute",left:"50%",top:"34%",width:190,height:190,marginLeft:-95,marginTop:-95,animation:`tomatoSplat ${TOMATO_MS}ms ease both`}}>
+        <svg viewBox="0 0 200 200" width="190" height="190" aria-hidden="true">
+          <path d="M100 30 C120 34 128 18 140 30 C150 40 136 52 150 60 C168 66 186 58 184 78 C182 96 162 92 160 106 C158 120 178 130 166 146 C154 160 140 144 128 154 C116 164 118 184 100 182 C82 180 88 160 74 154 C60 148 48 166 36 152 C24 138 44 124 40 110 C36 96 14 98 16 80 C18 62 40 70 50 60 C60 50 48 36 62 28 C76 20 84 28 100 30 Z" fill="#D7261E" stroke="#7A0A10" strokeWidth="3"/>
+          <circle cx="58" cy="44" r="7" fill="#D7261E"/><circle cx="160" cy="48" r="5" fill="#D7261E"/><circle cx="176" cy="132" r="6" fill="#D7261E"/><circle cx="30" cy="120" r="5" fill="#D7261E"/>
+          <path d="M82 110 Q86 140 84 168 M118 116 Q120 136 119 150" stroke="#B3192C" strokeWidth="9" strokeLinecap="round" fill="none" style={{animation:`tomatoDrip ${TOMATO_MS}ms ease-in both`}}/>
+          <ellipse cx="86" cy="76" rx="18" ry="10" fill="#FF6B6B" opacity="0.6"/>
+          <path d="M92 92 l6 -10 6 10 M100 84 v-8" stroke="#2E7D32" strokeWidth="4" strokeLinecap="round" fill="none"/>
+        </svg>
+      </div>
+      {/* The tomato, thrown from the crowd. */}
+      <div style={{position:"absolute",left:"62%",bottom:40,width:44,height:44,marginLeft:-22,animation:"tomatoThrow 0.65s cubic-bezier(.3,.6,.5,1) 0.3s both"}}>
+        <svg viewBox="0 0 44 44" width="44" height="44" aria-hidden="true">
+          <circle cx="22" cy="25" r="17" fill="#E4322B" stroke="#1C1D21" strokeWidth="2"/>
+          <path d="M22 9 l-6 -3 4 5 -8 1 8 2 -4 5 6 -4 6 4 -4 -5 8 -2 -8 -1 4 -5 Z" fill="#2E7D32" stroke="#1C1D21" strokeWidth="1"/>
+          <ellipse cx="15" cy="20" rx="4" ry="6" fill="#fff" opacity="0.35"/>
+        </svg>
+      </div>
+      <div style={{position:"absolute",left:"50%",bottom:76,transform:"translateX(-50%)",...WHITE_STICKER_TEXT,fontSize:34,color:"#FFB4B4",animation:`booShake ${TOMATO_MS}ms ease both`}}>BOO!</div>
+      <div style={{position:"absolute",left:0,right:0,bottom:0,height:64,animation:`audienceInLong ${TOMATO_MS}ms ease both`}}>
+        <AudienceRow mood="groan"/>
+      </div>
+    </div>
+  );
+}
+
+// Owner request 2026-10-26: sit idle too long and the usher's flashlight sweeps across.
+const USHER_IDLE_MS = 30000;
+function Usher() {
+  return (
+    <div role="status" aria-label="Usher" style={{position:"fixed",inset:0,zIndex:320,pointerEvents:"none",overflow:"hidden",animation:"usherDim 3.2s ease both"}}>
+      <div style={{position:"absolute",inset:0,background:"rgba(6,4,18,0.55)"}}/>
+      <div style={{position:"absolute",left:"50%",top:"38%",width:260,height:260,marginLeft:-130,marginTop:-130,borderRadius:"50%",
+        background:"radial-gradient(circle, rgba(255,244,190,0.55) 0%, rgba(255,244,190,0.22) 45%, rgba(255,244,190,0) 70%)",animation:"usherSweep 3.2s ease-in-out both"}}/>
+      <div style={{position:"absolute",left:"50%",bottom:"22%",transform:"translateX(-50%)",whiteSpace:"nowrap",padding:"10px 16px",borderRadius:12,background:"rgba(14,10,44,0.85)",border:"2px solid #1C1D21",...WHITE_STICKER_TEXT,fontSize:13}}>
+        🔦 Psst… the film's started.
+      </div>
+    </div>
+  );
+}
+
+// Owner request 2026-10-26: paparazzi flashes on the end screen after a perfect run.
+function CameraFlashes() {
+  useEffect(() => { SFX.shutter(8); }, []);
+  const spots = [[12, 18], [82, 12], [30, 34], [70, 30], [8, 58], [90, 52], [22, 80], [78, 76], [50, 8], [55, 64]];
+  return (
+    <div aria-label="Camera flashes" role="img" style={{position:"fixed",inset:0,zIndex:730,pointerEvents:"none"}}>
+      {spots.map(([x, y], i) => (
+        <div key={i} style={{position:"absolute",left:`${x}%`,top:`${y}%`,width:90,height:90,opacity:0,
+          background:"radial-gradient(circle, #FFFFFF 0%, rgba(255,255,255,0.85) 12%, rgba(255,250,220,0.35) 32%, rgba(255,255,255,0) 62%)",
+          animation:`flashPop 1.6s ease-out ${(i * 0.37) % 1.6}s 3`}}/>
+      ))}
+    </div>
+  );
+}
+
+// Between cards (alternative): the old silent-film iris closes to a dot and opens again.
+const IRIS_MS = 1100;
+function IrisWipe() {
+  return (
+    <div role="status" aria-label="Iris change" style={{position:"fixed",inset:0,zIndex:305,pointerEvents:"none",overflow:"hidden"}}>
+      <div style={{position:"absolute",left:"50%",top:"45%",borderRadius:"50%",boxShadow:"0 0 0 300vmax #0B0812",
+        transform:"translate(-50%,-50%)",animation:`irisWipe ${IRIS_MS}ms ease-in-out both`}}/>
+    </div>
+  );
+}
+// Between cards (alternative): a big clapperboard drops in ("SCENE n · TAKE 1"), snaps shut, lifts away.
+const CLAPPER_SLAM_MS = 1250;
+function ClapperSlam({scene}) {
+  return (
+    <div role="status" aria-label="Clapper change" style={{position:"fixed",inset:0,zIndex:305,pointerEvents:"none",display:"flex",alignItems:"center",justifyContent:"center",
+      background:"rgba(11,8,18,0.55)",animation:`leaderFade ${CLAPPER_SLAM_MS}ms linear both`}}>
+      <div style={{position:"relative",width:250,animation:`slamDrop ${CLAPPER_SLAM_MS}ms cubic-bezier(.2,.9,.3,1) both`}}>
+        <div style={{position:"absolute",left:0,right:0,top:0,height:36,transformOrigin:"6px 34px",animation:`slamArm ${CLAPPER_SLAM_MS}ms ease-in both`,
+          background:"repeating-linear-gradient(135deg,#F7F4EE 0 18px,#1C1D21 18px 36px)",border:"3px solid #1C1D21",borderRadius:4}}/>
+        <div style={{marginTop:38,height:28,background:"repeating-linear-gradient(135deg,#1C1D21 0 18px,#F7F4EE 18px 36px)",border:"3px solid #1C1D21",borderRadius:"4px 4px 0 0"}}/>
+        <div style={{background:"#1C1D21",border:"3px solid #1C1D21",borderTop:"none",borderRadius:"0 0 6px 6px",padding:"12px 14px 14px",display:"flex",flexDirection:"column",gap:8}}>
+          <div style={{display:"flex",justifyContent:"space-between",borderBottom:"2px solid #F7F4EE",paddingBottom:6}}>
+            <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:13,color:"#F7F4EE"}}>SCENE {scene}</span>
+            <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:13,color:"#F7F4EE"}}>TAKE 1</span>
+          </div>
+          <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:11,color:"#F7F4EE",opacity:0.85}}>PROD: PLOTMIX</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Between cards (alternative): wide film strips race down both sides and the projector flickers.
+const FILM_REEL_MS = 950;
+function FilmReelChange() {
+  return (
+    <div role="status" aria-label="Film reel change" style={{position:"fixed",inset:0,zIndex:305,pointerEvents:"none",overflow:"hidden",animation:`filmJitter ${FILM_REEL_MS}ms steps(10) both`}}>
+      {["left","right"].map(side=>(
+        <div key={side} style={{position:"absolute",top:"-10%",bottom:"-10%",[side]:0,width:54,backgroundImage:FILM_STRIP_BG,backgroundSize:"54px 72px",backgroundRepeat:"repeat-y",
+          boxShadow:"0 0 12px rgba(0,0,0,0.5)",animation:`filmSideIn${side==="left"?"L":"R"} ${FILM_REEL_MS}ms ease both, filmRoll ${FILM_REEL_MS}ms linear both`}}/>
+      ))}
+      <div style={{position:"absolute",inset:0,background:"#FFF8E7",animation:`projectorFlicker ${FILM_REEL_MS}ms linear both`}}/>
+      <div style={{position:"absolute",inset:0,background:"repeating-linear-gradient(90deg, transparent 0 37px, rgba(28,22,12,0.35) 37px 38px, transparent 38px 113px, rgba(255,255,255,0.5) 113px 114px)",animation:`filmScratch ${FILM_REEL_MS}ms steps(6) both`}}/>
+    </div>
+  );
+}
+
+// Between cards: an old film-leader countdown, "5, 4, blip!" (owner request 2026-10-25).
+const LEADER_BLIP_MS = 1300;
+function LeaderBlip() {
+  const [step, setStep] = useState(5); // 5, 4, then 0 = the blip
+  useEffect(() => {
+    SFX.leaderBeep(step === 0);
+    if (step === 0) return;
+    const id = setTimeout(() => setStep(step === 5 ? 4 : 0), 420);
+    return () => clearTimeout(id);
+  }, [step]);
+  return (
+    <div role="status" aria-label="Next card countdown" style={{position:"fixed",inset:0,zIndex:305,pointerEvents:"none",display:"flex",alignItems:"center",justifyContent:"center",
+      background:"rgba(28,22,12,0.9)",animation:`leaderFade ${LEADER_BLIP_MS}ms linear both`}}>
+      <div style={{position:"absolute",inset:0,background:"repeating-linear-gradient(90deg, transparent 0 37px, rgba(255,255,255,0.18) 37px 38px, transparent 38px 113px, rgba(255,255,255,0.3) 113px 114px)",animation:"filmScratch 0.8s steps(6) infinite"}}/>
+      <div style={{position:"relative",width:200,height:200,borderRadius:"50%",border:"4px solid #F3F4FF",background:"#3A3226",overflow:"hidden",boxShadow:"0 0 0 10px rgba(243,244,255,0.12)"}}>
+        {step > 0 && <div key={step} style={{position:"absolute",inset:0,background:"conic-gradient(rgba(243,244,255,0.28) 0deg, rgba(243,244,255,0.28) 90deg, transparent 90deg)",animation:"leaderSweep 0.42s linear both"}}/>}
+        <div style={{position:"absolute",left:0,right:0,top:"50%",height:2,background:"rgba(243,244,255,0.55)"}}/>
+        <div style={{position:"absolute",top:0,bottom:0,left:"50%",width:2,background:"rgba(243,244,255,0.55)"}}/>
+        <div style={{position:"absolute",inset:24,borderRadius:"50%",border:"2px solid rgba(243,244,255,0.55)"}}/>
+        {step > 0 && (
+          <div key={`n${step}`} style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",...WHITE_STICKER_TEXT,fontSize:92,lineHeight:1}}>{step}</div>
+        )}
+      </div>
+      {step === 0 && <div style={{position:"absolute",inset:0,background:"#FFFDF2",animation:"leaderBlip 0.35s ease-out both"}}/>}
+    </div>
+  );
+}
+
 // Red curtains that part to reveal the screen, with an optional trailer-voice line.
 function CurtainReveal({line=null, zIndex=600, reducedMotion=false, colors=null}) {
   const [visible,setVisible]=useState(true);
   useEffect(()=>{
     if(reducedMotion) return;
-    SFX.curtain();
-    const id=setTimeout(()=>setVisible(false), line ? 2600 : 1700);
+    SFX.curtain(line ? 2.3 : 0.25);
+    const id=setTimeout(()=>setVisible(false), line ? 3600 : 1700);
     return ()=>clearTimeout(id);
   },[reducedMotion, line]);
   if(reducedMotion || !visible) return null;
-  const delay = line ? 1.3 : 0.25;
+  // With a line, the curtains wait until it has been read (owner feedback 2026-10-26).
+  const delay = line ? 2.3 : 0.25;
   const [c0, c1] = colors || curtainColors();
   const velvet = `repeating-linear-gradient(90deg, ${c0} 0px, ${c1} 14px, ${c0} 28px)`;
   return (
@@ -3773,7 +4229,7 @@ function CurtainReveal({line=null, zIndex=600, reducedMotion=false, colors=null}
       <div style={{position:"absolute",top:0,bottom:0,right:0,width:"51%",background:velvet,boxShadow:"inset 10px 0 18px rgba(0,0,0,0.45)",animation:`curtainRight 1.1s ease-in-out ${delay}s both`}}/>
       <div style={{position:"absolute",top:0,left:0,right:0,height:34,background:"linear-gradient(#6E0A17,#A3192B)",borderBottom:"3px solid #F6A507",animation:`curtainValance 1.1s ease-in-out ${delay+0.2}s both`}}/>
       {line && (
-        <div style={{position:"absolute",left:24,right:24,top:"42%",textAlign:"center",...YELLOW_STICKER_TEXT,fontSize:"clamp(16px, 5vw, 22px)",lineHeight:1.3,textTransform:"uppercase",animation:"trailerLine 1.6s ease both"}}>
+        <div style={{position:"absolute",left:24,right:24,top:"42%",textAlign:"center",...YELLOW_STICKER_TEXT,fontSize:"clamp(16px, 5vw, 22px)",lineHeight:1.3,textTransform:"uppercase",animation:"trailerLine 2.8s ease both"}}>
           {line}
         </div>
       )}
@@ -3810,7 +4266,7 @@ function NextDailyCountdown() {
 
 function BadgeToast({badges}) {
   return (
-    <div role="status" style={{position:"fixed",top:74,left:"50%",transform:"translateX(-50%)",zIndex:520,pointerEvents:"none",display:"flex",flexDirection:"column",gap:6,alignItems:"center",animation:"badgeToast 2.8s ease both"}}>
+    <div role="status" style={{position:"fixed",top:74,left:"50%",transform:"translateX(-50%)",zIndex:520,pointerEvents:"none",display:"flex",flexDirection:"column",gap:6,alignItems:"center",animation:"badgeIn 0.4s ease both"}}>
       {badges.map(b=>(
         <div key={b.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 14px",background:"#FFD84D",border:"2px solid #1C1D21",borderRadius:12,boxShadow:"0 3px 0 #1C1D21",whiteSpace:"nowrap"}}>
           <span style={{fontSize:18,lineHeight:1}}>{b.emoji}</span>
@@ -3822,6 +4278,32 @@ function BadgeToast({badges}) {
 }
 
 const CINEMA_KEYFRAMES = `
+  @keyframes decorSway { 0%,100%{transform:translateX(-50%) rotate(-6deg)} 50%{transform:translateX(-50%) rotate(6deg)} }
+  @keyframes vhsPress { 0%,49%{transform:translateY(0); box-shadow:0 7px 0 #0B0C10} 50%,100%{transform:translateY(6px); box-shadow:0 1px 0 #0B0C10} }
+  @keyframes laserReady { 0%,100%{filter:drop-shadow(0 0 1px #FF2E63)} 50%{filter:drop-shadow(0 0 6px #FF2E63)} }
+  @keyframes zapCoach { 0%,100%{transform:translate(-50%,-50%) scale(1)} 50%{transform:translate(-50%,-50%) scale(1.15)} }
+  @keyframes speedLines { 0%{opacity:0; transform:scale(1.3) rotate(0deg)} 12%{opacity:0.95} 65%{opacity:0.95} 100%{opacity:0; transform:scale(1) rotate(5deg)} }
+  @keyframes speedSymbol { 0%{opacity:0; transform:scale(0.2) rotate(-20deg)} 25%{opacity:1; transform:scale(1.15) rotate(0deg)} 40%{transform:scale(1)} 80%{opacity:1; transform:scale(1)} 100%{opacity:0; transform:scale(1.4)} }
+  @keyframes arcadeShakeA { 0%,100%{transform:translate(0,0)} 15%{transform:translate(-7px,3px)} 30%{transform:translate(6px,-4px)} 45%{transform:translate(-5px,-2px)} 60%{transform:translate(4px,3px)} 75%{transform:translate(-2px,1px)} }
+  @keyframes arcadeShakeB { 0%,100%{transform:translate(0,0)} 15%{transform:translate(-7px,3px)} 30%{transform:translate(6px,-4px)} 45%{transform:translate(-5px,-2px)} 60%{transform:translate(4px,3px)} 75%{transform:translate(-2px,1px)} }
+  @keyframes audienceInLong { 0%{transform:translateY(100%)} 10%{transform:translateY(0)} 88%{transform:translateY(0)} 100%{transform:translateY(100%)} }
+  @keyframes tomatoThrow { 0%{opacity:1; transform:translate(0,0) scale(0.6) rotate(0)} 96%{opacity:1; transform:translate(-44px,-46vh) scale(2.2) rotate(300deg)} 100%{opacity:0; transform:translate(-44px,-46vh) scale(2.4) rotate(310deg)} }
+  @keyframes tomatoSplat { 0%,33%{opacity:0; transform:scale(0.2)} 36%{opacity:1; transform:scale(1.12)} 42%{transform:scale(1)} 80%{opacity:1} 100%{opacity:0; transform:scale(1) translateY(14px)} }
+  @keyframes tomatoDrip { 0%,40%{stroke-dasharray:0 200} 100%{stroke-dasharray:200 0} }
+  @keyframes booShake { 0%{opacity:0; transform:translateX(-50%) scale(0.6)} 10%{opacity:1; transform:translateX(-50%) scale(1.1)} 14%,22%,30%{transform:translateX(-52%) scale(1)} 18%,26%{transform:translateX(-48%) scale(1)} 85%{opacity:1} 100%{opacity:0; transform:translateX(-50%)} }
+  @keyframes audienceIn { 0%{transform:translateY(100%)} 14%{transform:translateY(0)} 84%{transform:translateY(0)} 100%{transform:translateY(100%)} }
+  @keyframes audienceCheer { 0%,100%{transform:translateY(0)} 30%{transform:translateY(-12px)} 60%{transform:translateY(0)} 80%{transform:translateY(-6px)} }
+  @keyframes audienceGroan { 0%{transform:translateY(0)} 40%,100%{transform:translateY(7px) rotate(-4deg)} }
+  @keyframes popcornToss { 0%{opacity:0; transform:translate(0,0) rotate(0)} 10%{opacity:1} 100%{opacity:0; transform:translate(-60px,-260px) rotate(540deg)} }
+  @keyframes usherDim { 0%,100%{opacity:0} 12%,85%{opacity:1} }
+  @keyframes usherSweep { 0%{transform:translateX(-40vw)} 50%{transform:translateX(40vw)} 100%{transform:translateX(-10vw)} }
+  @keyframes flashPop { 0%{opacity:0; transform:translate(-50%,-50%) scale(0.3)} 8%{opacity:1; transform:translate(-50%,-50%) scale(1)} 26%,100%{opacity:0; transform:translate(-50%,-50%) scale(1.2)} }
+  @keyframes spoilerTear { 0%{transform:rotate(-6deg)} 25%{transform:rotate(-6deg) translateX(4px)} 100%{opacity:0; transform:translate(130%,-24px) rotate(18deg)} }
+  @keyframes spoilerTearL { 0%{transform:rotate(5deg)} 25%{transform:rotate(5deg) translateX(-4px)} 100%{opacity:0; transform:translate(-130%,-18px) rotate(-16deg)} }
+  @keyframes postCreditsIn { from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:translateY(0)} }
+  @keyframes boomBurst { 0%{opacity:1; transform:translate(-50%,-50%) scale(0.25)} 60%{opacity:1} 100%{opacity:0; transform:translate(-50%,-50%) scale(1.5)} }
+  @keyframes boomSpark { 0%{opacity:1; transform:translate(-50%,-50%)} 100%{opacity:0; transform:translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0.3)} }
+  @keyframes laserBeam { 0%{opacity:1; transform:scaleX(1.6)} 100%{opacity:0; transform:scaleX(0.4)} }
   @keyframes clapperIn { 0%{opacity:0; transform:translateX(-50%) translateY(10px) scale(0.9)} 12%{opacity:1; transform:translateX(-50%) translateY(0) scale(1)} 82%{opacity:1; transform:translateX(-50%) translateY(0) scale(1)} 100%{opacity:0; transform:translateX(-50%) translateY(-8px) scale(0.98)} }
   @keyframes clapSnap { 0%{transform:rotate(-30deg)} 55%{transform:rotate(0deg)} 70%{transform:rotate(-5deg)} 100%{transform:rotate(0deg)} }
   @keyframes kernelPop { 0%{opacity:1; transform:translate(0,0) scale(0.4)} 70%{opacity:1} 100%{opacity:0; transform:translate(var(--dx),var(--dy)) scale(1)} }
@@ -3832,8 +4314,23 @@ const CINEMA_KEYFRAMES = `
   @keyframes trailerLine { 0%{opacity:0; transform:scale(0.96)} 25%{opacity:1; transform:scale(1)} 80%{opacity:1} 100%{opacity:0; transform:scale(1.04)} }
   @keyframes filmBurn { 0%{opacity:0; transform:scale(0.2)} 30%{opacity:1} 100%{opacity:0; transform:scale(3.2)} }
   @keyframes badgeToast { 0%{opacity:0; transform:translateX(-50%) translateY(-12px)} 10%{opacity:1; transform:translateX(-50%) translateY(0)} 85%{opacity:1} 100%{opacity:0; transform:translateX(-50%) translateY(-6px)} }
+  @keyframes irisWipe { 0%{width:300vmax; height:300vmax} 45%,55%{width:0; height:0} 100%{width:300vmax; height:300vmax} }
+  @keyframes slamDrop { 0%{transform:translateY(-120vh)} 22%{transform:translateY(0)} 26%{transform:translateY(-6px)} 30%,78%{transform:translateY(0)} 100%{transform:translateY(-120vh)} }
+  @keyframes slamArm { 0%,30%{transform:rotate(-24deg)} 42%,100%{transform:rotate(0deg)} }
+  @keyframes leaderFade { 0%{opacity:0} 6%{opacity:1} 72%{opacity:1} 100%{opacity:0} }
+  @keyframes leaderBlip { 0%{opacity:0.95} 100%{opacity:0} }
+  @keyframes filmRoll { from{background-position:0 0} to{background-position:0 720px} }
+  @keyframes filmRollH { from{background-position:0 0} to{background-position:-720px 0} }
+  @keyframes filmSideInL { 0%{transform:translateX(-110%)} 18%{transform:translateX(0)} 82%{transform:translateX(0)} 100%{transform:translateX(-110%)} }
+  @keyframes filmSideInR { 0%{transform:translateX(110%)} 18%{transform:translateX(0)} 82%{transform:translateX(0)} 100%{transform:translateX(110%)} }
+  @keyframes filmFlyAcross { 0%{transform:translateX(-100%) rotate(-14deg);opacity:0} 15%{opacity:1} 85%{opacity:1} 100%{transform:translateX(100%) rotate(-8deg);opacity:0} }
+  @keyframes tileWinFlipOld { 0%{transform:perspective(300px) rotateY(0);color:#1C1D21} 49%{color:#1C1D21} 50%{transform:perspective(300px) rotateY(90deg);color:#15803D} 75%{transform:perspective(300px) rotateY(-12deg) scale(1.06)} 100%{transform:perspective(300px) rotateY(0) scale(1);color:#15803D} }
+  @keyframes tileWinFlipNew { 0%{transform:perspective(300px) rotateY(0);color:transparent} 49%{color:transparent} 50%{transform:perspective(300px) rotateY(90deg);color:#15803D} 75%{transform:perspective(300px) rotateY(-12deg) scale(1.06)} 100%{transform:perspective(300px) rotateY(0) scale(1);color:#15803D} }
   @keyframes reelAdvance { from{background-position:center 0} to{background-position:center 168px} }
-  @keyframes projectorFlicker { 0%,100%{opacity:0} 15%{opacity:0.2} 28%{opacity:0.05} 42%{opacity:0.16} 60%{opacity:0.04} 75%{opacity:0.12} }
+  @keyframes projectorFlicker { 0%,100%{opacity:0} 10%{opacity:0.55} 18%{opacity:0.1} 30%{opacity:0.45} 40%{opacity:0.05} 52%{opacity:0.5} 64%{opacity:0.15} 78%{opacity:0.35} 90%{opacity:0.08} }
+  @keyframes filmScratch { 0%{opacity:0;background-position:0 0} 15%{opacity:1} 50%{background-position:-23px 0} 85%{opacity:1} 100%{opacity:0;background-position:31px 0} }
+  @keyframes filmJitter { 0%,100%{transform:translate(0,0)} 25%{transform:translate(1px,-2px)} 50%{transform:translate(-1px,2px)} 75%{transform:translate(1px,1px)} }
+  @keyframes badgeIn { from{opacity:0;transform:translateX(-50%) translateY(-10px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
   @keyframes ptsShake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(calc(var(--amp) * -1))} 40%{transform:translateX(var(--amp))} 60%{transform:translateX(calc(var(--amp) * -0.6))} 80%{transform:translateX(calc(var(--amp) * 0.4))} }
   @keyframes tileFlip { 0%{transform:rotateX(90deg) scale(0.9)} 60%{transform:rotateX(-12deg) scale(1.06)} 100%{transform:rotateX(0) scale(1)} }
   @keyframes itemSpin { from{transform:rotate(var(--r0))} to{transform:rotate(var(--r1))} }
@@ -3844,31 +4341,13 @@ const CINEMA_KEYFRAMES = `
 //
 // FILM VAULT, STUBS, ARCADE, THEMED WEEKS, DAILY STREAK (owner request 2026-10-22)
 //
-// Every solved card earns a ticket stub. The Vault keeps one stub per mashup ever solved.
-// New players start with one "Admit One" stub, so the first arcade play is already underway.
-const LS_VAULT = "plotmix_vault";
-const LS_STUBS = "plotmix_stubs";
-const LS_PRIZES = "plotmix_prizes";
-const LS_DSTREAK = "plotmix_dstreak"; // not "plotmix_daily_…": that prefix is reserved for daily results
-const WELCOME_STUBS = 1;
-
+// (Ticket stubs and the Film Vault were removed, owner decision 2026-10-25.)
 function readJSON(key, fallback) {
   try { const v = JSON.parse(localStorage.getItem(key) || "null"); return v ?? fallback; } catch { return fallback; }
 }
 function writeJSON(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch {} }
-
-function loadVault() { const v = readJSON(LS_VAULT, []); return Array.isArray(v) ? v : []; }
-function loadStubs() {
-  const v = readJSON(LS_STUBS, null);
-  return v && typeof v.earned === "number" ? v : { earned: WELCOME_STUBS, spent: 0 };
-}
-// A solved card: one stub to spend, and its mashup goes into the Vault.
-function recordSolve(cardId) {
-  const s = loadStubs();
-  writeJSON(LS_STUBS, { ...s, earned: s.earned + 1 });
-  const vault = loadVault();
-  if (!vault.includes(cardId)) writeJSON(LS_VAULT, [...vault, cardId]);
-}
+const LS_PRIZES = "plotmix_prizes";
+const LS_DSTREAK = "plotmix_dstreak"; // not "plotmix_daily_…": that prefix is reserved for daily results
 
 // Single-use power-ups won in the arcade (owner request 2026-10-25), used in Standard and
 // Speed Run (not the Daily, so shared Daily results stay comparable):
@@ -3883,13 +4362,14 @@ function usePowerup(kind) { const p = loadPowerups(); if (!p[kind]) return false
 const CURTAINS = [
   { id: "red",     name: "Red Velvet",    colors: ["#8E0F1F", "#C21E32"], prize: null },
   { id: "blue",    name: "Midnight Blue", colors: ["#0E1A4F", "#2A3FA8"], prize: "bronze" },
-  { id: "emerald", name: "Emerald",       colors: ["#0B4A33", "#16875C"], prize: "silver" },
-  { id: "gold",    name: "Gold Lamé",     colors: ["#8A5A00", "#E0A82E"], prize: "gold" },
+  { id: "emerald", name: "Emerald Green",       colors: ["#0B4A33", "#16875C"], prize: "silver" },
+  // The hardest to get (owner decision 2026-10-25): 3 Dailies in a row with no wrong guess at all.
+  { id: "gold",    name: "Gold Lamé",     colors: ["#8A5A00", "#E0A82E"], prize: "perfectDaily3" },
 ];
 const PRIZE_TIERS = [
-  { id: "gold",   min: 25, name: "Gold Reel",   emoji: "🥇", powerups: { hint: 1, peek: 1 }, reward: "a Free Hint and a Popcorn Peek" },
-  { id: "silver", min: 15, name: "Silver Reel", emoji: "🥈", powerups: { peek: 1 },          reward: "a Popcorn Peek" },
-  { id: "bronze", min: 8,  name: "Bronze Reel", emoji: "🥉", powerups: { hint: 1 },          reward: "a Free Hint" },
+  { id: "gold",   min: 150, name: "Gold Reel",   emoji: "🥇", powerups: { hint: 1, peek: 1 }, reward: "a Free Hint and a Popcorn Peek" },
+  { id: "silver", min: 90,  name: "Silver Reel", emoji: "🥈", powerups: { peek: 1 },          reward: "a Popcorn Peek" },
+  { id: "bronze", min: 40, name: "Bronze Reel", emoji: "🥉", powerups: { hint: 1 },          reward: "a Free Hint" },
 ];
 function loadPrizes() {
   const v = readJSON(LS_PRIZES, null);
@@ -3902,23 +4382,66 @@ function curtainColors() {
   return (c || CURTAINS[0]).colors;
 }
 
-// Themed weeks: the Daily is drawn from matching cards and the curtains change colour.
-const THEMED_WEEKS = [
-  {
-    id: "fright", name: "Fright Week", emoji: "🎃",
-    // 24–31 October each year (month is 0-based)
-    month: 9, fromDay: 24, toDay: 31,
-    genres: /horror|thriller/i,
-    curtains: ["#2B0A3D", "#E8650A"],
-    lines: ["In a town… where nobody sleeps tonight…", "This week… the mashups bite back…", "Lock the doors. Dim the lights. Name both films."],
-  },
+// Holiday weeks (owner request 2026-10-26): major holidays get decorations around the edges and
+// themed curtains for about a week around the day. Lunar and lunisolar dates follow the real
+// Chinese, Hebrew and Islamic calendars (built into the browser), so they move with the years.
+// Fright Week also draws the Daily from horror and thriller cards.
+const CAL_FORMATS = {};
+function calendarParts(date, cal, monthStyle = "numeric") {
+  try {
+    const key = `${cal}-${monthStyle}`;
+    CAL_FORMATS[key] = CAL_FORMATS[key] || new Intl.DateTimeFormat(`en-u-ca-${cal}`, { month: monthStyle, day: "numeric", timeZone: "UTC" });
+    const parts = CAL_FORMATS[key].formatToParts(new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 12)));
+    return { month: parts.find((x) => x.type === "month")?.value, day: Number(parts.find((x) => x.type === "day")?.value) };
+  } catch { return { month: null, day: null }; }
+}
+// Western Easter Sunday (anonymous Gregorian algorithm).
+function easterSunday(y) {
+  const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31), day = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(y, month - 1, day);
+}
+const isDay = (d, month, day) => d.getMonth() === month && d.getDate() === day;
+// Each holiday: its main day, and how many days before/after it the theme runs.
+const HOLIDAYS = [
+  { id: "newyear", name: "New Year", emoji: "🎆", decor: "newyear", before: 3, after: 3,
+    isMain: (d) => isDay(d, 0, 1), curtains: ["#0E1A4F", "#C9A227"],
+    lines: ["Out with the old films… in with the mashup.", "New year. New mashups. Same popcorn."] },
+  { id: "lunar", name: "Lunar New Year", emoji: "🏮", decor: "lanterns", before: 2, after: 5,
+    isMain: (d) => { const p = calendarParts(d, "chinese"); return p.month === "1" && p.day === 1; }, curtains: ["#7A0A10", "#D9A21B"],
+    lines: ["A new year… a new mashup. Fortune favours the film buff.", "Lanterns lit. Popcorn ready. Name both films."] },
+  { id: "easter", name: "Easter", emoji: "🐣", decor: "eggs", before: 3, after: 3,
+    isMain: (d) => { const e = easterSunday(d.getFullYear()); return isDay(d, e.getMonth(), e.getDate()); }, curtains: ["#6B4FA0", "#E9A3C0"],
+    lines: ["This spring… the mashups hatch.", "Hidden somewhere in this plot… two films."] },
+  { id: "eid", name: "Eid al-Fitr", emoji: "🌙", decor: "crescents", before: 2, after: 4,
+    isMain: (d) => { const p = calendarParts(d, "islamic-umalqura"); return p.month === "10" && p.day === 1; }, curtains: ["#0B3D2E", "#C9A227"],
+    lines: ["Eid Mubarak! Tonight's double feature…", "Lanterns up. Lights down. Name both films."] },
+  { id: "fright", name: "Fright Week", emoji: "🎃", decor: "pumpkins", before: 7, after: 0,
+    isMain: (d) => isDay(d, 9, 31), genres: /horror|thriller/i, curtains: ["#2B0A3D", "#E8650A"],
+    lines: ["In a town… where nobody sleeps tonight…", "This week… the mashups bite back…", "Lock the doors. Dim the lights. Name both films."] },
+  { id: "hanukkah", name: "Hanukkah", emoji: "🕎", decor: "dreidels", before: 1, after: 7,
+    isMain: (d) => { const p = calendarParts(d, "hebrew", "long"); return p.month === "Kislev" && p.day === 25; }, curtains: ["#0E3A8A", "#C9D6F2"],
+    lines: ["Eight nights. Two films. One mashup.", "Spin the dreidel… name both films."] },
+  { id: "christmas", name: "Christmas", emoji: "🎄", decor: "lights", before: 5, after: 1,
+    isMain: (d) => isDay(d, 11, 25), curtains: ["#0B4A33", "#B3192C"],
+    lines: ["This holiday season… two films, one stocking.", "Deck the halls. Dim the lights. Name both films."] },
 ];
-function activeThemedWeek(date = new Date()) {
-  return THEMED_WEEKS.find((w) => date.getMonth() === w.month && date.getDate() >= w.fromDay && date.getDate() <= w.toDay) || null;
+// The holiday whose week covers this date (the nearest main day wins if two overlap), or null.
+function activeHoliday(date = new Date()) {
+  let best = null;
+  for (const h of HOLIDAYS) {
+    for (let o = -h.after; o <= h.before; o++) {
+      const d = new Date(date.getFullYear(), date.getMonth(), date.getDate() + o);
+      if (h.isMain(d) && (!best || Math.abs(o) < best.dist)) best = { holiday: h, dist: Math.abs(o) };
+    }
+  }
+  return best ? best.holiday : null;
 }
 function themedDailyCard(sourceDeck, date) {
-  const week = activeThemedWeek(date);
-  if (!week) return null;
+  const week = activeHoliday(date);
+  if (!week || !week.genres) return null;
   const pool = sourceDeck
     .filter((c) => (c.hintData?.films || []).some((f) => week.genres.test(f.genre || "")))
     .sort((a, b) => a.id - b.id);
@@ -3930,6 +4453,34 @@ function themedDailyCard(sourceDeck, date) {
 // Daily streak: days in a row with the Daily played. One missed day a week is forgiven.
 function weekNumber(dayNum) { return Math.floor((dayNum + 3) / 7); }
 function loadDailyStreak() { const v = readJSON(LS_DSTREAK, null); return v && typeof v.count === "number" ? v : { count: 0, best: 0, lastDay: null, saverWeek: null }; }
+// Perfect Dailies in a row (solved with no wrong guess); 3 unlock the Gold Lamé curtains.
+const LS_PERFECT_DAILY = "plotmix_perfect_daily";
+const PERFECT_DAILY_FOR_GOLD = 3;
+function loadPerfectDaily() { const v = readJSON(LS_PERFECT_DAILY, null); return v && typeof v.count === "number" ? v : { count: 0, lastDay: null }; }
+function recordPerfectDaily(perfect, date = new Date()) {
+  const today = localDayNumber(date);
+  const st = loadPerfectDaily();
+  if (st.lastDay === today) return st;
+  const count = !perfect ? 0 : st.lastDay === today - 1 ? st.count + 1 : 1;
+  const next = { count, lastDay: today };
+  writeJSON(LS_PERFECT_DAILY, next);
+  if (count >= PERFECT_DAILY_FOR_GOLD) unlockGoldCurtains(date);
+  return next;
+}
+// Gold Lamé curtains: won by 3 perfect Dailies in a row, or by one perfect Standard or Speed
+// Run (every card solved, no hints or power-ups, no wrong guesses; owner decision 2026-10-26).
+// Returns true the first time they are won.
+function unlockGoldCurtains(date = new Date()) {
+  const p = loadPrizes();
+  if (p.won.includes("perfectDaily3")) return false;
+  writeJSON(LS_PRIZES, { ...p, won: [...p.won, "perfectDaily3"], curtain: "gold", goldJustWon: localDayNumber(date) });
+  return true;
+}
+function isPerfectRun(mode, results) {
+  return !mode.isDaily && results.length === mode.roundCount &&
+    results.every((r) => r && r.solved && !r.skipped && (r.wrong || 0) === 0 && (r.hints || 0) === 0 && !r.peek);
+}
+
 function recordDailyPlayed(date = new Date()) {
   const today = localDayNumber(date);
   const st = loadDailyStreak();
@@ -3953,169 +4504,315 @@ function maskTitleWords(text, card) {
   return text.replace(/[A-Za-z0-9'’]+/g, (w) => (words.has(normWord(w)) ? "▢".repeat(Math.min(w.length, 6)) : w));
 }
 
-const STUB_STYLE = {
-  position: "relative", border: "2px solid #1C1D21", borderRadius: 8, boxShadow: "0 3px 0 #1C1D21",
-  padding: "8px 10px", boxSizing: "border-box", minHeight: 64, display: "flex", flexDirection: "column", justifyContent: "center",
-};
-
-function VaultScreen({onBack, onArcade}) {
-  const vault = loadVault();
-  const deck = uniqueCardsByMoviePair(MASTER_DECK).sort((a, b) => a.id - b.id);
-  const [prizes, setPrizes] = useState(loadPrizes);
-  const pickCurtain = (id) => { const next = { ...prizes, curtain: id }; writeJSON(LS_PRIZES, next); setPrizes(next); };
+// A popcorn box overflowing with popcorn (menu button for Popcorn Panic).
+function PopcornBucketIcon({size=34}) {
   return (
-    <div style={{minHeight:"100dvh",...CHECKER_BG,color:T.textOnDark,padding:"70px 16px 32px",boxSizing:"border-box"}}>
-      <button onClick={onBack} aria-label="Back to menu" style={{position:"absolute",top:20,left:16,...BTN.cyan,padding:"8px 14px"}}>
-        <span style={{...WHITE_STICKER_TEXT,fontSize:11,textTransform:"uppercase"}}>← Menu</span>
-      </button>
-      <div style={{maxWidth:402,margin:"0 auto"}}>
-        <div style={{...WHITE_STICKER_TEXT,fontSize:26,textAlign:"center",textTransform:"uppercase"}}>Film Vault</div>
-        <div aria-label="Vault progress" style={{...YELLOW_STICKER_TEXT,fontSize:13,textAlign:"center",margin:"8px 0 4px",textTransform:"uppercase"}}>
-          {vault.length + 1}/{deck.length + 1} stubs collected
-        </div>
-        <div style={{height:10,background:"rgba(0,0,0,0.3)",border:"1.5px solid #1C1D21",borderRadius:6,overflow:"hidden",margin:"0 0 14px"}}>
-          <div style={{height:"100%",width:`${((vault.length + 1) / (deck.length + 1)) * 100}%`,background:"#FFD84D"}}/>
-        </div>
-        <button onClick={onArcade} aria-label="Open arcade" style={{...BTN.primary,width:"100%",padding:"12px 0",marginBottom:16}}>
-          <span style={{...WHITE_STICKER_TEXT,fontSize:13,textTransform:"uppercase"}}>🕹️ Arcade · {arcadePasses()} play{arcadePasses()===1?"":"s"}</span>
-        </button>
+    <svg width={size} height={size} viewBox="0 0 40 40" aria-hidden="true">
+      {[[11,13],[18,9],[26,11],[31,15],[15,16],[23,15],[8,17]].map(([x,y],i)=>(
+        <g key={i}><circle cx={x} cy={y} r="5.2" fill="#FFF8E6" stroke="#1C1D21" strokeWidth="1.2"/><circle cx={x+1.3} cy={y-1} r="1.6" fill="#FFD84D"/></g>
+      ))}
+      <path d="M5 18 H35 L31 38 H9 Z" fill="#F7F4EE" stroke="#1C1D21" strokeWidth="1.6" strokeLinejoin="round"/>
+      <path d="M11 18 L13 38 M20 18 V38 M29 18 L27 38" stroke="#D8262F" strokeWidth="4"/>
+      <path d="M5 18 H35 L31 38 H9 Z" fill="none" stroke="#1C1D21" strokeWidth="1.6" strokeLinejoin="round"/>
+    </svg>
+  );
+}
 
-        <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:13,margin:"0 0 8px"}}>Curtain colour</div>
-        <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:18}}>
-          {CURTAINS.map((c) => {
-            const owned = !c.prize || prizes.won.includes(c.prize);
-            const tier = PRIZE_TIERS.find((p) => p.id === c.prize);
-            return (
-              <button key={c.id} onClick={() => owned && pickCurtain(c.id)} disabled={!owned} aria-pressed={prizes.curtain === c.id}
-                aria-label={`Curtains: ${c.name}${owned ? "" : " (locked)"}`}
-                style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:10,cursor:owned?"pointer":"not-allowed",
-                  background:prizes.curtain === c.id ? "#FFD84D" : "rgba(255,255,255,0.12)",border:"2px solid #1C1D21",opacity:owned?1:0.5}}>
-                <span style={{width:16,height:16,borderRadius:4,background:`linear-gradient(90deg,${c.colors[0]},${c.colors[1]})`,border:"1px solid #1C1D21"}}/>
-                <span style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:12,color:prizes.curtain === c.id ? "#1C1D21" : "#fff"}}>
-                  {c.name}{owned ? "" : ` · ${tier?.emoji} prize`}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+// Curtain colours won in Popcorn Panic; shown in the arcade only once one has been won
+// (the Film Vault was removed, owner decision 2026-10-25).
+// A little stage curtain in the given colours (for the curtain picker).
+function CurtainSwatch({colors}) {
+  const [c0, c1] = colors;
+  const id = `cs-${c0.slice(1)}-${c1.slice(1)}`;
+  return (
+    <svg viewBox="0 0 64 48" width="64" height="48" aria-hidden="true">
+      <defs>
+        <linearGradient id={id} x1="0" x2="1" y1="0" y2="0" spreadMethod="repeat" gradientTransform="scale(0.14 1)">
+          <stop offset="0" stopColor={c0}/><stop offset="0.5" stopColor={c1}/><stop offset="1" stopColor={c0}/>
+        </linearGradient>
+      </defs>
+      <rect x="0" y="0" width="64" height="48" rx="4" fill="#120C26"/>
+      <path d="M2 6 H30 C30 20 22 30 14 34 C10 36 8 42 10 47 H2 Z" fill={`url(#${id})`} stroke="#1C1D21" strokeWidth="1"/>
+      <path d="M62 6 H34 C34 20 42 30 50 34 C54 36 56 42 54 47 H62 Z" fill={`url(#${id})`} stroke="#1C1D21" strokeWidth="1"/>
+      <path d="M12 33 q4 2 8 0 M44 33 q4 2 8 0" stroke="#F6A507" strokeWidth="2" fill="none" strokeLinecap="round"/>
+      <rect x="0" y="0" width="64" height="8" rx="2" fill={c0} stroke="#1C1D21" strokeWidth="1"/>
+      <path d="M0 8 Q4 12 8 8 Q12 12 16 8 Q20 12 24 8 Q28 12 32 8 Q36 12 40 8 Q44 12 48 8 Q52 12 56 8 Q60 12 64 8" fill={c1} stroke="#1C1D21" strokeWidth="0.8"/>
+    </svg>
+  );
+}
 
-        <div style={{display:"grid",gridTemplateColumns:"repeat(2, 1fr)",gap:10}}>
-          <div style={{...STUB_STYLE,background:"#FFD84D"}}>
-            <div style={{fontFamily:FONT_FIGMA_STICKER,fontSize:9,color:"#1C1D21"}}>WELCOME</div>
-            <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:800,fontSize:13,color:"#1C1D21"}}>Admit One</div>
-          </div>
-          {deck.map((c) => {
-            const has = vault.includes(c.id);
-            return (
-              <div key={c.id} aria-label={has ? `Stub: ${c.mashedTitle}` : "Stub: not yet solved"}
-                style={{...STUB_STYLE,background:has ? "#F3F4FF" : "rgba(255,255,255,0.08)",borderStyle:has?"solid":"dashed"}}>
-                <div style={{fontFamily:FONT_FIGMA_STICKER,fontSize:9,color:has?"#44408E":"rgba(255,255,255,0.5)"}}>#{c.id}</div>
-                <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:800,fontSize:12.5,lineHeight:1.2,color:has?"#1C1D21":"rgba(255,255,255,0.45)"}}>
-                  {has ? c.mashedTitle : "???"}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+function CurtainPicker() {
+  const [prizes, setPrizes] = useState(loadPrizes);
+  if (!prizes.won.length) return null;
+  const pick = (id) => { const next = { ...prizes, curtain: id }; writeJSON(LS_PRIZES, next); setPrizes(next); };
+  return (
+    <div style={{marginTop:18}}>
+      <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:13,margin:"0 0 8px"}}>Your curtains</div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"center"}}>
+        {CURTAINS.filter((c) => !c.prize || prizes.won.includes(c.prize)).map((c) => (
+          <button key={c.id} onClick={() => pick(c.id)} aria-pressed={prizes.curtain === c.id} aria-label={`Curtains: ${c.name}`}
+            style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"6px 8px",borderRadius:10,cursor:"pointer",
+              background:prizes.curtain === c.id ? "#FFD84D" : "rgba(255,255,255,0.12)",border:"2px solid #1C1D21"}}>
+            <CurtainSwatch colors={c.colors}/>
+            <span style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:12,color:prizes.curtain === c.id ? "#1C1D21" : "#fff"}}>{c.name}</span>
+          </button>
+        ))}
       </div>
     </div>
   );
 }
 
 // Arcade side-quest: "Popcorn Panic" (owner design 2026-10-25).
-// Endless: catch popped popcorn; burnt popcorn and unpopped kernels cost a life (3 lives).
-// Every 5 seconds it gets faster with more bad bits, so every game ends. Catching popcorn without
-// letting any fall builds a combo (x2 at 5, x3 at 10); every 10 in a row starts a Popcorn Frenzy.
+// Catch good pieces in the box; bad ones cost a life (3 lives). A play lasts 45 seconds at most,
+// and every 5 seconds it gets faster with more bad pieces. Good catches without a bad one in
+// between build a combo (x2 at 5, x3 at 10); 15 regular catches in a row start a Popcorn Frenzy.
 // Chocolate candies give a boost: an extra life, a 5-second shield, or 5 seconds of double points.
 // A play is earned by solving 5 mashups in a row (no paying to replay).
 const ARCADE_LIVES = 3;
 const ARCADE_LEVEL_MS = 5000;
-const ARCADE_BASE_SPAWN = 560, ARCADE_MIN_SPAWN = 200;   // ms between pieces
-const ARCADE_BASE_FLIGHT = 1900, ARCADE_MIN_FLIGHT = 900; // ms a piece is in the air
-const FRENZY_AT = 10, FRENZY_MS = 3000, FRENZY_SPAWN_MS = 140;
+const ARCADE_GAME_MS = 45000;                            // each play lasts 45 seconds at most
+const ARCADE_BASE_SPAWN = 480, ARCADE_MIN_SPAWN = 170;   // ms between pieces
+const ARCADE_BASE_FALL = 2600, ARCADE_MIN_FALL = 1050;   // ms for a piece to fall the whole way
+const BUCKET_W = 96, BUCKET_H = 80, ARCADE_ITEM = 46;
+// A Popcorn Frenzy can no longer feed itself (owner report 2026-10-25: it chained forever):
+// the next one needs another 15 regular catches in a row; frenzy popcorn doesn't count.
+const FRENZY_AT = 15, FRENZY_MS = 2500, FRENZY_SPAWN_MS = 150;
+// Laser: tap to fire straight up from the box. 3 charges; one comes back every 3 seconds.
+const LASER_MAX = 3, LASER_RECHARGE_MS = 3000, LASER_HALF_W = 26;
+const SLOWMO_MS = 4000;
+const LS_ZAP_LEARNED = "plotmix_zap_learned"; // set after the first successful laser zap
 const ARCADE_STREAK_FOR_PASS = 5;
 function comboMultiplier(c) { return c >= 10 ? 3 : c >= 5 ? 2 : 1; }
 const LS_ARCADE_PASSES = "plotmix_arcade_passes";
 function arcadePasses() { const n = Number(readJSON(LS_ARCADE_PASSES, 0)); return Number.isFinite(n) && n > 0 ? n : 0; }
 function addArcadePass() { writeJSON(LS_ARCADE_PASSES, arcadePasses() + 1); }
+// Developer shortcut (owner request 2026-10-25): adding ?popcorn to a preview or local link
+// opens Popcorn Panic with 3 plays. Never on the live site (plotmix-app.vercel.app).
+function isTestBuildHost(host) { return host === "localhost" || host === "127.0.0.1" || host.includes("-git-"); }
+function openPopcornForTesting() {
+  if (typeof window === "undefined" || !isTestBuildHost(window.location.hostname)) return false;
+  if (!new URLSearchParams(window.location.search).has("popcorn")) return false;
+  if (arcadePasses() < 3) writeJSON(LS_ARCADE_PASSES, 3);
+  return true;
+}
 function useArcadePass() { const n = arcadePasses(); if (n < 1) return false; writeJSON(LS_ARCADE_PASSES, n - 1); return true; }
 const BOOST_MS = 5000;
+// Good pieces score (points × combo), bad ones cost a life if caught, and the rest are boosts.
+// Cinema extras are generic objects (no film's characters, logos or designs).
 const ARCADE_ITEMS = [
-  { kind: "popcorn",  weight: 62, label: "Popcorn" },
-  { kind: "burnt",    weight: 13, label: "Burnt popcorn" },
-  { kind: "unpopped", weight: 13, label: "Unpopped kernel" },
-  { kind: "candy",    weight: 12, label: "Chocolate candy" },
+  { kind: "popcorn",  weight: 44, label: "Popcorn",         good: 1 },
+  { kind: "ticket",   weight: 4,  label: "Movie ticket",    good: 5 },
+  { kind: "reel",     weight: 6,  label: "Film reel",       good: 3 },
+  { kind: "burnt",    weight: 18, label: "Burnt popcorn",   bad: true },
+  { kind: "unpopped", weight: 14, label: "Unpopped kernel", bad: true },
+  { kind: "phone",    weight: 5,  label: "Ringing phone",   bad: true },
+  { kind: "bat",      weight: 3,  label: "Vampire bat",     bad: true },
+  { kind: "candy",    weight: 3,  label: "Chocolate candy" },
+  { kind: "glasses",  weight: 1.5, label: "3D glasses" },
+  { kind: "clapper",  weight: 1.5, label: "Clapperboard" },
 ];
+const ARCADE_KIND = Object.fromEntries(ARCADE_ITEMS.map((it) => [it.kind, it]));
 const CANDY_COLORS = ["#E4444F", "#2F6BFF", "#20B46A", "#FF9F1C", "#FFD84D", "#8B4A2B"];
 
-// Higher levels bring more burnt bits and kernels (capped at level 7).
+// Higher levels bring more bad pieces (capped at level 7).
 function pickArcadeItem(level = 1) {
   const extra = Math.min(12, (level - 1) * 2);
-  const weights = ARCADE_ITEMS.map((it) => it.kind === "popcorn" ? it.weight - 2 * extra : (it.kind === "burnt" || it.kind === "unpopped") ? it.weight + extra : it.weight);
+  const weights = ARCADE_ITEMS.map((it) => it.kind === "popcorn" ? it.weight - 2 * extra : it.bad ? it.weight + extra : it.weight);
   let r = Math.random() * weights.reduce((a, b) => a + b, 0);
   for (let i = 0; i < ARCADE_ITEMS.length; i++) { if ((r -= weights[i]) < 0) return ARCADE_ITEMS[i]; }
   return ARCADE_ITEMS[0];
 }
 
-// Drawn in code. Popped popcorn comes in 4 shapes and burnt popcorn in 3; every piece also
-// gets its own random angle and spin (owner request 2026-10-25), so no two look alike.
+// Drawn in code, modelled on photos of real popcorn (owner request 2026-10-25): puffy cream
+// lobes shaded like soft spheres, golden hull showing in the gaps, and a few lobes curled
+// open around a yellow hollow. 4 popped shapes; burnt pieces reuse 3 of them, toasted on one
+// side. Every piece also gets its own random angle and spin, so no two look alike.
+// Lobes are [cx, cy, rx, ry, angle, curl] in a 48×48 box; curl lobes show the yellow hollow.
 const POPCORN_SHAPES = [
-  [[17,20,10],[30,17,10.5],[34,29,9],[15,32,9],[24,27,10]],
-  [[24,14,9],[14,24,9.5],[34,24,9.5],[24,33,10],[24,24,8]],
-  [[14,18,8],[26,13,9],[36,21,8.5],[30,32,10],[17,31,9.5]],
-  [[20,16,11],[33,22,9],[28,34,8.5],[14,30,8],[22,26,9]],
+  [[16,19,10,9,-20,1],[30,15,10,8.5,15,0],[35,28,8.5,9,0,1],[16,32,9,8,20,0],[25,26,10,9.5,0,0]],
+  [[24,12,9,8,0,1],[13,23,8.5,9.5,-10,0],[35,23,8.5,9.5,10,1],[23,35,10,8.5,0,0],[24,24,8,8,0,0]],
+  [[14,17,8,7.5,-30,0],[26,12,9,8,0,1],[37,21,8,8.5,20,0],[30,33,10,9,10,1],[17,31,9.5,9,-15,0]],
+  [[20,15,11,9,-10,1],[34,22,9,8.5,25,0],[29,35,8.5,8,0,1],[13,30,8,8.5,-20,0],[22,26,9,8.5,0,0]],
 ];
-const BURNT_SHAPES = [POPCORN_SHAPES[0], POPCORN_SHAPES[2], [[18,18,9],[30,20,10],[24,31,11],[12,28,7]]];
+const BURNT_SHAPES = [POPCORN_SHAPES[0], POPCORN_SHAPES[2], POPCORN_SHAPES[3]];
+const POPCORN_DEFS = (
+  <>
+    <radialGradient id="pc-lobe" cx="0.38" cy="0.32" r="0.75">
+      <stop offset="0" stopColor="#FFFFFB"/><stop offset="0.5" stopColor="#FCF3DC"/>
+      <stop offset="0.82" stopColor="#F0DCA8"/><stop offset="1" stopColor="#DDBE7A"/>
+    </radialGradient>
+    <radialGradient id="pc-hull" cx="0.45" cy="0.4" r="0.7">
+      <stop offset="0" stopColor="#FFD965"/><stop offset="0.6" stopColor="#F2A92C"/><stop offset="1" stopColor="#C2741A"/>
+    </radialGradient>
+    <radialGradient id="pc-kernel" cx="0.4" cy="0.28" r="0.85">
+      <stop offset="0" stopColor="#FFD24A"/><stop offset="0.45" stopColor="#F5A91E"/><stop offset="1" stopColor="#D97C0E"/>
+    </radialGradient>
+    <linearGradient id="pc-tip" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stopColor="#FBE3A0" stopOpacity="0"/><stop offset="0.55" stopColor="#F6E7C4" stopOpacity="0.9"/><stop offset="1" stopColor="#EFE3CB"/>
+    </linearGradient>
+    <radialGradient id="pc-kernel-burnt" cx="0.4" cy="0.28" r="0.85">
+      <stop offset="0" stopColor="#8A4E1C"/><stop offset="0.5" stopColor="#4E2A10"/><stop offset="1" stopColor="#24130A"/>
+    </radialGradient>
+  </>
+);
+// A lumpy, cauliflower-like outline instead of a plain ellipse.
+function blobPath(cx, cy, rx, ry, seed) {
+  const n = 16, pts = [];
+  for (let i = 0; i < n; i++) {
+    const t = (i / n) * Math.PI * 2;
+    const k = 1 + 0.07 * Math.sin(seed + 3 * t) + 0.05 * Math.sin(seed * 2 + 7 * t);
+    pts.push([cx + Math.cos(t) * rx * k, cy + Math.sin(t) * ry * k]);
+  }
+  const mid = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+  let d = `M${mid(pts[n - 1], pts[0]).map((v) => v.toFixed(1)).join(" ")}`;
+  for (let i = 0; i < n; i++) {
+    const m = mid(pts[i], pts[(i + 1) % n]);
+    d += ` Q${pts[i][0].toFixed(1)} ${pts[i][1].toFixed(1)} ${m[0].toFixed(1)} ${m[1].toFixed(1)}`;
+  }
+  return d + " Z";
+}
+function PopcornLobe({l, i, burntId}) {
+  const [cx, cy, rx, ry, rot, curl] = l;
+  const r = Math.min(rx, ry);
+  const outline = blobPath(cx, cy, rx, ry, i * 1.7 + cx * 0.1);
+  return (
+    <g transform={`rotate(${rot} ${cx} ${cy})`}>
+      <path d={outline} fill="url(#pc-lobe)" stroke="#BE9A55" strokeWidth="0.7"/>
+      {curl ? (
+        // A petal curled open: a golden hollow under a cream lip.
+        <>
+          <ellipse cx={cx} cy={cy + r * 0.22} rx={r * 0.62} ry={r * 0.45} fill="url(#pc-hull)"/>
+          <path d={blobPath(cx, cy - r * 0.12, r * 0.7, r * 0.45, i + 2)} fill="url(#pc-lobe)"/>
+          <path d={`M${cx - r * 0.55} ${cy + r * 0.12} Q${cx} ${cy + r * 0.42} ${cx + r * 0.55} ${cy + r * 0.12}`} fill="none" stroke="#D9B66E" strokeWidth="0.6"/>
+        </>
+      ) : (
+        <path d={`M${cx - r * 0.45} ${cy + r * 0.35} Q${cx} ${cy + r * 0.6} ${cx + r * 0.4} ${cy + r * 0.3}`} fill="none" stroke="#E2C88E" strokeWidth="0.6"/>
+      )}
+      {burntId && <path d={outline} fill={`url(#${burntId})`}/>}
+    </g>
+  );
+}
 function ArcadeItemArt({kind, color, variant=0}) {
   if (kind === "popcorn" || kind === "burnt") {
     const burnt = kind === "burnt";
     const shapes = burnt ? BURNT_SHAPES : POPCORN_SHAPES;
-    const blobs = shapes[variant % shapes.length];
-    const uid = `${kind}${variant % shapes.length}`;
-    // Semi-burnt: still cream popcorn, but toasted brown on one side with a few charred spots.
-    const scorch = [[0.25, 0.3], [0.75, 0.65], [0.4, 0.8]][variant % 3];
+    const lobes = shapes[variant % shapes.length];
+    // Semi-burnt: still popcorn, but toasted brown from one side, with a few charred specks.
+    const scorch = [[0.2, 0.25], [0.8, 0.7], [0.35, 0.85]][variant % 3];
+    const burntId = burnt ? `pc-scorch-${variant % 3}` : null;
+    const hull = lobes.slice(0, 4).map(([x, y]) => [(x + 24) / 2, (y + 24) / 2]);
     return (
       <svg viewBox="0 0 48 48" width="100%" height="100%" aria-hidden="true">
         <defs>
+          {POPCORN_DEFS}
           {burnt && (
-            <radialGradient id={`scorch-${uid}`} cx={scorch[0]} cy={scorch[1]} r="0.75">
-              <stop offset="0" stopColor="#3A2010"/>
-              <stop offset="0.35" stopColor="#8A5426"/>
-              <stop offset="0.65" stopColor="#D9A866"/>
-              <stop offset="1" stopColor="#FFF3D6"/>
+            <radialGradient id={burntId} gradientUnits="userSpaceOnUse" cx={48 * scorch[0]} cy={48 * scorch[1]} r="44">
+              <stop offset="0" stopColor="#24110A" stopOpacity="0.95"/><stop offset="0.3" stopColor="#5E3214" stopOpacity="0.9"/>
+              <stop offset="0.6" stopColor="#9A6028" stopOpacity="0.75"/><stop offset="1" stopColor="#C08A4C" stopOpacity="0.55"/>
             </radialGradient>
           )}
         </defs>
-        <g stroke="#1C1D21" strokeWidth="1.6">
-          {blobs.map(([x, y, r], i) => <circle key={i} cx={x} cy={y} r={r} fill={burnt ? `url(#scorch-${uid})` : "#FFF8E6"}/>)}
-        </g>
-        {!burnt && (
-          <>
-            <circle cx={(blobs[0][0] + blobs[1][0]) / 2} cy={(blobs[0][1] + blobs[1][1]) / 2 + 6} r="4" fill="#F3DFAE"/>
-            <circle cx={blobs[1][0]} cy={blobs[1][1] + 2} r="3" fill="#F3DFAE"/>
-            <path d={`M${blobs[0][0] + 3} ${blobs[0][1] + 13} q3 4 7 1`} stroke="#F6C64B" strokeWidth="3" fill="none" strokeLinecap="round"/>
-          </>
-        )}
+        {hull.map(([x, y], i) => <ellipse key={i} cx={x} cy={y} rx="6" ry="5" fill="url(#pc-hull)" stroke="#A8661A" strokeWidth="0.6"/>)}
+        {lobes.map((l, i) => <PopcornLobe key={i} i={i} l={l} burntId={burntId}/>)}
         {burnt && (
-          <>
-            <circle cx={8 + scorch[0] * 32} cy={8 + scorch[1] * 32} r="2.4" fill="#1A0E06"/>
-            <circle cx={12 + scorch[0] * 28} cy={4 + scorch[1] * 30} r="1.5" fill="#1A0E06"/>
-            <path d={`M${10 + scorch[0] * 26} ${14 + scorch[1] * 22} q2 3 5 1`} stroke="#5A3418" strokeWidth="1.6" fill="none" strokeLinecap="round"/>
-          </>
+          <g fill="#2A1406" opacity="0.85">
+            <ellipse cx={8 + scorch[0] * 32} cy={8 + scorch[1] * 30} rx="1.8" ry="1.1"/>
+            <ellipse cx={12 + scorch[0] * 26} cy={5 + scorch[1] * 28} rx="1" ry="0.7"/>
+          </g>
         )}
       </svg>
     );
   }
   if (kind === "unpopped") {
-    // A real kernel: broad rounded crown narrowing to a small pale tip cap, with a lighter germ patch.
-    const body = ["#F2A71B", "#E99418", "#F4B428"][variant % 3];
+    // A real kernel: glossy rounded crown, narrowing to a pale, slightly see-through tip.
+    // Every third kernel is a burnt one (owner request 2026-10-25).
+    const burnt = variant % 3 === 2;
     return (
       <svg viewBox="0 0 48 48" width="100%" height="100%" aria-hidden="true">
-        <path d="M24 6 C35 6 39 15 37 24 C35 32 29 38 26 42 C25 43.5 23 43.5 22 42 C19 38 13 32 11 24 C9 15 13 6 24 6 Z"
-          fill={body} stroke="#1C1D21" strokeWidth="1.8" strokeLinejoin="round"/>
-        <path d="M24 9 C31 9 34 14 33 20 C30 14 18 14 15 20 C14 14 17 9 24 9 Z" fill="#FFCF5C" opacity="0.85"/>
-        <ellipse cx="24" cy="27" rx="4.5" ry="7.5" fill="#FFE6A3" stroke="#C47A12" strokeWidth="1"/>
-        <path d="M21.5 40 C23 42.5 25 42.5 26.5 40 L25.5 43 C24.6 44.2 23.4 44.2 22.5 43 Z" fill="#F3E2C0" stroke="#1C1D21" strokeWidth="1"/>
+        <defs>{POPCORN_DEFS}</defs>
+        <path d="M24 5 C36 5 40 14 38 23 C36 31 30 37 27 41.5 C25.8 43.3 22.2 43.3 21 41.5 C18 37 12 31 10 23 C8 14 12 5 24 5 Z"
+          fill={burnt ? "url(#pc-kernel-burnt)" : "url(#pc-kernel)"} stroke={burnt ? "#140A04" : "#9A5A0A"} strokeWidth="1"/>
+        {!burnt && <path d="M24 21 C27.5 23 28 29 27 33 C26 36 22 36 21 33 C20 29 20.5 23 24 21 Z" fill="#FFE3A0" opacity="0.45"/>}
+        {!burnt && <path d="M16.5 32 C19 37 21 41 22 42 C23 43.4 25 43.4 26 42 C27 41 29 37 31.5 32 C28 35 20 35 16.5 32 Z" fill="url(#pc-tip)"/>}
+        {burnt && <path d="M14 14 C18 10 22 12 20 17 C18 21 13 19 14 14 Z" fill="#0E0703" opacity="0.8"/>}
+        {burnt && <circle cx="30" cy="26" r="2.2" fill="#0E0703" opacity="0.75"/>}
+        <ellipse cx="17.5" cy="12.5" rx="4.5" ry="2.6" transform="rotate(-30 17.5 12.5)" fill="#FFFFFF" opacity={burnt ? 0.22 : 0.55}/>
+      </svg>
+    );
+  }
+  if (kind === "ticket") {
+    return (
+      <svg viewBox="0 0 48 48" width="100%" height="100%" aria-hidden="true">
+        <path d="M4 14 H44 V20 A4 4 0 0 0 44 28 V34 H4 V28 A4 4 0 0 0 4 20 Z" fill="#E4444F" stroke="#1C1D21" strokeWidth="1.6" strokeLinejoin="round"/>
+        <path d="M33 15 V33" stroke="#FFF3D6" strokeWidth="1.2" strokeDasharray="2 2"/>
+        <rect x="8" y="18" width="21" height="12" rx="1.5" fill="#FFF3D6"/>
+        <text x="18.5" y="23.3" textAnchor="middle" fontSize="4.6" fontWeight="800" fill="#8E0F1F" fontFamily="Arial, sans-serif">ADMIT</text>
+        <text x="18.5" y="28.3" textAnchor="middle" fontSize="4.6" fontWeight="800" fill="#8E0F1F" fontFamily="Arial, sans-serif">ONE</text>
+        <path d="M38.5 21 l1.2 2.4 2.6 .4 -1.9 1.8 .5 2.6 -2.4 -1.2 -2.4 1.2 .5 -2.6 -1.9 -1.8 2.6 -.4 Z" fill="#FFD84D"/>
+      </svg>
+    );
+  }
+  if (kind === "reel") {
+    return (
+      <svg viewBox="0 0 48 48" width="100%" height="100%" aria-hidden="true">
+        <circle cx="24" cy="24" r="20" fill="#3A3D46" stroke="#1C1D21" strokeWidth="1.8"/>
+        <circle cx="24" cy="24" r="16.5" fill="none" stroke="#5B606C" strokeWidth="1.2"/>
+        {[0, 72, 144, 216, 288].map((a) => (
+          <circle key={a} cx={24 + 10 * Math.cos((a - 90) * Math.PI / 180)} cy={24 + 10 * Math.sin((a - 90) * Math.PI / 180)} r="4.6" fill="#1C1D21"/>
+        ))}
+        <circle cx="24" cy="24" r="3.4" fill="#C9CCD3" stroke="#1C1D21" strokeWidth="1"/>
+        <path d="M40 30 Q46 38 44 46" stroke="#1C1D21" strokeWidth="4" fill="none"/>
+        <ellipse cx="17" cy="11" rx="5" ry="2" transform="rotate(-25 17 11)" fill="#fff" opacity="0.3"/>
+      </svg>
+    );
+  }
+  if (kind === "phone") {
+    return (
+      <svg viewBox="0 0 48 48" width="100%" height="100%" aria-hidden="true">
+        <path d="M5 14 Q2 24 5 34 M10 17 Q8 24 10 31 M43 14 Q46 24 43 34 M38 17 Q40 24 38 31" stroke="#FF5A5A" strokeWidth="2" fill="none" strokeLinecap="round"/>
+        <rect x="14" y="5" width="20" height="38" rx="4" fill="#1C1D21"/>
+        <rect x="16" y="9" width="16" height="28" rx="1.5" fill="#7FD6FF"/>
+        <rect x="16" y="9" width="16" height="28" rx="1.5" fill="url(#pc-hull)" opacity="0.25"/>
+        <circle cx="24" cy="19" r="4" fill="#fff"/>
+        <rect x="18.5" y="27" width="11" height="3" rx="1.5" fill="#20B46A"/>
+        <rect x="18.5" y="31.5" width="11" height="3" rx="1.5" fill="#E4444F"/>
+        <circle cx="24" cy="40" r="1.3" fill="#5B606C"/>
+        <defs>{POPCORN_DEFS}</defs>
+      </svg>
+    );
+  }
+  if (kind === "bat") {
+    return (
+      <svg viewBox="0 0 48 48" width="100%" height="100%" aria-hidden="true">
+        <path d="M24 18 C21 18 20 21 20 23 C16 18 10 16 3 18 C7 20 8 23 7 27 C10 25 13 26 14 29 C16 26 19 27 21 29 L24 33 L27 29 C29 27 32 26 34 29 C35 26 38 25 41 27 C40 23 41 20 45 18 C38 16 32 18 28 23 C28 21 27 18 24 18 Z"
+          fill="#2B1840" stroke="#0E0716" strokeWidth="1.2" strokeLinejoin="round"/>
+        <path d="M21.5 18.5 L21 15 L23 17.5 M26.5 18.5 L27 15 L25 17.5" fill="#2B1840" stroke="#0E0716" strokeWidth="1"/>
+        <circle cx="22.4" cy="22" r="1.2" fill="#FF4D4D"/><circle cx="25.6" cy="22" r="1.2" fill="#FF4D4D"/>
+        <path d="M23 25.5 l.6 1.4 .6 -1.4 M24.4 25.5 l.6 1.4 .6 -1.4" stroke="#fff" strokeWidth="0.6" fill="#fff"/>
+      </svg>
+    );
+  }
+  if (kind === "glasses") {
+    return (
+      <svg viewBox="0 0 48 48" width="100%" height="100%" aria-hidden="true">
+        <path d="M3 18 H45 V30 Q45 34 41 34 H30 Q27 34 26 30 L24 27 L22 30 Q21 34 18 34 H7 Q3 34 3 30 Z" fill="#F7F4EE" stroke="#1C1D21" strokeWidth="1.6" strokeLinejoin="round"/>
+        <rect x="7" y="21" width="14" height="10" rx="2.5" fill="#E4444F" opacity="0.9"/>
+        <rect x="27" y="21" width="14" height="10" rx="2.5" fill="#2EC4E6" opacity="0.9"/>
+        <path d="M9 23 l4 0 M29 23 l4 0" stroke="#fff" strokeWidth="1.4" strokeLinecap="round" opacity="0.7"/>
+      </svg>
+    );
+  }
+  if (kind === "clapper") {
+    return (
+      <svg viewBox="0 0 48 48" width="100%" height="100%" aria-hidden="true">
+        <rect x="6" y="19" width="36" height="23" rx="2" fill="#1C1D21"/>
+        <path d="M10 26 H38 M10 32 H38 M10 38 H30" stroke="#F7F4EE" strokeWidth="1.2"/>
+        <g transform="rotate(-14 6 17)">
+          <rect x="6" y="11" width="36" height="7" rx="1" fill="#F7F4EE" stroke="#1C1D21" strokeWidth="1.4"/>
+          {[0, 1, 2, 3].map((i) => <path key={i} d={`M${9 + i * 9} 11 l5 0 -4 7 -5 0 Z`} fill="#1C1D21"/>)}
+        </g>
+        <rect x="6" y="18" width="36" height="5" fill="#F7F4EE" stroke="#1C1D21" strokeWidth="1.4"/>
+        {[0, 1, 2, 3].map((i) => <path key={i} d={`M${10 + i * 9} 18 l5 0 -4 5 -5 0 Z`} fill="#1C1D21"/>)}
       </svg>
     );
   }
@@ -4129,7 +4826,7 @@ function ArcadeItemArt({kind, color, variant=0}) {
 }
 
 // The catching box: angled like a real popcorn box, with a scalloped (arched) top edge.
-function PopcornBox() {
+function PopcornBox({x = null, charged = false}) {
   const top = 14, bottom = 96, l0 = 6, r0 = 134, l1 = 26, r1 = 114; // top corners wider than bottom
   const arches = 8, w = (r0 - l0) / arches;
   let scallop = `M${l0} ${top}`;
@@ -4137,8 +4834,8 @@ function PopcornBox() {
   const stripes = 7;
   const lerp = (a, b, t) => a + (b - a) * t;
   return (
-    <svg aria-hidden="true" viewBox="0 0 140 100" width="150" height="107"
-      style={{position:"absolute",left:"50%",bottom:-4,transform:"translateX(-50%)",overflow:"visible",filter:"drop-shadow(0 -2px 0 rgba(0,0,0,0.15))"}}>
+    <svg aria-label="Popcorn box" role="img" viewBox="0 0 140 100" width={BUCKET_W + 6} height={BUCKET_H}
+      style={{position:"absolute",left:x === null ? "50%" : x,bottom:-2,transform:"translateX(-50%)",overflow:"visible",filter:"drop-shadow(0 -2px 0 rgba(0,0,0,0.15))",pointerEvents:"none"}}>
       <defs>
         <clipPath id="popcorn-box-shape">
           <path d={`${scallop} L${r1} ${bottom} L${l1} ${bottom} Z`}/>
@@ -4153,11 +4850,19 @@ function PopcornBox() {
       </g>
       <path d={`${scallop} L${r1} ${bottom} L${l1} ${bottom} Z`} fill="none" stroke="#1C1D21" strokeWidth="2.2" strokeLinejoin="round"/>
       <path d={scallop} fill="none" stroke="#FFFFFF" strokeWidth="1.2" opacity="0.8" transform="translate(0 3)"/>
+      {/* The laser emitter on the front: glows while there's a shot ready. */}
+      <g>
+        <rect x="56" y="44" width="28" height="22" rx="6" fill="#2A2D35" stroke="#1C1D21" strokeWidth="2"/>
+        <circle cx="70" cy="55" r="6.5" fill={charged ? "#FF2E63" : "#5B5F6A"} stroke="#1C1D21" strokeWidth="1.5"
+          style={charged ? {animation:"laserReady 1.1s ease-in-out infinite",transformBox:"fill-box",transformOrigin:"50% 50%"} : undefined}/>
+        <circle cx="68" cy="53" r="2" fill="#fff" opacity={charged ? 0.9 : 0.3}/>
+      </g>
     </svg>
   );
 }
 
-function ArcadeScreen({onBack, reducedMotion=false}) {
+// embedded: opened straight from a round (5 in a row); starts at once and returns to the game.
+function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
   const [phase, setPhase] = useState("lobby"); // lobby | playing | done
   const [passes, setPasses] = useState(arcadePasses);
   const [score, setScore] = useState(0);
@@ -4174,31 +4879,64 @@ function ArcadeScreen({onBack, reducedMotion=false}) {
   const boostRef = useRef(null);
   const comboRef = useRef(0);
   const itemsRef = useRef([]);
-  useEffect(() => { itemsRef.current = items; }, [items]);
+  const arenaRef = useRef(null);
+  const bucketXRef = useRef(null);
+  const [bucketX, setBucketX] = useState(null);
+  const [showSlideHint, setShowSlideHint] = useState(true);
   const frenzyUntilRef = useRef(0);
-  const nextFrenzyAtRef = useRef(FRENZY_AT);
+  const frenzyRunRef = useRef(0); // regular good catches in a row toward the next frenzy
   const idRef = useRef(0);
   const finishRef = useRef(null);
+  const [timeLeft, setTimeLeft] = useState(Math.ceil(ARCADE_GAME_MS / 1000));
+  const [laser, setLaser] = useState(LASER_MAX);
+  const laserRef = useRef({ charges: LASER_MAX, nextAt: 0 });
+  const [beams, setBeams] = useState([]);   // laser shots on screen: {id, x}
+  const [booms, setBooms] = useState([]);   // explosions on screen: {id, x, y}
+  const pointerStartRef = useRef(null);
+  const [zapLearned, setZapLearned] = useState(() => !!readJSON(LS_ZAP_LEARNED, false));
+  const [levelUp, setLevelUp] = useState(null); // {key, lv}: "LEVEL 3" banner
+  useEffect(() => {
+    if (!levelUp) return;
+    const t = setTimeout(() => setLevelUp(null), 1400);
+    return () => clearTimeout(t);
+  }, [levelUp]);
 
   const start = () => {
     if (!useArcadePass()) return;
     setPasses(arcadePasses());
     scoreRef.current = 0; livesRef.current = ARCADE_LIVES; boostRef.current = null;
-    comboRef.current = 0; frenzyUntilRef.current = 0; nextFrenzyAtRef.current = FRENZY_AT;
+    comboRef.current = 0; frenzyUntilRef.current = 0; frenzyRunRef.current = 0;
+    laserRef.current = { charges: LASER_MAX, nextAt: 0 };
+    setLaser(LASER_MAX); setBeams([]); setBooms([]); setTimeLeft(Math.ceil(ARCADE_GAME_MS / 1000));
     setScore(0); setLives(ARCADE_LIVES); setLevel(1); setCombo(0); setFrenzy(false);
     setBoost(null); setFlash(null); setItems([]); setResult(null);
+    bucketXRef.current = null; setBucketX(null); setShowSlideHint(true);
     setPhase("playing");
   };
 
+  // Opened from a round: start straight away (the play was just earned).
+  const autoStartedRef = useRef(false);
+  useEffect(() => {
+    if (!embedded || autoStartedRef.current) return;
+    autoStartedRef.current = true;
+    start();
+  }, [embedded]);
+
+  // Catch game (owner design 2026-10-25): pieces fall from the top and the player slides the
+  // popcorn box under them. Good pieces in the box score; bad ones cost a life and break the
+  // combo. Several pieces fall at once, so dropped popcorn only costs points. Made much harder
+  // after play-testing (owner request 2026-10-25): 45-second timer, smaller box, faster and
+  // drifting pieces, more bad ones, and a laser to blast bad pieces before they land.
   useEffect(() => {
     if (phase !== "playing") return;
     const startedAt = Date.now();
-    let done = false, spawnTimer = null;
-    const levelNow = () => 1 + Math.floor((Date.now() - startedAt) / ARCADE_LEVEL_MS);
-    const finish = () => {
+    let done = false, raf = null, last = performance.now(), nextSpawnAt = Date.now() + 400, shownLevel = 1;
+    itemsRef.current = [];
+    const levelNow = () => 1 + Math.floor((Math.min(Date.now(), startedAt + ARCADE_GAME_MS) - startedAt) / ARCADE_LEVEL_MS);
+    const finish = (reason = "lives") => {
       if (done) return;
       done = true;
-      clearTimeout(spawnTimer); clearInterval(clock);
+      if (raf) cancelAnimationFrame(raf);
       const final = scoreRef.current;
       const prize = prizeForScore(final);
       const p = loadPrizes();
@@ -4207,59 +4945,163 @@ function ArcadeScreen({onBack, reducedMotion=false}) {
       writeJSON(LS_PRIZES, { ...p, best: Math.max(p.best || 0, final), won: prize && isNew ? [...p.won, prize.id] : p.won });
       if (prize) addPowerups(prize.powerups);
       if (prize || isRecord) SFX.complete();
-      setResult({ score: final, prize, isNew, isRecord, level: levelNow() });
+      setResult({ score: final, prize, isNew, isRecord, level: levelNow(), reason,
+        seconds: Math.min(ARCADE_GAME_MS / 1000, Math.round((Date.now() - startedAt) / 1000)) });
+      itemsRef.current = [];
       setItems([]);
       setPhase("done");
     };
     finishRef.current = finish;
-    // Endless: pieces come faster every level, with more bad bits, until the lives run out.
-    const spawn = () => {
+    const step = (t) => {
       if (done) return;
-      const lv = levelNow();
-      const inFrenzy = Date.now() < frenzyUntilRef.current;
-      const it = inFrenzy ? ARCADE_ITEMS[0] : pickArcadeItem(lv);
-      const dur = Math.max(ARCADE_MIN_FLIGHT, ARCADE_BASE_FLIGHT * Math.pow(0.93, lv - 1));
-      const item = { id: ++idRef.current, kind: it.kind, label: it.label, x: 8 + Math.random() * 76, born: Date.now(), dur,
-        color: CANDY_COLORS[Math.floor(Math.random() * CANDY_COLORS.length)],
-        variant: Math.floor(Math.random() * 12), angle: Math.floor(Math.random() * 360), spin: Math.round((Math.random() * 2 - 1) * 240) };
-      setItems((xs) => [...xs.filter((q) => Date.now() - q.born < q.dur), item]);
-      const gap = inFrenzy ? FRENZY_SPAWN_MS : Math.max(ARCADE_MIN_SPAWN, ARCADE_BASE_SPAWN * Math.pow(0.88, lv - 1));
-      spawnTimer = setTimeout(spawn, gap);
-    };
-    spawnTimer = setTimeout(spawn, 300);
-    const clock = setInterval(() => {
-      setLevel(levelNow());
-      if (boostRef.current && Date.now() > boostRef.current.until) { boostRef.current = null; setBoost(null); }
-      if (frenzyUntilRef.current && Date.now() > frenzyUntilRef.current) { frenzyUntilRef.current = 0; setFrenzy(false); }
-      // Popcorn that fell without being caught breaks the combo.
+      const dt = Math.min(50, t - last); last = t;
+      const arena = arenaRef.current;
+      const W = arena?.clientWidth || 360, H = arena?.clientHeight || 500;
+      if (bucketXRef.current === null) { bucketXRef.current = W / 2; setBucketX(W / 2); }
       const now = Date.now();
-      const missed = itemsRef.current.filter((q) => q.kind === "popcorn" && now - q.born >= q.dur);
-      if (missed.length) {
-        const gone = new Set(missed.map((q) => q.id));
-        setItems((xs) => xs.filter((q) => !gone.has(q.id)));
-        if (comboRef.current) { comboRef.current = 0; setCombo(0); }
+      const left = startedAt + ARCADE_GAME_MS - now;
+      if (left <= 0) { setTimeLeft(0); finish("time"); return; }
+      setTimeLeft(Math.ceil(left / 1000));
+      const lv = levelNow();
+      // Every 5 seconds survived is a new level: announce it, since it's faster from here.
+      if (lv > shownLevel) {
+        shownLevel = lv;
+        setLevelUp({ key: now, lv });
+        SFX.leaderBeep?.(); buzz([10, 40, 10]);
       }
-    }, 150);
-    return () => { done = true; clearTimeout(spawnTimer); clearInterval(clock); };
+      const inFrenzy = now < frenzyUntilRef.current;
+      const slow = boostRef.current?.type === "slow" && now <= boostRef.current.until;
+      const moveDt = slow ? dt * 0.5 : dt;
+      // The laser recharges one shot at a time.
+      const L = laserRef.current;
+      if (L.charges < LASER_MAX && now >= L.nextAt) {
+        L.charges += 1; L.nextAt = now + LASER_RECHARGE_MS; setLaser(L.charges);
+      }
+      // Spawn: faster each level; a Popcorn Frenzy rains popcorn only. From level 3 pieces
+      // drift sideways, and bats always swoop from side to side.
+      if (now >= nextSpawnAt) {
+        const it = inFrenzy ? ARCADE_ITEMS[0] : pickArcadeItem(lv);
+        const fall = Math.max(ARCADE_MIN_FALL, ARCADE_BASE_FALL * Math.pow(0.9, lv - 1));
+        const drift = lv >= 3 ? (Math.random() * 2 - 1) * 0.012 * (lv - 2) : 0;
+        const x = ARCADE_ITEM / 2 + Math.random() * (W - ARCADE_ITEM);
+        itemsRef.current.push({ id: ++idRef.current, kind: it.kind, label: it.label, frenzy: inFrenzy,
+          x, baseX: x, y: -ARCADE_ITEM, vy: (H + ARCADE_ITEM) / fall, vx: drift, born: now,
+          color: CANDY_COLORS[Math.floor(Math.random() * CANDY_COLORS.length)],
+          variant: Math.floor(Math.random() * 12), angle: it.kind === "bat" ? 0 : Math.floor(Math.random() * 360),
+          spin: it.kind === "bat" ? 0 : (Math.random() * 2 - 1) * 0.25 });
+        nextSpawnAt = now + (inFrenzy ? FRENZY_SPAWN_MS : Math.max(ARCADE_MIN_SPAWN, ARCADE_BASE_SPAWN * Math.pow(0.86, lv - 1)));
+      }
+      // Move, catch, or drop.
+      const catchY = H - BUCKET_H + 18;
+      const bx = bucketXRef.current;
+      const keep = [];
+      const half = ARCADE_ITEM / 2;
+      for (const it of itemsRef.current) {
+        const prevY = it.y;
+        it.y += it.vy * moveDt;
+        it.angle += it.spin * moveDt;
+        if (it.kind === "bat") {
+          // Keep room for the full swoop, so a bat near the edge isn't pinned against the wall.
+          it.baseX = Math.max(half + 48, Math.min(W - half - 48, it.baseX));
+          it.x = it.baseX + Math.sin((now - it.born) / 260) * 48;
+        } else if (it.vx) {
+          it.x += it.vx * moveDt;
+          if (it.x < half || it.x > W - half) { it.vx = -it.vx; it.x = Math.max(half, Math.min(W - half, it.x)); }
+        }
+        if (prevY < catchY && it.y >= catchY && Math.abs(it.x - bx) <= BUCKET_W / 2) { catchItem(it); continue; }
+        if (it.y - ARCADE_ITEM / 2 > H) continue; // dropped: no points, no penalty
+        keep.push(it);
+      }
+      itemsRef.current = keep;
+      setItems(keep.map((it) => ({ ...it })));
+      setLevel(lv);
+      if (boostRef.current && now > boostRef.current.until) { boostRef.current = null; setBoost(null); }
+      if (frenzyUntilRef.current && now > frenzyUntilRef.current) { frenzyUntilRef.current = 0; setFrenzy(false); }
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => { done = true; if (raf) cancelAnimationFrame(raf); };
+  }, [phase]);
+
+  // Slide the box: it follows the finger (or mouse); arrow keys work too.
+  const moveBucket = (clientX) => {
+    const arena = arenaRef.current; if (!arena) return;
+    const r = arena.getBoundingClientRect();
+    const x = Math.max(BUCKET_W / 2, Math.min(r.width - BUCKET_W / 2, clientX - r.left));
+    bucketXRef.current = x; setBucketX(x);
+    if (showSlideHint) setShowSlideHint(false);
+  };
+  // Tap (rather than slide) to fire the laser straight up from the box.
+  const fireLaser = () => {
+    const L = laserRef.current;
+    if (phase !== "playing" || L.charges < 1) { if (phase === "playing") showFlash("🔋 Laser recharging…", true); return; }
+    if (L.charges === LASER_MAX) L.nextAt = Date.now() + LASER_RECHARGE_MS;
+    L.charges -= 1; setLaser(L.charges);
+    const bx = bucketXRef.current ?? 0;
+    const H = arenaRef.current?.clientHeight || 500;
+    const shotId = ++idRef.current;
+    setBeams((b) => [...b, { id: shotId, x: bx }]);
+    setTimeout(() => setBeams((b) => b.filter((x) => x.id !== shotId)), 220);
+    SFX.laser(); buzz(10);
+    // It hits the lowest piece in its path that is still above the box.
+    const target = itemsRef.current.filter((it) => Math.abs(it.x - bx) <= LASER_HALF_W && it.y < H - BUCKET_H + 18)
+      .sort((a, b) => b.y - a.y)[0];
+    if (!target) return;
+    itemsRef.current = itemsRef.current.filter((it) => it !== target);
+    explode(target.x, target.y);
+    if (ARCADE_KIND[target.kind]?.bad) {
+      if (!zapLearned) { setZapLearned(true); writeJSON(LS_ZAP_LEARNED, true); }
+      const pts = 2 * (boostRef.current?.type === "double" && Date.now() <= boostRef.current.until ? 2 : 1);
+      scoreRef.current += pts; setScore(scoreRef.current);
+      showFlash(`💥 Zapped! +${pts}`);
+    } else {
+      showFlash(target.kind === "popcorn" ? "Oops, you zapped the popcorn!" : "Oops, wrong target!", true);
+    }
+  };
+  const explode = (x, y) => {
+    const boomId = ++idRef.current;
+    setBooms((b) => [...b, { id: boomId, x, y }]);
+    setTimeout(() => setBooms((b) => b.filter((e) => e.id !== boomId)), 600);
+    SFX.boom(); buzz([25, 20, 25]);
+  };
+  const onArenaDown = (e) => { pointerStartRef.current = { x: e.clientX, y: e.clientY, t: Date.now() }; moveBucket(e.clientX); };
+  const onArenaUp = (e) => {
+    const st = pointerStartRef.current; pointerStartRef.current = null;
+    if (st && Math.hypot(e.clientX - st.x, e.clientY - st.y) < 14 && Date.now() - st.t < 350) fireLaser();
+  };
+
+  useEffect(() => {
+    if (phase !== "playing") return;
+    const onKey = (e) => {
+      if (e.key === " " || e.key === "ArrowUp") { fireLaser(); e.preventDefault(); return; }
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      const r = arenaRef.current?.getBoundingClientRect(); if (!r) return;
+      moveBucket(r.left + (bucketXRef.current ?? r.width / 2) + (e.key === "ArrowLeft" ? -36 : 36));
+      e.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [phase]);
 
   const showFlash = (text, bad=false) => setFlash({ key: Date.now(), text, bad });
 
   const catchItem = (it) => {
-    if (phase !== "playing") return;
-    setItems((xs) => xs.filter((q) => q.id !== it.id));
     const active = boostRef.current && Date.now() <= boostRef.current.until ? boostRef.current.type : null;
-    if (it.kind === "popcorn") {
+    const info = ARCADE_KIND[it.kind] || {};
+    if (info.good) {
       const now = Date.now();
       const c = comboRef.current + 1;
       comboRef.current = c;
       setCombo(c);
       const mult = comboMultiplier(c) * (active === "double" ? 2 : 1);
-      scoreRef.current += mult;
+      scoreRef.current += info.good * mult;
       setScore(scoreRef.current);
       SFX.comboNote(Math.min(c - 1, 14)); buzz(12);
-      if (c >= nextFrenzyAtRef.current) {
-        nextFrenzyAtRef.current += FRENZY_AT;
+      if (it.kind === "ticket") showFlash(`🎟️ Golden seat! +${info.good * mult}`);
+      if (it.kind === "reel") showFlash(`🎞️ Film reel! +${info.good * mult}`);
+      if (!it.frenzy && now >= frenzyUntilRef.current) frenzyRunRef.current += 1;
+      if (frenzyRunRef.current >= FRENZY_AT) {
+        frenzyRunRef.current = 0;
         frenzyUntilRef.current = now + FRENZY_MS;
         setFrenzy(true);
         showFlash("🍿 POPCORN FRENZY!");
@@ -4279,13 +5121,25 @@ function ArcadeScreen({onBack, reducedMotion=false}) {
       SFX.badge(); buzz([15, 30, 15]);
       return;
     }
-    // Burnt popcorn or an unpopped kernel: the combo breaks, and a life is lost unless shielded.
-    comboRef.current = 0; setCombo(0);
+    if (it.kind === "glasses") {
+      boostRef.current = { type: "slow", until: Date.now() + SLOWMO_MS };
+      setBoost(boostRef.current);
+      showFlash("🕶️ 3D glasses: slow motion!"); SFX.badge(); buzz([15, 30, 15]);
+      return;
+    }
+    if (it.kind === "clapper") {
+      laserRef.current = { charges: LASER_MAX, nextAt: 0 }; setLaser(LASER_MAX);
+      showFlash("🎬 Action! Laser fully charged"); SFX.clap?.(); buzz([15, 30, 15]);
+      return;
+    }
+    // A bad piece: the combo breaks, and a life is lost unless shielded.
+    comboRef.current = 0; setCombo(0); frenzyRunRef.current = 0;
     if (active === "shield") { showFlash("🛡️ Blocked!"); SFX.hint(); return; }
     livesRef.current -= 1;
     setLives(livesRef.current);
-    showFlash(it.kind === "burnt" ? "Burnt! −1 life" : "Unpopped! −1 life", true);
-    SFX.wrong(); buzz([40, 60, 40]);
+    showFlash({ burnt: "Burnt! −1 life", unpopped: "Unpopped! −1 life", phone: "📵 Phones off in the theatre! −1 life", bat: "🦇 Bitten! −1 life" }[it.kind] || "Ouch! −1 life", true);
+    // Negative haptic: a long, harsh double buzz (Android; iPhones don't allow web vibration).
+    SFX.wrong(); buzz([120, 60, 120]);
     if (livesRef.current <= 0) finishRef.current?.();
   };
 
@@ -4293,49 +5147,46 @@ function ArcadeScreen({onBack, reducedMotion=false}) {
   const mult = comboMultiplier(combo);
   return (
     <div style={{minHeight:"100dvh",...CHECKER_BG,color:T.textOnDark,position:"relative",overflow:"hidden",boxSizing:"border-box",
-      boxShadow:frenzy && !reducedMotion ? "inset 0 0 60px 10px rgba(255,216,77,0.55)" : "none",transition:"box-shadow 0.3s ease"}}>
-      <button onClick={onBack} aria-label="Back" style={{position:"absolute",top:20,left:16,zIndex:5,...BTN.cyan,padding:"8px 14px"}}>
-        <span style={{...WHITE_STICKER_TEXT,fontSize:11,textTransform:"uppercase"}}>← Back</span>
-      </button>
+      boxShadow:frenzy && !reducedMotion ? "inset 0 0 60px 10px rgba(255,216,77,0.55)" : "none",transition:"box-shadow 0.3s ease",
+      // Camera shake on each speed-up (two identical keyframes so it restarts every time).
+      animation:levelUp && levelUp.lv > 1 && !reducedMotion ? `${levelUp.lv % 2 ? "arcadeShakeA" : "arcadeShakeB"} 0.45s ease` : "none"}}>
+      {phase === "lobby" && (
+        <button onClick={onBack} aria-label="Back" style={{position:"absolute",top:20,left:16,zIndex:5,...BTN.cyan,padding:"8px 14px"}}>
+          <span style={{...WHITE_STICKER_TEXT,fontSize:11,textTransform:"uppercase"}}>← Back</span>
+        </button>
+      )}
       <div style={{maxWidth:402,margin:"0 auto",padding:"72px 16px 24px",textAlign:"center"}}>
         <div style={{...WHITE_STICKER_TEXT,fontSize:24,textTransform:"uppercase"}}>Popcorn Panic</div>
         {phase === "lobby" && (
           <div style={{marginTop:14}}>
-            <p style={{fontFamily:"'Outfit',sans-serif",fontSize:15,lineHeight:1.5,margin:"0 0 12px"}}>
-              The popcorn machine has gone rogue! Tap the popcorn as it flies. It gets faster and faster. You have {ARCADE_LIVES} lives.
-            </p>
-            <div style={{display:"grid",gridTemplateColumns:"40px 1fr",gap:"6px 10px",alignItems:"center",textAlign:"left",fontFamily:"'Outfit',sans-serif",fontSize:13.5,margin:"0 auto 14px",maxWidth:320}}>
-              <div style={{width:36,height:36}}><ArcadeItemArt kind="popcorn"/></div><div><b>Popcorn</b>: +1 · don't let any fall: 5 in a row ×2, 10 in a row ×3</div>
-              <div style={{width:36,height:36}}><ArcadeItemArt kind="burnt"/></div><div><b>Burnt popcorn</b>: lose a life</div>
-              <div style={{width:36,height:36}}><ArcadeItemArt kind="unpopped"/></div><div><b>Unpopped kernel</b>: lose a life</div>
-              <div style={{width:36,height:36}}><ArcadeItemArt kind="candy" color="#2F6BFF"/></div><div><b>Chocolate candy</b>: extra life, shield or double points</div>
-            </div>
-            <div style={{fontFamily:"'Outfit',sans-serif",fontSize:13,lineHeight:1.6,margin:"0 0 16px",opacity:0.9}}>
-              <div>{FRENZY_AT} in a row starts a 🍿 Popcorn Frenzy.</div>
-              {PRIZE_TIERS.slice().reverse().map((p) => <div key={p.id}>{p.emoji} {p.min}+ points: {p.reward} (and {CURTAINS.find((c) => c.prize === p.id)?.name} curtains)</div>)}
-              <div>🎟️ Free Hint: the next hint costs no points · 🍿 Popcorn Peek: fills in every third letter</div>
-              <div>Best score: {best}</div>
-            </div>
+            {/* Owner decision 2026-10-25: no rules or prize list up front; players learn by playing
+                and prizes are revealed only when won. */}
+            <div style={{width:96,height:96,margin:"6px auto 14px"}}><ArcadeItemArt kind="popcorn" variant={1}/></div>
+            <p style={{fontFamily:"'Outfit',sans-serif",fontSize:16,fontWeight:700,margin:"0 0 16px"}}>The popcorn machine has gone rogue!</p>
             <button onClick={start} disabled={passes < 1} aria-label="Play Popcorn Panic"
               style={{...BTN.primary,width:"100%",padding:"14px 0",opacity:passes < 1 ? 0.5 : 1,cursor:passes < 1 ? "not-allowed" : "pointer"}}>
               <span style={{...WHITE_STICKER_TEXT,fontSize:14,textTransform:"uppercase"}}>{passes > 0 ? "Play" : "Locked"}</span>
             </button>
             <div aria-label="Arcade passes" style={{...YELLOW_STICKER_TEXT,fontSize:12,marginTop:10,textTransform:"uppercase",lineHeight:1.5}}>
-              {passes > 0 ? `You have ${passes} play${passes === 1 ? "" : "s"}` : `Solve ${ARCADE_STREAK_FOR_PASS} mashups in a row to earn a play`}
+              {passes > 0 ? `You have ${passes} play${passes === 1 ? "" : "s"}` : "🔒 Solve 5 mashups in a row in Standard or Speed Run to unlock a play"}
             </div>
+            {best > 0 && <div style={{fontFamily:"'Outfit',sans-serif",fontSize:13,marginTop:8,opacity:0.85}}>Best score: {best}</div>}
+            <CurtainPicker/>
           </div>
         )}
         {phase !== "lobby" && (
           <div style={{display:"flex",justifyContent:"center",gap:8,margin:"10px 0",flexWrap:"wrap"}}>
             <div style={HUD_STAT_PILL}><span aria-label={`Score: ${score}`} style={HUD_COUNTER_TEXT}>🍿 {score}</span></div>
             <div style={HUD_STAT_PILL}><span aria-label={`Lives: ${lives}`} style={HUD_COUNTER_TEXT}>{"❤️".repeat(Math.max(0, lives))}{"🖤".repeat(Math.max(0, ARCADE_LIVES - lives))}</span></div>
-            <div style={HUD_STAT_PILL}><span aria-label={`Level ${level}`} style={HUD_COUNTER_TEXT}>LV {level}</span></div>
+            <div style={HUD_STAT_PILL}><span aria-label={`Speed ${level}`} style={HUD_COUNTER_TEXT}>⏩ {level}</span></div>
+            {phase === "playing" && <div style={HUD_STAT_PILL}><span aria-label={`Time left: ${timeLeft}`} style={{...HUD_COUNTER_TEXT,color:timeLeft <= 10 ? "#FF6B6B" : undefined}}>⏱ {timeLeft}</span></div>}
+            {phase === "playing" && <div style={HUD_STAT_PILL}><span aria-label={`Laser charges: ${laser}`} style={HUD_COUNTER_TEXT}>🔫 {"⚡".repeat(laser)}{"·".repeat(LASER_MAX - laser)}</span></div>}
           </div>
         )}
         {phase === "playing" && (
           <div style={{minHeight:20,display:"flex",justifyContent:"center",gap:10}}>
             {mult > 1 && <span aria-label={`Combo ×${mult}`} style={{...YELLOW_STICKER_TEXT,fontSize:13}}>×{mult} combo</span>}
-            {boost && <span aria-label="Active boost" style={{...YELLOW_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>{boost.type === "shield" ? "🛡️ Shield" : "⚡ Double"}</span>}
+            {boost && <span aria-label="Active boost" style={{...YELLOW_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>{boost.type === "shield" ? "🛡️ Shield" : boost.type === "slow" ? "🕶️ Slow-mo" : "⚡ Double"}</span>}
           </div>
         )}
         {phase === "playing" && flash && (
@@ -4355,30 +5206,88 @@ function ArcadeScreen({onBack, reducedMotion=false}) {
               {result.prize ? `${result.prize.emoji} ${result.prize.name}!` : "No prize this time"}
             </div>
             <div style={{fontFamily:"'Outfit',sans-serif",fontSize:14,margin:"8px 0 14px"}}>
-              Out of lives on level {result.level}! You scored {result.score} point{result.score === 1 ? "" : "s"}.
-              {result.prize ? ` You won ${result.prize.reward} to use in Standard or Speed Run.` : ` ${PRIZE_TIERS[2].min} points wins a power-up.`}
-              {result.prize && result.isNew ? ` New curtains unlocked: ${CURTAINS.find((c) => c.prize === result.prize.id)?.name}.` : ""}
+              {result.reason === "time" ? "Time's up! You lasted all 45 seconds." : `Out of lives after ${result.seconds} second${result.seconds === 1 ? "" : "s"}!`} You scored {result.score} point{result.score === 1 ? "" : "s"}.
+              {result.prize ? ` You won ${result.prize.reward} to use in Standard or Speed Run.` : " Keep popping!"}
+              {result.prize && result.isNew && CURTAINS.some((c) => c.prize === result.prize.id) ? ` New curtains unlocked: ${CURTAINS.find((c) => c.prize === result.prize.id).name} (choose them on the Popcorn Panic screen).` : ""}
             </div>
             <button onClick={onBack} style={{...BTN.cyan,width:"100%",padding:"12px 0"}}>
-              <span style={{...WHITE_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>Done</span>
+              <span style={{...WHITE_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>{embedded ? "Back to the game" : "Done"}</span>
             </button>
           </div>
         )}
       </div>
       {phase === "playing" && (
-        <div style={{position:"absolute",left:0,right:0,top:210,bottom:0}}>
+        <div ref={arenaRef} aria-label="Popcorn arena"
+          onPointerDown={onArenaDown} onPointerMove={(e) => moveBucket(e.clientX)} onPointerUp={onArenaUp}
+          style={{position:"absolute",left:0,right:0,top:210,bottom:0,touchAction:"none",overflow:"hidden",cursor:"grab"}}>
           {items.map((it) => (
-            <button key={it.id} aria-label={it.label} onPointerDown={() => catchItem(it)}
-              style={{position:"absolute",left:`${it.x}%`,bottom:40,width:it.kind === "unpopped" ? 40 : 52,height:it.kind === "unpopped" ? 40 : 52,marginLeft:-26,padding:0,
-                background:"transparent",border:"none",cursor:"pointer",filter:"drop-shadow(0 3px 0 rgba(28,29,33,0.6))",
-                animation:reducedMotion ? "fadeIn 0.2s ease both" : `kernelArc ${it.dur}ms cubic-bezier(.25,.9,.4,1) both`}}>
-              <div style={{width:"100%",height:"100%","--r0":`${it.angle}deg`,"--r1":`${it.angle + it.spin}deg`,transform:`rotate(${it.angle}deg)`,
-                animation:reducedMotion ? "none" : `itemSpin ${it.dur}ms linear both`}}>
-                <ArcadeItemArt kind={it.kind} color={it.color} variant={it.variant}/>
-              </div>
-            </button>
+            <div key={it.id} role="img" aria-label={it.label}
+              style={{position:"absolute",left:it.x - (it.kind === "unpopped" ? 18 : 23),top:it.y - (it.kind === "unpopped" ? 18 : 23),
+                width:it.kind === "unpopped" ? 36 : 46,height:it.kind === "unpopped" ? 36 : 46,pointerEvents:"none",
+                transform:`rotate(${it.angle}deg)`,filter:"drop-shadow(0 3px 0 rgba(28,29,33,0.6))"}}>
+              <ArcadeItemArt kind={it.kind} color={it.color} variant={it.variant}/>
+            </div>
           ))}
-          <PopcornBox/>
+          {beams.map((b) => (
+            <div key={b.id} data-laser="" aria-hidden="true" style={{position:"absolute",left:b.x - 4,top:0,bottom:BUCKET_H - 8,width:8,borderRadius:4,
+              background:"linear-gradient(90deg, rgba(255,40,80,0.2), #FF2E63 30%, #FFF 50%, #FF2E63 70%, rgba(255,40,80,0.2))",
+              boxShadow:"0 0 14px 4px rgba(255,46,99,0.7)",pointerEvents:"none",animation:reducedMotion ? "none" : "laserBeam 0.22s ease-out both"}}/>
+          ))}
+          {booms.map((b) => (
+            <div key={b.id} data-boom="" aria-hidden="true" style={{position:"absolute",left:b.x,top:b.y,width:0,height:0,pointerEvents:"none",zIndex:4}}>
+              <svg viewBox="0 0 100 100" width="96" height="96" style={{position:"absolute",left:0,top:0,animation:reducedMotion ? "none" : "boomBurst 0.55s ease-out both",transform:"translate(-50%,-50%)"}}>
+                <polygon points="50,2 61,32 95,22 70,48 98,70 64,68 58,98 46,70 14,92 30,62 2,50 30,38 12,10 42,30" fill="#FF7A1A" stroke="#1C1D21" strokeWidth="2.5" strokeLinejoin="round"/>
+                <polygon points="50,20 57,38 78,34 64,50 80,64 60,62 54,80 46,64 26,74 36,56 20,48 38,42 28,24 46,36" fill="#FFD84D"/>
+                <circle cx="50" cy="50" r="9" fill="#FFF8E6"/>
+              </svg>
+              {!reducedMotion && [0, 45, 90, 135, 180, 225, 270, 315].map((a) => (
+                <span key={a} style={{position:"absolute",left:0,top:0,width:7,height:7,borderRadius:"50%",background:a % 90 ? "#FFD84D" : "#FF5A1F",
+                  "--dx":`${Math.cos(a * Math.PI / 180) * 54}px`,"--dy":`${Math.sin(a * Math.PI / 180) * 54}px`,animation:"boomSpark 0.5s ease-out both"}}/>
+              ))}
+            </div>
+          ))}
+          {/* Every 5 seconds it speeds up (owner request 2026-10-26: no "levels" wording): a
+              fast-forward symbol with anime speed lines, while the screen shakes. */}
+          {levelUp && levelUp.lv > 1 && (
+            <div key={levelUp.key} role="status" aria-label="Speeding up" style={{position:"absolute",inset:0,pointerEvents:"none",zIndex:5}}>
+              {!reducedMotion && (
+                <div style={{position:"absolute",inset:"-20%",
+                  background:"repeating-conic-gradient(from 0deg at 50% 50%, rgba(255,255,255,0) 0deg 3deg, #FFFFFF 3deg 4.6deg, rgba(255,255,255,0) 4.6deg 7deg, #1C1D21 7deg 7.8deg, rgba(255,255,255,0) 7.8deg 11deg, #FFE9A8 11deg 12.2deg)",
+                  WebkitMaskImage:"radial-gradient(circle at 50% 50%, transparent 0 22%, #000 50%)",maskImage:"radial-gradient(circle at 50% 50%, transparent 0 22%, #000 50%)",
+                  animation:"speedLines 0.9s ease-out both"}}/>
+              )}
+              {/* A VCR fast-forward key being pressed again and again (owner request 2026-10-26). */}
+              <div style={{position:"absolute",left:"50%",top:"38%",width:150,height:110,marginLeft:-75,marginTop:-55,animation:reducedMotion ? "none" : "speedSymbol 1.1s ease both"}}>
+                <div style={{position:"absolute",inset:0,borderRadius:12,background:"#2A2D35",border:"3px solid #0B0C10",boxShadow:"inset 0 2px 0 rgba(255,255,255,0.18)"}}/>
+                <div data-vhs-key="" style={{position:"absolute",left:16,right:16,top:12,height:72,borderRadius:8,border:"3px solid #0B0C10",
+                  background:"linear-gradient(180deg,#D9DCE3 0%,#AEB3BE 100%)",boxShadow:"0 7px 0 #0B0C10",
+                  display:"flex",alignItems:"center",justifyContent:"center",animation:reducedMotion ? "none" : "vhsPress 0.28s steps(1) infinite"}}>
+                  <svg viewBox="0 0 60 30" width="64" height="32" aria-hidden="true"><path d="M4 2 L28 15 L4 28 Z M30 2 L54 15 L30 28 Z" fill="#1C1D21"/></svg>
+                </div>
+                <div style={{position:"absolute",left:0,right:0,bottom:4,textAlign:"center",fontFamily:FONT_FIGMA_STICKER,fontSize:10,letterSpacing:"0.2em",color:"#C9CCD3"}}>FF</div>
+              </div>
+            </div>
+          )}
+          {/* Learn the laser by doing (owner question 2026-10-26: how would anyone know?): until the
+              first successful zap ever, the lowest bad piece gets a target and a "tap" bubble. */}
+          {!zapLearned && (() => {
+            const target = items.filter((it) => ARCADE_KIND[it.kind]?.bad && it.y > 30).sort((a, b) => b.y - a.y)[0];
+            if (!target) return null;
+            return (
+              <div aria-label="Zap coach" role="status" style={{position:"absolute",left:target.x,top:target.y,width:0,height:0,pointerEvents:"none",zIndex:4}}>
+                <div style={{position:"absolute",left:0,top:0,width:66,height:66,borderRadius:"50%",border:"3px dashed #FF2E63",boxShadow:"0 0 10px rgba(255,46,99,0.8)",
+                  transform:"translate(-50%,-50%)",animation:reducedMotion ? "none" : "zapCoach 0.8s ease-in-out infinite"}}/>
+                <div style={{position:"absolute",left:0,top:-58,transform:"translateX(-50%)",whiteSpace:"nowrap",padding:"4px 10px",borderRadius:10,
+                  background:"#FF2E63",border:"2px solid #1C1D21",...WHITE_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>Tap it to zap it! 🔫</div>
+              </div>
+            );
+          })()}
+          {bucketX !== null && <PopcornBox x={bucketX} charged={laser > 0}/>}
+          {bucketX !== null && showSlideHint && (
+            <div aria-hidden="true" style={{position:"absolute",left:bucketX,bottom:BUCKET_H + 14,transform:"translateX(-50%)",...WHITE_STICKER_TEXT,fontSize:13,whiteSpace:"nowrap",pointerEvents:"none",animation:reducedMotion?"none":"pulse 1.2s ease-in-out infinite"}}>
+              ← slide · tap to zap →
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -4411,6 +5320,38 @@ function HangmanTitle({card, found, guesses=[], reducedMotion=false, peek=false}
       });
   });
 
+  // Naming a film shows its part of the title (owner report 2026-10-25: "good fellas" turned
+  // green but showed nothing in "Goodfellowship"). Words of a named film open whole title words
+  // they equal, and the shared start or end (4+ letters) of a blended word.
+  const filmPartSet = new Set();
+  {
+    const clean = (t) => t.toLowerCase().replace(/[’']/g, "").replace(/[^a-z0-9 ]/g, " ");
+    const filmWords = new Set();
+    card.movies.forEach((m, i) => {
+      if (!found[i]) return;
+      const ws = clean(m).split(" ").filter(Boolean);
+      ws.forEach((w) => filmWords.add(w));
+      filmWords.add(ws.join(""));
+    });
+    if (filmWords.size) {
+      let pos = 0;
+      title.split(" ").forEach((w) => {
+        const idx = [];
+        for (let k = 0; k < w.length; k++) if (/[a-z0-9]/i.test(w[k])) idx.push(pos + k);
+        const wl = idx.map((k) => title[k].toLowerCase()).join("");
+        filmWords.forEach((fw) => {
+          if (fw === wl) { idx.forEach((k) => filmPartSet.add(k)); return; }
+          if (fw.length < 4 || wl.length < 4) return;
+          let p = 0; while (p < fw.length && p < wl.length && fw[p] === wl[p]) p++;
+          if (p >= 4) idx.slice(0, p).forEach((k) => filmPartSet.add(k));
+          let q = 0; while (q < fw.length && q < wl.length && fw[fw.length - 1 - q] === wl[wl.length - 1 - q]) q++;
+          if (q >= 4) idx.slice(idx.length - q).forEach((k) => filmPartSet.add(k));
+        });
+        pos += w.length + 1;
+      });
+    }
+  }
+
   // Popcorn Peek: every third letter or digit of the title (3rd, 6th, 9th...).
   const peekSet = new Set();
   if (peek) {
@@ -4420,15 +5361,15 @@ function HangmanTitle({card, found, guesses=[], reducedMotion=false, peek=false}
 
   function shouldReveal(charIdx) {
     if (found[0] && found[1]) return true;          // solved: show the whole title
-    if (peekSet.has(charIdx)) return true;
-    const words = title.split(" ");
-    let pos = 0;
-    for (let w = 0; w < words.length; w++) {
-      if (charIdx >= pos && charIdx < pos + words[w].length) {
-        const wordTokens = normWord(words[w]).split(" ").filter(Boolean).map(normalizeToken);
-        return wordTokens.some((token) => typed.has(token));
+    if (peekSet.has(charIdx) || filmPartSet.has(charIdx)) return true;
+    // Each part of a joined word reveals on its own (owner report 2026-10-26: typing "off"
+    // showed all of "Scarface/Off" without solving it).
+    const re = /[a-z0-9'’]+/gi;
+    let m;
+    while ((m = re.exec(title))) {
+      if (charIdx >= m.index && charIdx < m.index + m[0].length) {
+        return normWord(m[0]).split(" ").filter(Boolean).map(normalizeToken).some((token) => typed.has(token));
       }
-      pos += words[w].length + 1;
     }
     return false;
   }
@@ -4440,6 +5381,14 @@ function HangmanTitle({card, found, guesses=[], reducedMotion=false, peek=false}
   const revealedKey = Array.from(title).map((_, i) => (shouldReveal(i) ? "1" : "0")).join("");
   const prevRevealRef = useRef(null);
   const [freshOrder, setFreshOrder] = useState({});
+  // Bounce wave when the card is solved while on screen (not when an already-solved card opens).
+  const [solvedWave, setSolvedWave] = useState(false);
+  const wasSolvedRef = useRef(null);
+  useEffect(() => {
+    const was = wasSolvedRef.current;
+    wasSolvedRef.current = { cardId: card.id, solved: allRevealed };
+    setSolvedWave(!!was && was.cardId === card.id && !was.solved && allRevealed);
+  }, [allRevealed, card.id]);
   useLayoutEffect(() => {
     const prev = prevRevealRef.current;
     prevRevealRef.current = { cardId: card.id, key: revealedKey };
@@ -4452,6 +5401,7 @@ function HangmanTitle({card, found, guesses=[], reducedMotion=false, peek=false}
     if (n === 0) return;
     setFreshOrder(order);
     for (let k = 0; k < Math.min(n, 12); k++) SFX.tileTick(k, Math.min(k * 45, 900) / 1000);
+    if (found[0] && found[1]) return; // solved: the win flip uses this list to the end
     const id = setTimeout(() => setFreshOrder({}), Math.min(n * 45, 900) + 500);
     return () => clearTimeout(id);
   }, [revealedKey, card.id, reducedMotion]);
@@ -4491,12 +5441,18 @@ function HangmanTitle({card, found, guesses=[], reducedMotion=false, peek=false}
                 fontFamily:"'Outfit',sans-serif",
                 fontSize:16,
                 fontWeight:700,
-                color: allRevealed ? T.pink : T.textPrimary,
+                // Solved: white tiles flip one by one and come back showing the letter in green
+                // (#15803D, contrast about 5:1 on white). The colour changes at the half-turn.
+                color: allRevealed ? "#15803D" : T.textPrimary,
                 textTransform:"uppercase",
                 transition:"color 0.25s ease",
-                animation: freshOrder[word.start + ci] !== undefined
-                  ? `tileFlip 0.42s cubic-bezier(.2,1.3,.4,1) ${Math.min(freshOrder[word.start + ci] * 45, 900)}ms both`
-                  : "none",
+                // Letters found earlier turn from dark to green at the half-turn; letters not found
+                // yet stay hidden until the half-turn and appear already green.
+                animation: allRevealed && solvedWave && !reducedMotion
+                  ? `${freshOrder[word.start + ci] !== undefined ? "tileWinFlipNew" : "tileWinFlipOld"} 0.42s ease-in-out ${Math.min((word.start + ci) * 45, 900)}ms both`
+                  : freshOrder[word.start + ci] !== undefined
+                    ? `tileFlip 0.42s cubic-bezier(.2,1.3,.4,1) ${Math.min(freshOrder[word.start + ci] * 45, 900)}ms both`
+                    : "none",
               }}>{rev ? ch : ""}</div>
             );
           })}
@@ -4529,6 +5485,7 @@ function HintsModal({card, hintsRevealed, guessesLeft, onReveal, onClose, hintAn
   const whisperText = card.hints?.[0] ? maskTitleWords(card.hints[0], card) : null;
 
   const revealWithFx = (tierId) => {
+    if (tierId === HINT_TIERS[1].id) SFX.rip();
     setRecentlyUnlocked(tierId);
     onReveal(tierId);
   };
@@ -4552,6 +5509,17 @@ function HintsModal({card, hintsRevealed, guessesLeft, onReveal, onClose, hintAn
         <div style={{background:"#fff",border:`1px solid ${T.border}`,padding:"6px 14px",minWidth:170,textAlign:"center",position:"relative",overflow:"hidden",animation:!reducedMotion && recentlyUnlocked===HINT_TIERS[1].id ? "vaultUnlockPulse 0.48s ease" : "none",transformOrigin:"50% 50%"}}>
           {!actorsRevealed && (
             <div style={{position:"absolute",inset:0,background:"repeating-linear-gradient(130deg,#0b0a16 0 9px,#201d38 9px 18px)",opacity:0.9,pointerEvents:"none"}}/>
+          )}
+          {/* Owner request 2026-10-26: "SPOILER" tape rips off the Lead Actors as they're revealed. */}
+          {actorsRevealed && recentlyUnlocked===HINT_TIERS[1].id && !reducedMotion && (
+            <div data-spoiler-tape="" aria-hidden="true" style={{position:"absolute",inset:0,zIndex:2,pointerEvents:"none"}}>
+              {[["8%","spoilerTear"],["46%","spoilerTearL"]].map(([top,anim])=>(
+                <div key={anim} style={{position:"absolute",left:-16,right:-16,top,height:15,display:"flex",alignItems:"center",justifyContent:"center",gap:10,
+                  background:"#FFD84D",borderTop:"2px solid #1C1D21",borderBottom:"2px solid #1C1D21",animation:`${anim} 0.55s ease-in both`}}>
+                  {[0,1,2].map(k=><span key={k} style={{fontFamily:FONT_FIGMA_STICKER,fontSize:8.5,color:"#1C1D21",letterSpacing:"0.08em"}}>SPOILER</span>)}
+                </div>
+              ))}
+            </div>
           )}
           <span style={{position:"relative",zIndex:1,fontFamily:FONT_FIGMA_STICKER,fontSize:14,color:T.textPrimary,textDecoration:actorsRevealed&&f?"underline":"none",animation:!reducedMotion && actorsRevealed && recentlyUnlocked===HINT_TIERS[1].id ? "tapePeelReveal 0.45s ease" : "none",display:"inline-block"}}>
             {actorsRevealed&&f ? f.actors[0].toUpperCase() : "?????"}
@@ -4619,11 +5587,21 @@ function HintsModal({card, hintsRevealed, guessesLeft, onReveal, onClose, hintAn
           {powerups && (powerups.hint>0 || powerups.peek>0 || freeHints.length>0 || peekUsed) && (
             <div style={{marginTop:6,paddingTop:12,borderTop:"1px dashed rgba(255,255,255,0.35)",display:"flex",flexDirection:"column",gap:8}}>
               <div style={{...YELLOW_STICKER_TEXT,fontSize:11,textAlign:"center",textTransform:"uppercase"}}>Arcade power-ups</div>
-              <button onClick={onFreeHint} disabled={!powerups.hint || (yearGenreRevealed && actorsRevealed && (whisperRevealed || !whisperText))}
-                aria-label={`Use a Free Hint (${powerups.hint} left)`}
-                style={{...BTN.cyan,background:"#FFD84D",padding:"11px 0",opacity:powerups.hint?1:0.4,cursor:powerups.hint?"pointer":"not-allowed"}}>
-                <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:11.5,color:"#1C1D21",textTransform:"uppercase"}}>🎟️ Free Hint · next hint costs 0 pts · {powerups.hint} left</span>
-              </button>
+              {(() => {
+                // With every hint already shown there is nothing for it to reveal: say so and keep
+                // it for a later card (owner report 2026-10-26: it looked clickable but did nothing).
+                const nothingLeft = yearGenreRevealed && actorsRevealed && (whisperRevealed || !whisperText);
+                const usable = powerups.hint > 0 && !nothingLeft;
+                return (
+                  <button onClick={onFreeHint} disabled={!usable}
+                    aria-label={`Use a Free Hint (${powerups.hint} left)`}
+                    style={{...BTN.cyan,background:"#FFD84D",padding:"11px 0",opacity:usable?1:0.4,cursor:usable?"pointer":"not-allowed"}}>
+                    <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:11.5,color:"#1C1D21",textTransform:"uppercase"}}>
+                      {nothingLeft && powerups.hint > 0 ? `🎟️ Free Hint · no hints left to reveal · saved for later (${powerups.hint})` : `🎟️ Free Hint · next hint costs 0 pts · ${powerups.hint} left`}
+                    </span>
+                  </button>
+                );
+              })()}
               <button onClick={onPeek} disabled={!powerups.peek || peekUsed}
                 aria-label={`Use a Popcorn Peek (${powerups.peek} left)`}
                 style={{...BTN.cyan,background:"#FFF8E6",padding:"11px 0",opacity:powerups.peek && !peekUsed?1:0.4,cursor:powerups.peek && !peekUsed?"pointer":"not-allowed"}}>
@@ -4661,6 +5639,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   const [showMissShake, setShowMissShake] = useState(false);
   const [cardTransitionPhase, setCardTransitionPhase] = useState("in"); // in | out | idle
   const [genreTransition, setGenreTransition] = useState(null);
+  const recentSwapKindsRef = useRef([]);
   const missShakeTimerRef = useRef(null);
   const cardSwapTimerRef = useRef(null);
   const cardSwapSettleTimerRef = useRef(null);
@@ -4694,13 +5673,19 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   const speedrunRafRef=useRef(null);
   // Cinema extras: Speed Run countdown, clapperboard takes, popcorn meter, badges, Daily curtains.
   const [countingDown,setCountingDown]=useState(()=>!!mode.timeLimit && !initialState);
+  const [whichFirst,setWhichFirst]=useState(null); // "Which came first?" bonus answer: {pick, correct}
+  const [audience,setAudience]=useState(null);     // {key, mood: "cheer"|"groan"}
+  const [usher,setUsher]=useState(null);
+  const [boo,setBoo]=useState(null); // 3rd wrong guess: the crowd boos and throws a tomato
   const [clapper,setClapper]=useState(null);
   const clapperTimerRef=useRef(null);
   const [popKey,setPopKey]=useState(0);
   const [badgeToast,setBadgeToast]=useState(null);
+  // 5 in a row earns a Popcorn Panic play; on Next the player chooses to play it now or keep guessing.
+  const [arcadeOffer,setArcadeOffer]=useState(null); // null | {stage:"ask"|"playing", badges}
   const badgeToastTimerRef=useRef(null);
-  const [themedWeek]=useState(()=>mode.isDaily ? activeThemedWeek() : null);
-  const [dailyLine]=useState(()=>mode.isDaily && !initialState ? pickRandom("trailer", themedWeek ? themedWeek.lines : TRAILER_OPENERS) : null);
+  const [themedWeek]=useState(()=>activeHoliday());
+  const [dailyLine]=useState(()=>mode.isDaily && !initialState ? pickRandom("trailer", themedWeek?.lines || TRAILER_OPENERS) : null);
 
   useEffect(() => {
     const invalidDeck = !Array.isArray(deck) || deck.length !== mode.roundCount;
@@ -4726,7 +5711,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   const viewOnly = rewindIdx!==null;
   const isRewound = rewindIdx!==null;
   const found=checkGuesses(guesses,card.movies,card.aliases||[[],[]],card.mashedTitle||"");
-  const titleFullyRevealed = areAllMashedTitleWordsGuessed(guesses, card.mashedTitle || "");
+  const titleFullyRevealed = areAllMashedTitleWordsGuessed(guesses, card.mashedTitle || "", card.movies, found);
   // Solved must come from real movie-title or mashed-title matches only.
   // Completing all meaningful mashed-title words should also complete the round.
   const both=(found[0]&&found[1]) || titleFullyRevealed;
@@ -4757,7 +5742,10 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   const tension=mode.difficultyPacing==="escalating"?marathonTension(cardIdx,deck.length):0;
   const accent=tension>0.6?`hsl(${Math.round(20-tension*20)},88%,56%)`:mode.accentColor;
   const isLast=cardIdx===deck.length-1;
-  const runStreak=trailingSolvedStreak(results, cardIdx) + (both && !isRewound ? 1 : 0);
+  // "In a row" means in a row: a lost or skipped card drops it to 0 straight away.
+  const runStreak=isRewound ? trailingSolvedStreak(results, cardIdx)
+    : (cardLost || skipped) ? 0
+    : trailingSolvedStreak(results, cardIdx) + (both ? 1 : 0);
   // The button art shows the two original hints left; the Whisper is extra.
   const artHintCount = hintsRevealed.filter((id)=>id!=="whisper").length;
   const hintButtonSrc = artHintCount===0
@@ -4780,6 +5768,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     }
     setCardTransitionPhase("in");
     comboRef.current=0;
+    setBadgeToast(null);
     const settle = setTimeout(() => setCardTransitionPhase("idle"), 440);
     return () => clearTimeout(settle);
   }, [activeIdx, reducedMotion]);
@@ -4802,10 +5791,12 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   useEffect(()=>{
     if(isRewound || !over || phase!=="playing") return;
     const nextPhase = "result";
-    const delay = both ? 300 : 650;
+    // Owner request 2026-10-25: hold a solved card ~1.6 s so the green title wave can be seen
+    // (reduce-motion: shorter); a lost card ~1 s.
+    const delay = both ? (reducedMotion ? 700 : 1600) : 1000;
     const timerId = setTimeout(()=>setPhase(nextPhase), delay);
     return () => clearTimeout(timerId);
-  },[over,phase,isRewound,both]);
+  },[over,phase,isRewound,both,reducedMotion]);
 
   const handleGuess=(g)=>{
     if(cardLost||both||viewOnly) return;
@@ -4815,8 +5806,13 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       comboRef.current=0;
       SFX.wrong();
       buzz([30,50,30]);
+      // The 3rd wrong guess on a card: the crowd boos and throws a tomato (instead of the clapper).
+      if(wrongGuessCount+1 === 3 && 3 < mode.maxGuesses && !reducedMotion){
+        SFX.boo(); SFX.splat(0.95);
+        setBoo({key:Date.now()});
+      }
       // The next take, unless this miss used the card's last guess.
-      if(wrongGuessCount+1 < mode.maxGuesses){
+      else if(wrongGuessCount+1 < mode.maxGuesses){
         SFX.clap();
         setClapper({key:Date.now(), take:wrongGuessCount+2, note:pickRandom("directorNote", DIRECTOR_NOTES)});
         if (clapperTimerRef.current) clearTimeout(clapperTimerRef.current);
@@ -4848,9 +5844,24 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       commit();
       return;
     }
-    SFX.projector();
     const transitionMeta = GENRE_TRANSITION_META[transitionFamily.name] || GENRE_TRANSITION_META.punchy;
+    // Two card changes, picked at random but never the same one three times running
+    // (owner request 2026-10-26): the "5, 4, blip!" leader or the film-reel run.
+    // Four card changes, picked at random but never the same one twice in a row
+    // (owner requests 2026-10-26): countdown, iris wipe, film reel, clapperboard slam.
+    const KINDS = ["leader", "iris", "reel", "clapper"];
+    const recent = recentSwapKindsRef.current;
+    let kind = KINDS[Math.min(KINDS.length - 1, Math.floor(Math.random() * KINDS.length))];
+    if (recent[0] === kind) kind = KINDS[(KINDS.indexOf(kind) + 1) % KINDS.length];
+    const forced = readJSON("plotmix_force_card_change", null); // lets the tests pick one
+    if (KINDS.includes(forced)) kind = forced;
+    recentSwapKindsRef.current = [kind, ...recent].slice(0, 2);
+    if (kind === "reel") SFX.projector();
+    if (kind === "iris") SFX.iris();
+    if (kind === "clapper") SFX.slate();
     setGenreTransition({
+      kind,
+      scene: cardIdx + 2, // the card about to show, numbered from 1 (fixed now, before the card changes)
       nonce: Date.now(),
       name: transitionFamily.name,
       tag: transitionMeta.tag,
@@ -4858,7 +5869,8 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       anim: transitionMeta.anim,
     });
     if (genreTransitionTimerRef.current) clearTimeout(genreTransitionTimerRef.current);
-    genreTransitionTimerRef.current = setTimeout(() => setGenreTransition(null), 520);
+    genreTransitionTimerRef.current = setTimeout(() => setGenreTransition(null),
+      { reel: FILM_REEL_MS, leader: LEADER_BLIP_MS, iris: IRIS_MS, clapper: CLAPPER_SLAM_MS }[kind]);
 
     setCardTransitionPhase("out");
     if (cardSwapTimerRef.current) clearTimeout(cardSwapTimerRef.current);
@@ -4888,11 +5900,13 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     setFreeHints(p=>[...p,next]);
     setHintsRevealed(p=>[...p,next]);
     SFX.badge();
+    setShowHints(false); // close the hints so the power-up can be seen working (owner request 2026-10-26)
   };
   const handlePeek=()=>{
     if(!powerupsAllowed||peek||both||cardLost||viewOnly||!usePowerup("peek")) return;
     setPeek(true);
     SFX.pop();
+    setShowHints(false);
   };
 
   const handleSkip=()=>{
@@ -5000,24 +6014,24 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     if(resultAppliedRef.current) return;
     resultAppliedRef.current=true;
     if(skipped){
-      const skipResult={card,found:[false,false],solved:false,guesses:guesses.length,hints:hintsRevealed.length,guessList:[...guesses],hintList:[...hintsRevealed],pts:0,reward:currentReward,skipped:true};
+      const skipResult={card,found:[false,false],solved:false,guesses:guesses.length,wrongList:guesses.filter((g,i)=>guessStates[i]==="miss"),hints:hintsRevealed.length,guessList:[...guesses],hintList:[...hintsRevealed],pts:0,reward:currentReward,skipped:true};
       const nextResults = upsertRoundResult(results, cardIdx, skipResult);
       if(isLast||lives<=0){
         clearSession(mode.id);
-        const dailyReplay = mode.isDaily && !completeDaily(totalScore, buildShareText(mode, nextResults, totalScore));
+        const dailyReplay = mode.isDaily && !completeDaily(totalScore, buildShareText(mode, nextResults, totalScore), nextResults);
         onComplete(nextResults,totalScore,streak,{dailyReplay});
         return;
       }
       runCardSwap(() => {
         setResults(nextResults);
         setCardIdx(idx=>idx+1);
-        setGuesses([]); setHintsRevealed([]); setFreeHints([]); setPeek(false);
+        setGuesses([]); setHintsRevealed([]); setFreeHints([]); setPeek(false); setWhichFirst(null);
         setPerfectSolveStreak(0);
         setSkipped(false); setPhase("playing");
       });
       return;
     }
-    const pts=calcScore(both,currentReward);
+    const pts=calcScore(both,currentReward)+bonusPts;
     const lostCard = !both;
     const livesAfterLoss = Math.max(0, lives - (lostCard ? 1 : 0));
     if (lostCard) {
@@ -5035,11 +6049,9 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
 
     const newStreak=updateStreak(both);
     setStreak(newStreak);
-    // A solved card earns a ticket stub (a replayed Daily doesn't).
-    if (both && !(isRewound && activeIdx !== cardIdx) && !(mode.isDaily && hasDoneDaily())) recordSolve(card.id);
     const newTotal=totalScore+pts;
     setTotalScore(newTotal);
-    const roundResult={card,found:effectiveFound,solved:both,guesses:guesses.length,hints:hintsRevealed.length,guessList:[...guesses],hintList:[...hintsRevealed],pts,reward:currentReward};
+    const roundResult={card,found:effectiveFound,solved:both,guesses:guesses.length,wrong:wrongGuessCount,wrongList:guesses.filter((g,i)=>guessStates[i]==="miss"),peek,bonus:bonusPts,hints:hintsRevealed.length,guessList:[...guesses],hintList:[...hintsRevealed],pts,reward:currentReward};
     const nextResults = upsertRoundResult(results, activeIdx, roundResult);
 
     if (isRewound && activeIdx !== cardIdx) {
@@ -5058,16 +6070,18 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       return;
     }
 
-    if(isLast||livesAfterLoss+heartBonus<=0){
+    // Speed Run: each card has its own clock, and running out of time ends the run
+    // (owner decision 2026-10-26).
+    if(isLast||livesAfterLoss+heartBonus<=0||timedOut){
       clearSession(mode.id);
-      const dailyReplay = mode.isDaily && !completeDaily(newTotal, buildShareText(mode, nextResults, newTotal));
+      const dailyReplay = mode.isDaily && !completeDaily(newTotal, buildShareText(mode, nextResults, newTotal), nextResults);
       onComplete(nextResults,newTotal,newStreak,{dailyReplay});
       return;
     }
     runCardSwap(() => {
       setResults(nextResults);
       setCardIdx(idx=>idx+1);
-      setGuesses([]); setHintsRevealed([]); setFreeHints([]); setPeek(false);
+      setGuesses([]); setHintsRevealed([]); setFreeHints([]); setPeek(false); setWhichFirst(null);
       setTimeLeft(mode.timeLimit||0); setTimedOut(false);
       speedrunDeadlineRef.current = null;
       setSkipped(false); setPhase("playing");
@@ -5077,24 +6091,87 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   const handleRevealDone=()=>{ setPhase("intermission"); };
 
   const handleIntermissionNext=()=>{
-    const pts=calcScore(both,currentReward);
-    const roundResult={card,found:effectiveFound,solved:both,guesses:guesses.length,hints:hintsRevealed.length,guessList:[...guesses],hintList:[...hintsRevealed],pts,reward:currentReward};
+    const pts=calcScore(both,currentReward)+bonusPts;
+    const roundResult={card,found:effectiveFound,solved:both,guesses:guesses.length,wrong:wrongGuessCount,wrongList:guesses.filter((g,i)=>guessStates[i]==="miss"),peek,bonus:bonusPts,hints:hintsRevealed.length,guessList:[...guesses],hintList:[...hintsRevealed],pts,reward:currentReward};
     const nextResults = upsertRoundResult(results, activeIdx, roundResult);
     if(isLast){
       clearSession(mode.id);
-      const dailyReplay = mode.isDaily && !completeDaily(totalScore, buildShareText(mode, nextResults, totalScore));
+      const dailyReplay = mode.isDaily && !completeDaily(totalScore, buildShareText(mode, nextResults, totalScore), nextResults);
       onComplete(nextResults,totalScore,streak,{dailyReplay});
       return;
     }
     runCardSwap(() => {
       setResults(nextResults);
       setCardIdx(idx=>idx+1);
-      setGuesses([]); setHintsRevealed([]); setFreeHints([]); setPeek(false);
+      setGuesses([]); setHintsRevealed([]); setFreeHints([]); setPeek(false); setWhichFirst(null);
       setTimeLeft(mode.timeLimit||0); setTimedOut(false);
       speedrunDeadlineRef.current = null;
       setSkipped(false); setPhase("playing");
     });
   };
+
+  // "Which came first?" bonus (owner request 2026-10-26): +1 for naming the older film, offered
+  // only after a solve with no hints or power-ups used at all.
+  const filmYears=(card.hintData?.films||[]).map(f=>Number(f.year));
+  const bonusEligible = both && !viewOnly && !isRewound && hintsRevealed.length===0 && !peek &&
+    filmYears.length===2 && filmYears.every(Boolean) && filmYears[0]!==filmYears[1];
+  const bonusPts = bonusEligible && whichFirst?.correct ? 1 : 0;
+  const handleBonus=(i)=>{
+    if(!bonusEligible||whichFirst) return;
+    const correct = filmYears[i] < filmYears[1-i];
+    setWhichFirst({pick:i, correct});
+    if(correct){ SFX.correct(); buzz(15); } else { SFX.wrong(); }
+  };
+
+  // The audience only shows up for the big moments: a cheer when the card is solved and a groan
+  // when it's lost (not for ordinary wrong guesses), owner request 2026-10-26.
+  const prevGuessCountRef=useRef(guesses.length);
+  useEffect(()=>{
+    const prev=prevGuessCountRef.current;
+    prevGuessCountRef.current=guesses.length;
+    if(guesses.length<=prev||viewOnly) return;
+    if(both) SFX.winCheer();        // "ta-da!", applause and whistles, different every time
+    else if(cardLost) SFX.groan();
+    if(reducedMotion) return;
+    if(both) setAudience({key:Date.now(),mood:"cheer"});
+    else if(cardLost) setAudience({key:Date.now(),mood:"groan"});
+  },[guesses.length]);
+  useEffect(()=>{
+    if(!audience) return;
+    const id=setTimeout(()=>setAudience(null),1700);
+    return ()=>clearTimeout(id);
+  },[audience]);
+
+  // The usher: no typing or tapping for 30 seconds mid-card brings the flashlight.
+  const lastActivityRef=useRef(Date.now());
+  useEffect(()=>{
+    // Any touch or key also sends the usher away at once (owner request 2026-10-26).
+    const bump=()=>{ lastActivityRef.current=Date.now(); setUsher(null); };
+    window.addEventListener("keydown",bump); window.addEventListener("pointerdown",bump); window.addEventListener("input",bump,true);
+    return ()=>{ window.removeEventListener("keydown",bump); window.removeEventListener("pointerdown",bump); window.removeEventListener("input",bump,true); };
+  },[]);
+  useEffect(()=>{
+    if(phase!=="playing"||showHints||countingDown||viewOnly) return;
+    lastActivityRef.current=Date.now();
+    const id=setInterval(()=>{
+      if(Date.now()-lastActivityRef.current>=USHER_IDLE_MS && !document.hidden){
+        lastActivityRef.current=Date.now();
+        SFX.psst();
+        setUsher({key:Date.now()});
+      }
+    },1000);
+    return ()=>clearInterval(id);
+  },[phase,showHints,countingDown,viewOnly,cardIdx]);
+  useEffect(()=>{
+    if(!boo) return;
+    const id=setTimeout(()=>setBoo(null),TOMATO_MS);
+    return ()=>clearTimeout(id);
+  },[boo]);
+  useEffect(()=>{
+    if(!usher) return;
+    const id=setTimeout(()=>setUsher(null),3200);
+    return ()=>clearTimeout(id);
+  },[usher]);
 
   const roundScore=calcScore(both,currentReward);
   const showFooterBar = !showingResult && (!both || canReturnToCurrent);
@@ -5151,17 +6228,19 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     if(wrongGuessCount===mode.maxGuesses-1) ids.push("plotTwist");
     if(runStreak>=5) ids.push("boxOfficeSmash");
     const fresh=earnBadges(ids);
-    const toasts=BADGES.filter(b=>fresh.includes(b.id));
-    // Every 5 mashups in a row earns a play of Popcorn Panic.
+    const earned=BADGES.filter(b=>fresh.includes(b.id));
+    // Every 5 mashups in a row earns a play of Popcorn Panic: offered at once in a box that
+    // stays until the player chooses (owner request 2026-10-25), with any new badges in it.
     if(runStreak>0 && runStreak % ARCADE_STREAK_FOR_PASS === 0){
       addArcadePass();
-      toasts.push({id:"arcade-pass",emoji:"🍿",title:`${runStreak} in a row! Popcorn Panic play earned`});
+      SFX.badge();
+      setArcadeOffer({stage:"ask",badges:earned});
+      return;
     }
-    if(!toasts.length) return;
+    if(!earned.length) return;
     SFX.badge();
-    setBadgeToast(toasts);
-    if (badgeToastTimerRef.current) clearTimeout(badgeToastTimerRef.current);
-    badgeToastTimerRef.current = setTimeout(() => setBadgeToast(null), 2900);
+    // New badges stay on screen until the next card.
+    setBadgeToast(earned);
   },[phase]);
 
   useEffect(() => {
@@ -5197,17 +6276,19 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     winAnimationStartedAtRef.current = Date.now();
     setShowWinAnimation(true);
 
-    // Safety fallback in case a device never fires video onEnded.
+    // Safety fallback in case a device never fires video onEnded: the clip's length plus
+    // generous time for a slow phone to load it.
     if (winAnimationTimerRef.current) clearTimeout(winAnimationTimerRef.current);
     winAnimationTimerRef.current = setTimeout(() => {
       setWinAnimationEnded(true);
-    }, Math.max(3000, pickedDuration + 1400));
+    }, pickedDuration + 4000);
 
   }, [phase, both, skipped, timedOut, cardIdx]);
 
   useEffect(() => {
     if (!showWinAnimation || !winAnimationEnded) return;
-    const MIN_RESULT_VISIBLE_MS = 4200;
+    // Once the clip has ended, hold its last frame briefly (and at least this long overall).
+    const MIN_RESULT_VISIBLE_MS = 2000;
     const elapsed = Date.now() - winAnimationStartedAtRef.current;
     const holdMore = Math.max(0, MIN_RESULT_VISIBLE_MS - elapsed);
 
@@ -5241,45 +6322,45 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   return (
     <div style={{minHeight:"100dvh",position:"relative",paddingLeft:20,paddingRight:20,paddingBottom:24,overflowX:"clip",...CHECKER_BG,color:T.textOnDark}}>
 
-      {!!genreTransition && (
-        <div
-          aria-hidden="true"
-          style={{
-            position:"fixed",
-            inset:0,
-            zIndex:280,
-            pointerEvents:"none",
-            display:"flex",
-            alignItems:"center",
-            justifyContent:"center",
-            animation:`${genreTransition.anim} 520ms ease both`,
-            background:"radial-gradient(circle at 50% 52%, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 62%)",
-            backdropFilter:"blur(1.5px)",
-          }}
-          key={genreTransition.nonce}
-        >
-          {!reducedMotion && (
-            <LottieOverlay
-              key={`genre-lottie-${genreTransition.nonce}`}
-              src={LOTTIE_ASSETS.genreByFamily[genreTransition.name] || LOTTIE_ASSETS.smashImpact}
-              loop={false}
-              speed={1.08}
-              style={{
-                position:"absolute",
-                left:"50%",
-                top:"50%",
-                width:"min(90vw, 420px)",
-                height:"min(90vw, 420px)",
-                transform:"translate(-50%, -50%)",
-                pointerEvents:"none",
-                opacity:0.68,
-              }}
-            />
-          )}
-          <div style={{padding:"10px 14px",borderRadius:12,background:"rgba(14,10,44,0.72)",border:"2px solid #1C1D21",boxShadow:"0 4px 0 #1C1D21",display:"inline-flex",alignItems:"center",gap:8}}>
-            <span style={{fontSize:15,lineHeight:1}}>{genreTransition.emoji}</span>
-            <span style={{...WHITE_STICKER_TEXT,fontSize:11,letterSpacing:"0.04em",textTransform:"uppercase",lineHeight:1}}>{genreTransition.tag}</span>
+
+      {arcadeOffer?.stage==="ask" && (
+        <div role="dialog" aria-label="Popcorn Panic offer" style={{position:"fixed",inset:0,zIndex:600,background:"rgba(0,0,0,0.55)",display:"flex",alignItems:"center",justifyContent:"center",padding:18}}>
+          <div style={{width:"100%",maxWidth:340,background:T.bgDeep,border:`2px solid ${T.border}`,borderRadius:16,boxShadow:T.shadowLg,padding:"22px 20px",textAlign:"center",animation:reducedMotion?"none":"titlePop 0.4s ease both"}}>
+            <div style={{width:84,height:84,margin:"0 auto 8px"}}><ArcadeItemArt kind="popcorn" variant={2}/></div>
+            <div style={{...YELLOW_STICKER_TEXT,fontSize:18,textTransform:"uppercase",lineHeight:1.3}}>You've solved {runStreak} PlotMixes in a row!</div>
+            <p style={{fontFamily:"'Outfit',sans-serif",fontSize:15,margin:"8px 0 14px"}}>You've earned a round of Popcorn Panic.</p>
+            {arcadeOffer.badges?.length>0 && (
+              <div style={{display:"flex",flexDirection:"column",gap:6,margin:"0 0 16px"}}>
+                {arcadeOffer.badges.map((b)=>(
+                  <div key={b.id} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"7px 10px",background:"#FFD84D",border:"2px solid #1C1D21",borderRadius:10}}>
+                    <span style={{fontSize:16}}>{b.emoji}</span>
+                    <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:10.5,color:"#1C1D21",textTransform:"uppercase"}}>Badge unlocked: {b.name}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button onClick={()=>setArcadeOffer({stage:"playing"})} style={{...BTN.primary,width:"100%",padding:"13px 0",marginBottom:10}}>
+              <span style={{...WHITE_STICKER_TEXT,fontSize:13,textTransform:"uppercase",lineHeight:1.35}}>🍿 Play Popcorn Panic<br/><span style={{fontSize:10.5}}>to win hidden prizes</span></span>
+            </button>
+            <button onClick={()=>{ setArcadeOffer(null); handleResultNext(); }} style={{...BTN.cyan,width:"100%",padding:"12px 0"}}>
+              <span style={{...WHITE_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>Continue to the next PlotMix</span>
+            </button>
+            <div style={{fontFamily:"'Outfit',sans-serif",fontSize:12,opacity:0.8,marginTop:10}}>Not now? Your round is saved: find Popcorn Panic under Speed Run on the menu.</div>
           </div>
+        </div>
+      )}
+      {arcadeOffer?.stage==="playing" && (
+        <div style={{position:"fixed",inset:0,zIndex:650,overflowY:"auto"}}>
+          <ArcadeScreen embedded reducedMotion={reducedMotion} onBack={()=>{ setArcadeOffer(null); handleResultNext(); }}/>
+        </div>
+      )}
+
+      {/* Load the win and hint clips early so they play smoothly the first time */}
+      {!reducedMotion && (
+        <div aria-hidden="true" style={{display:"none"}}>
+          {[...STICKER_ASSETS.winAnimations.map((a)=>a.src), STICKER_ASSETS.hintAnimation.src].map((src)=>(
+            <video key={src} src={src} preload="auto" muted playsInline/>
+          ))}
         </div>
       )}
 
@@ -5287,20 +6368,21 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       {clapper && <ClapperTake key={clapper.key} take={clapper.take} note={clapper.note} reducedMotion={reducedMotion}/>}
       {badgeToast && <BadgeToast badges={badgeToast}/>}
       {countingDown && <FilmLeaderCountdown reducedMotion={reducedMotion} onDone={()=>setCountingDown(false)}/>}
-      {dailyLine && <CurtainReveal line={dailyLine} reducedMotion={reducedMotion} colors={themedWeek?.curtains || null}/>}
+      {/* Curtains open every time a game starts or is resumed (owner request 2026-10-26); the
+          Daily adds its trailer line. */}
+      {/* The player's chosen curtains (holidays don't change them; owner decision 2026-10-26). */}
+      <CurtainReveal line={dailyLine} reducedMotion={reducedMotion}/>
       {showingResult && !both && !skipped && !reducedMotion && <FilmBurn/>}
 
-      {/* Film-reel change: sprocket strips advance and the projector flickers */}
-      {!!genreTransition && (
-        <div key={`reel-${genreTransition.nonce}`} aria-hidden="true" style={{position:"fixed",inset:0,zIndex:305,pointerEvents:"none"}}>
-          {["left","right"].map(side=>(
-            <div key={side} style={{position:"absolute",top:0,bottom:0,[side]:0,width:24,background:"#1C1D21",
-              backgroundImage:"linear-gradient(to bottom, transparent 0 9px, #F3F4FF 9px 19px, transparent 19px 28px)",
-              backgroundSize:"11px 28px",backgroundRepeat:"repeat-y",backgroundPosition:"center 0",animation:"reelAdvance 520ms steps(6) both"}}/>
-          ))}
-          <div style={{position:"absolute",inset:0,background:"#FFF8E7",animation:"projectorFlicker 520ms linear both"}}/>
-        </div>
-      )}
+      {/* Card change (owner request 2026-10-25): a quick old film-leader countdown,
+          "5, 4, blip!", then the next card. About 1.3 seconds, and it never blocks typing. */}
+      {genreTransition?.kind === "leader" && <LeaderBlip key={`leader-${genreTransition.nonce}`}/>}
+      {genreTransition?.kind === "reel" && <FilmReelChange key={`reel-${genreTransition.nonce}`}/>}
+      {genreTransition?.kind === "iris" && <IrisWipe key={`iris-${genreTransition.nonce}`}/>}
+      {genreTransition?.kind === "clapper" && <ClapperSlam key={`slam-${genreTransition.nonce}`} scene={genreTransition.scene}/>}
+      {audience && <AudienceReaction key={audience.key} mood={audience.mood}/>}
+      {usher && <Usher key={usher.key}/>}
+      {boo && <TomatoBoo key={boo.key}/>}
 
       {/*  AUTO POPUP when round ends (never while rewinding/view-only)  */}
       {showingResult&&(
@@ -5310,11 +6392,13 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
           guessCount={guesses.length}
           hintCount={hintCount}
           maxGuesses={mode.maxGuesses}
-          roundScore={roundScore}
+          roundScore={roundScore+bonusPts}
+          bonus={bonusEligible ? {films:card.movies, years:filmYears, answer:whichFirst} : null}
+          onBonus={handleBonus}
           cardIdx={cardIdx}
           totalCards={deck.length}
           results={results}
-          isLast={isLast}
+          isLast={isLast||timedOut}
           skipped={skipped}
           timedOut={timedOut}
           showSticker={showWinAnimation && both}
@@ -5365,7 +6449,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
             </div>
             <img src="/design-reference/Skip%20modal.svg" alt="" aria-hidden="true" draggable="false"
               style={{position:"absolute",inset:0,width:"100%",height:"100%",display:"block",pointerEvents:"none",userSelect:"none"}}/>
-            <button onClick={()=>{setShowSkipConfirm(false);handleSkip();}} aria-label="Skip It"
+            <button onClick={()=>{setShowSkipConfirm(false);SFX.skip();handleSkip();}} aria-label="Skip It"
               style={{position:"absolute",left:`${20.5/358*100}%`,top:`${104/184*100}%`,width:`${124/358*100}%`,height:`${54/184*100}%`,background:"transparent",border:"none",padding:0,cursor:"pointer"}}/>
             <button onClick={()=>setShowSkipConfirm(false)} aria-label="Keep Trying"
               style={{position:"absolute",left:`${154.5/358*100}%`,top:`${104/184*100}%`,width:`${183/358*100}%`,height:`${54/184*100}%`,background:"transparent",border:"none",padding:0,cursor:"pointer"}}/>
@@ -5432,7 +6516,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
 
               {/*  HANGMAN TILES — bare on the purple background, no card wrapper  */}
               <div ref={hangmanRef} role="group" aria-label="Title letters">
-                <HangmanTitle card={card} found={pastWon?[true,true]:found} guesses={guesses} reducedMotion={reducedMotion} peek={peek}/>
+                <HangmanTitle card={card} found={pastWon?[true,true]:effectiveFound} guesses={guesses} reducedMotion={reducedMotion} peek={peek}/>
               </div>
 
               {/*  GUESS INPUT — stays in place when it fits; on short screens (small phones,
@@ -5510,7 +6594,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
                   style={{position:"absolute",left:footerX(15),top:footerY(16),width:footerX(84),height:footerY(66),background:"transparent",border:"none",padding:0,cursor:canRewind?"pointer":"not-allowed"}}/>
               )}
 
-              <button aria-label={viewOnly?"Hints unavailable in view-only":"Open hints"} onClick={()=>!viewOnly&&setShowHints(true)} disabled={viewOnly}
+              <button aria-label={viewOnly?"Hints unavailable in view-only":"Open hints"} onClick={()=>{ if(viewOnly) return; SFX.page(); setShowHints(true); }} disabled={viewOnly}
                 style={{position:"absolute",left:footerX(hintButtonLeft),top:footerY(16),width:footerX(65),height:footerY(66),background:"transparent",border:"none",padding:0,cursor:viewOnly?"not-allowed":"pointer"}}/>
 
               <button aria-label="Submit guess" onClick={()=>guessInputRef.current?.submit()} disabled={cardLost||both||viewOnly}
@@ -5567,7 +6651,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
 
 
 
-function EndScreen({mode,results,totalScore,dailyReplay=false,onMenu,onPlayAgain,reducedMotion=false}) {
+function EndScreen({mode,results,totalScore,dailyReplay=false,perfectRun=false,goldWon=false,onMenu,onPlayAgain,reducedMotion=false}) {
   const [copied,setCopied]=useState(false);
   const correct=results.filter(r=>isRoundSolved(r)).length;
   const skippedCount=results.filter(r=>r.skipped).length;
@@ -5625,11 +6709,19 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,onMenu,onPlayAgain
   const filmsFound = results.reduce((n,r)=>n+(isRoundSolved(r)?2:(r.found||[]).filter(Boolean).length),0);
   const takes = results.reduce((n,r)=>n+(r.guesses||0),0);
   const hintsUsed = results.reduce((n,r)=>n+(r.hints||0),0);
+  const bloopers = results.flatMap(r=>r?.wrongList||[]).filter(g=>String(g).trim()).slice(0,4);
+  // Post-credits scene (owner request 2026-10-26): a teaser for tomorrow's Daily, after the credits.
+  const [postCredits,setPostCredits]=useState(reducedMotion);
+  useEffect(()=>{ if(reducedMotion) return; const id=setTimeout(()=>setPostCredits(true),6000); return ()=>clearTimeout(id); },[reducedMotion]);
+  const tomorrowCard = useMemo(()=>{ const d=new Date(); d.setDate(d.getDate()+1); return dailyCardFor(uniqueCardsByMoviePair(MASTER_DECK), d); },[]);
+  const teaserGenres = (tomorrowCard?.hintData?.films||[]).map(f=>String(f.genre||"").split(/[,/]/)[0].trim()).filter(Boolean);
   const credits = [
     ["", "A PlotMix Production"],
     ["Starring", "You"],
     ["Films identified", String(filmsFound)],
     ["Takes", String(takes)],
+    // Blooper reel (owner request 2026-10-26): the run's wrong guesses, played back.
+    ...(bloopers.length ? bloopers.map((g,i)=>[i===0?"Blooper reel":"", `“${g}”`]) : [["Blooper reel","Empty. Not one bad take."]]),
     ["Hints supplied by", hintsUsed>0 ? "Your Wallet of Points" : "Nobody. You did it alone."],
     ["Catering", "One Large Popcorn"],
     ["Best Boy", "Still Unsure What That Is"],
@@ -5643,7 +6735,8 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,onMenu,onPlayAgain
 
   return (
     <div style={{position:"absolute",inset:0,zIndex:700,overflowY:"auto",...CHECKER_BG,backgroundColor:T.bg,color:T.textOnDark,animation:"fadeIn 0.5s ease"}}>
-      <CurtainReveal zIndex={720} reducedMotion={reducedMotion}/>
+      <CurtainReveal zIndex={720} reducedMotion={reducedMotion} line={`Final score: ${totalScore} point${totalScore===1?"":"s"}`}/>
+      {perfectRun && !reducedMotion && <CameraFlashes/>}
       <div style={{width:"min(402px, 100vw)",minHeight:"100dvh",margin:"0 auto",padding:"14px 0 24px",boxSizing:"border-box"}}>
       <div style={{width:"100%",minHeight:"calc(100dvh - 38px)",...WIN_RESULT_BG,backgroundColor:T.bgDeep,border:`2px solid ${T.border}`,borderRadius:20,boxShadow:T.shadowLg,padding:"56px 22px 24px",textAlign:"center",boxSizing:"border-box",display:"flex",flexDirection:"column",position:"relative"}}>
 
@@ -5651,7 +6744,7 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,onMenu,onPlayAgain
         <div style={{...YELLOW_STICKER_TEXT,fontSize:"clamp(17px, 5.1vw, 24px)",lineHeight:1.04,marginBottom:mode.isDaily?10:24,textTransform:"uppercase"}}>Share Your Results</div>
         {mode.isDaily && (
           <div aria-label="Next Daily" style={{...WHITE_STICKER_TEXT,fontSize:12,lineHeight:1.3,marginBottom:22,letterSpacing:"0.02em"}}>
-            Daily #{getDailyNumber()} · Next Daily in <NextDailyCountdown/>
+            Next Daily in <NextDailyCountdown/>
           </div>
         )}
         {officialDaily && (
@@ -5714,7 +6807,7 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,onMenu,onPlayAgain
 
         {/* Stubs, Daily streak, install */}
         <div aria-label="Stubs" style={{fontFamily:"'Outfit',sans-serif",fontSize:12.5,color:"rgba(255,255,255,0.9)",marginBottom:mode.isDaily?6:14}}>
-          🎟️ Vault {loadVault().length}/{uniqueCardsByMoviePair(MASTER_DECK).length} · 🍿 {arcadePasses()} arcade play{arcadePasses()===1?"":"s"} (earn one per {ARCADE_STREAK_FOR_PASS} in a row)
+          🍿 {arcadePasses()} Popcorn Panic play{arcadePasses()===1?"":"s"} saved
         </div>
         {mode.isDaily && (()=>{
           const st=loadDailyStreak();
@@ -5722,6 +6815,26 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,onMenu,onPlayAgain
           return (
             <div aria-label="Daily streak" style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:13,color:"#FFD84D",marginBottom:14}}>
               🔥 Daily streak: {st.count} day{st.count===1?"":"s"}{st.saverDay===today ? " · 🧊 streak saver covered a missed day" : ""}
+            </div>
+          );
+        })()}
+        {perfectRun && (
+          <div aria-label="Perfect run" style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:13,color:"#FFD84D",marginBottom:14}}>
+            {goldWon ? "✨ A perfect run: no hints, no mistakes! Gold Lamé curtains unlocked!" : "✨ A perfect run: no hints, no mistakes!"}
+          </div>
+        )}
+        {mode.isDaily && (()=>{
+          const pd=loadPerfectDaily();
+          const gold=loadPrizes();
+          const today=localDayNumber(new Date());
+          if(gold.won.includes("perfectDaily3")) return (
+            <div aria-label="Gold curtains" style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:13,color:"#FFD84D",marginBottom:14}}>
+              {gold.goldJustWon===today ? "✨ 3 perfect Dailies in a row: Gold Lamé curtains unlocked!" : "✨ Gold Lamé curtains: yours"}
+            </div>
+          );
+          return (
+            <div aria-label="Perfect Dailies in a row" style={{fontFamily:"'Outfit',sans-serif",fontSize:12.5,color:"rgba(255,255,255,0.9)",marginBottom:14}}>
+              🏅 Perfect Dailies in a row: {pd.lastDay===today ? pd.count : 0} of {PERFECT_DAILY_FOR_GOLD} (no wrong guesses) for the Gold Lamé curtains
             </div>
           );
         })()}
@@ -5743,6 +6856,18 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,onMenu,onPlayAgain
             ))}
           </div>
         </div>
+
+        {postCredits && (
+          <div role="status" aria-label="Post-credits scene" style={{marginTop:-6,marginBottom:16,padding:"10px 12px",borderRadius:12,background:"rgba(14,10,44,0.55)",border:"1px dashed rgba(255,255,255,0.35)",animation:reducedMotion?"none":"postCreditsIn 0.6s ease both"}}>
+            <div style={{fontSize:10,letterSpacing:"0.12em",textTransform:"uppercase",color:"rgba(255,255,255,0.65)",fontFamily:"'Outfit',sans-serif"}}>🎬 Post-credits scene</div>
+            <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:13,color:"#fff",marginTop:4}}>
+              {/* Always names the Daily Challenge, since it also shows after Standard and Speed Run. */}
+              {teaserGenres.length===2
+                ? `Tomorrow's Daily Challenge: a ${teaserGenres[0]} + ${teaserGenres[1]} mashup. Same time, same theatre.`
+                : "Tomorrow's Daily Challenge: a brand-new mashup. Same time, same theatre."}
+            </div>
+          </div>
+        )}
 
         <button onClick={handleShare} style={{...BTN.cyan,width:"100%",padding:"16px 0",marginBottom:18}}>
           <span style={{...WHITE_STICKER_TEXT,fontSize:"clamp(18px, 5.2vw, 24px)",lineHeight:1.02,letterSpacing:"0.03em",textTransform:"uppercase"}}>{canNativeShare?"Share":(copied?"Copied ✓":"Copy")}</span>
@@ -5783,6 +6908,13 @@ function usePrefersReducedMotion() {
 
 function PlotMixApp() {
   const reducedMotion=usePrefersReducedMotion();
+  const [holiday]=useState(()=>activeHoliday()); // holiday-week decorations (owner request 2026-10-26)
+  // Every button gets a soft tick (owner request 2026-10-26: "everything should be sound-designed").
+  useEffect(()=>{
+    const onTap=(e)=>{ if(e.target?.closest?.("button")) SFX.tick(); };
+    document.addEventListener("pointerdown",onTap,true);
+    return ()=>document.removeEventListener("pointerdown",onTap,true);
+  },[]);
   // Inject background into document.head immediately — before React renders anything
   // This prevents Android WebView from showing its default dark background
   useEffect(()=>{
@@ -5797,7 +6929,7 @@ function PlotMixApp() {
     document.head.appendChild(style);
     return ()=>{ document.head.removeChild(style); };
   },[]);
-  const [screen,setScreen]=useState("intro");
+  const [screen,setScreen]=useState(()=>openPopcornForTesting()?"arcade":"intro");
   const [mode,setMode]=useState(null);
   const [deck,setDeck]=useState([]);
   const [results,setResults]=useState([]);
@@ -5814,6 +6946,7 @@ function PlotMixApp() {
 
   // onSelect(mode) = start fresh | onSelect(null, modeId) = resume saved run
   const handleModeSelect=(m, resumeModeId=null)=>{
+    SFX.ticket();
     if(m&&!resumeModeId) clearSession(m.id);   // fresh run => fresh deck
     if(resumeModeId){
       const saved=loadSession(resumeModeId);
@@ -5843,7 +6976,9 @@ function PlotMixApp() {
 
   const [finalStreak,setFinalStreak]=useState(null);
   const handleComplete=(r,score,streak,{dailyReplay=false}={})=>{
-    setCompletedRun({mode,results:r,totalScore:score,streak:streak||null,dailyReplay});
+    const perfectRun = isPerfectRun(mode, r);
+    const goldWon = perfectRun && unlockGoldCurtains();
+    setCompletedRun({mode,results:r,totalScore:score,streak:streak||null,dailyReplay,perfectRun,goldWon});
     setResults([]); setTotalScore(0); setDeck([]); setResumeState(null); setFinalStreak(streak||null); setShowHelp(false); setScreen("end");
   };
 
@@ -5969,23 +7104,15 @@ function PlotMixApp() {
         ${CINEMA_KEYFRAMES}
         .pmtc { display:inline-block !important; width:32px !important; height:20px !important; min-width:32px !important; min-height:20px !important; border-radius:5px !important; flex-shrink:0 !important; vertical-align:middle !important; }
       `}</style>
+      {holiday && screen!=="intro" && <HolidayDecor holiday={holiday} reducedMotion={reducedMotion}/>}
       {screen==="intro"&&<IntroVideoScreen onDone={()=>setScreen(hasOnboarded()?"menu":"onboarding")}/>}
       {screen==="onboarding"&&<Onboarding onDone={()=>{markOnboarded();setScreen("menu");}} onSkip={()=>{markOnboarded();setScreen("menu");}} showSkip/>}
-      {screen==="menu"&&<ModeSelect onSelect={handleModeSelect}/>}
+      {screen==="menu"&&<ModeSelect onSelect={handleModeSelect} onArcade={()=>setScreen("arcade")}/>}
       {screen==="game"&&mode&&<GameScreen mode={mode} deck={deck} initialState={resumeState} onQuit={goMenu} onComplete={handleComplete} reducedMotion={reducedMotion}/>}
-      {screen==="end"&&completedRun&&<EndScreen mode={completedRun.mode} results={completedRun.results} totalScore={completedRun.totalScore} dailyReplay={completedRun.dailyReplay} onMenu={goMenu} onPlayAgain={handlePlayAgain} reducedMotion={reducedMotion}/>}
+      {screen==="end"&&completedRun&&<EndScreen mode={completedRun.mode} results={completedRun.results} perfectRun={completedRun.perfectRun} goldWon={completedRun.goldWon} totalScore={completedRun.totalScore} dailyReplay={completedRun.dailyReplay} onMenu={goMenu} onPlayAgain={handlePlayAgain} reducedMotion={reducedMotion}/>}
       {/* Not during play: it overlaps the Skip button and swallows its clicks,
           and the Figma gameplay frame has no floating help button. */}
       {screen==="menu"&&<HelpButton onClick={()=>setShowHelp(true)}/>}
-      {screen==="menu"&&(
-        <>
-          <button onClick={()=>setScreen("vault")} aria-label="Film Vault"
-            style={{position:"fixed",bottom:80,left:24,zIndex:100,width:44,height:44,borderRadius:"50%",background:"#FFD84D",border:`2px solid ${T.border}`,boxShadow:T.shadow,cursor:"pointer",padding:0,fontSize:20,lineHeight:1}}>🎟️</button>
-          <button onClick={()=>setScreen("arcade")} aria-label="Arcade"
-            style={{position:"fixed",bottom:80,right:24,zIndex:100,width:44,height:44,borderRadius:"50%",background:"#FF4A6E",border:`2px solid ${T.border}`,boxShadow:T.shadow,cursor:"pointer",padding:0,fontSize:20,lineHeight:1}}>🕹️</button>
-        </>
-      )}
-      {screen==="vault"&&<VaultScreen onBack={goMenu} onArcade={()=>setScreen("arcade")}/>}
       {screen==="arcade"&&<ArcadeScreen onBack={goMenu} reducedMotion={reducedMotion}/>}
       {screen==="menu"&&<SoundToggle style={{position:"fixed",bottom:26,left:24,zIndex:100}}/>}
       {showHelp&&<HowToPlayModal onClose={()=>setShowHelp(false)}/>}

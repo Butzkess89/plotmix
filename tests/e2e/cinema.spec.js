@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-  openMenu, startMode, submitGuess, guessInput, currentCard, pinDailyDate, resumeStandardWithCards, waitForSave,
+  openMenu, startMode, submitGuess, guessInput, currentCard, pinDailyDate, resumeStandardWithCards, waitForSave, readDeck, continueToCard,
 } from './helpers.js'
 
 const nextButton = (page) => page.getByRole('button', { name: 'Next' })
@@ -45,7 +45,8 @@ test.describe('Clapperboard on a wrong guess', () => {
 test.describe('Popcorn streak meter', () => {
   test('fills as cards are solved in a row', async ({ page }) => {
     await resumeStandardWithCards(page, [77, 1])
-    await expect(page.getByLabel(/^Streak:/)).toHaveCount(0) // hidden until a streak starts
+    await expect(page.getByLabel('Streak: 0')).toBeVisible() // shown empty from the start (owner request 2026-10-25)
+    await expect(page.getByText('0 in a row')).toBeVisible()
     await submitGuess(page, 'The Nightmare Before Christmas')
     await submitGuess(page, 'A Christmas Story')
     await nextButton(page).click()
@@ -110,6 +111,85 @@ test.describe('End screen extras', () => {
     await expect(page.getByText('The End')).toBeVisible()
     await expect(page.getByLabel('Rated R: Rough Night')).toBeVisible()
     expect(await readBadges(page)).toContain('straightToVideo')
+  })
+})
+
+test.describe('Gold Lamé curtains: 3 perfect Dailies in a row, or one perfect run (owner decisions 2026-10-25/26)', () => {
+  // Seed the perfect-Daily run as of yesterday, then play today's Daily.
+  async function playDaily(page, { before, perfect }) {
+    await pinDailyDate(page)
+    await openMenu(page)
+    await page.evaluate((n) => {
+      const d = new Date()
+      const today = Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000)
+      localStorage.setItem('plotmix_perfect_daily', JSON.stringify({ count: n, lastDay: n ? today - 1 : null }))
+    }, before)
+    await startMode(page, 'daily')
+    const card = await currentCard(page, 'daily')
+    if (!perfect) await submitGuess(page, 'zzqxwrong')
+    await submitGuess(page, card.mashedTitle)
+    await page.getByRole('button', { name: 'Finish' }).click()
+    await expect(page.getByText('The End')).toBeVisible()
+  }
+  const won = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('plotmix_prizes') || '{"won":[]}').won)
+
+  test('a first perfect Daily counts 1 of 3', async ({ page }) => {
+    await playDaily(page, { before: 0, perfect: true })
+    await expect(page.getByLabel('Perfect Dailies in a row')).toContainText('1 of 3')
+    expect(await won(page)).not.toContain('perfectDaily3')
+  })
+
+  test('the third perfect Daily in a row unlocks them', async ({ page }) => {
+    await playDaily(page, { before: 2, perfect: true })
+    await expect(page.getByLabel('Gold curtains')).toHaveText('✨ 3 perfect Dailies in a row: Gold Lamé curtains unlocked!')
+    expect(await won(page)).toContain('perfectDaily3')
+  })
+
+  // A whole Standard run: every card solved by its full title on the first guess.
+  async function playStandardRun(page, { hintOnCard = -1 } = {}) {
+    const ids = readDeck().slice(0, 10).map((c) => c.id)
+    await resumeStandardWithCards(page, ids)
+    for (let i = 0; i < ids.length; i++) {
+      const card = await currentCard(page, 'standard')
+      if (i === hintOnCard) {
+        await page.getByRole('button', { name: 'Open hints' }).click()
+        await page.getByRole('button', { name: /Year & Genre/ }).click()
+        await page.getByRole('button', { name: 'Close hints' }).click()
+      }
+      await submitGuess(page, card.mashedTitle)
+      const go = page.getByRole('button', { name: /^(Next|Finish|Continue to the next PlotMix)$/ })
+      await expect(go.first()).toBeVisible()
+      if (i < ids.length - 1) await continueToCard(page, 'standard', i + 1)
+      else {
+        await page.waitForTimeout(300) // the 5-in-a-row offer, if any, appears with the result
+        const offer = page.getByRole('button', { name: 'Continue to the next PlotMix' })
+        if (await offer.isVisible()) await offer.click()
+        else await page.getByRole('button', { name: 'Finish' }).click()
+      }
+    }
+    await expect(page.getByText('The End')).toBeVisible()
+  }
+
+  test('a perfect Standard run (no hints, no mistakes) also unlocks them', async ({ page }) => {
+    test.setTimeout(240_000)
+    await playStandardRun(page)
+    await expect(page.getByLabel('Perfect run')).toHaveText('✨ A perfect run: no hints, no mistakes! Gold Lamé curtains unlocked!')
+    await expect(page.getByLabel('Camera flashes')).toBeAttached() // red-carpet flashes (owner request 2026-10-26)
+    expect(await won(page)).toContain('perfectDaily3')
+  })
+
+  test('one hint in an otherwise perfect run does not', async ({ page }) => {
+    test.setTimeout(240_000)
+    await playStandardRun(page, { hintOnCard: 3 })
+    await expect(page.getByLabel('Perfect run')).toHaveCount(0)
+    await expect(page.getByLabel('Camera flashes')).toHaveCount(0)
+    expect(await won(page)).not.toContain('perfectDaily3')
+  })
+
+  test('one wrong guess, even on a solved Daily, starts the count again', async ({ page }) => {
+    await playDaily(page, { before: 2, perfect: false })
+    await expect(page.getByLabel('Perfect Dailies in a row')).toContainText('0 of 3')
+    expect(await won(page)).not.toContain('perfectDaily3')
   })
 })
 

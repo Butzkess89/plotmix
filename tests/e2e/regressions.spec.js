@@ -3,12 +3,11 @@
 import { test, expect } from '@playwright/test'
 import {
   openMenu, startMode, submitGuess, waitForSave, currentCard, readSaves, pointsCounter,
-  resumeStandardWithCards,
+  resumeStandardWithCards, readDeck, continueToCard,
 } from './helpers.js'
 
 // One made-up word: not a film title and not a word in any mashed title, so it costs exactly 1 point.
 const WRONG_GUESS = 'zzqxwrong'
-const GENRE_TAG = /Blockbuster Cut|Dream Dissolve|Retro Splice|Thriller Smash/
 
 async function loseCardWithWrongGuesses(page) {
   for (let i = 0; i < 6; i++) await submitGuess(page, `${WRONG_GUESS}${i}`)
@@ -65,14 +64,12 @@ test.describe('G3: Speed Run clock keeps running while rewound', () => {
     await page.getByRole('button', { name: 'Rewind to previous card' }).click()
     await page.clock.runFor(65_000)
 
-    // The current card timed out: its result shows and costs a heart.
-    const next = page.getByRole('button', { name: 'Next' })
-    await expect(next).toBeVisible()
-    await next.click()
+    // The current card timed out: its result shows, and (owner decision 2026-10-26) the run ends.
+    const finish = page.getByRole('button', { name: 'Finish' })
+    await expect(finish).toBeVisible()
+    await finish.click()
     await page.clock.runFor(2_000)
-    const session = await waitForSave(page, 'speedrun', (s) => s.cardIdx === 2)
-    expect(session.results[1]).toMatchObject({ solved: false, pts: 0 })
-    expect(session.lives).toBe(5)
+    await expect(page.getByText('The End')).toBeVisible()
   })
 })
 
@@ -97,11 +94,9 @@ test.describe('A2: the OS "reduce motion" setting is respected', () => {
     const card = await currentCard(page, 'standard')
     await submitGuess(page, card.mashedTitle)
     await page.getByRole('button', { name: 'Next' }).click()
-    // The card-change overlay is visible for about half a second when motion is on.
-    return page.getByText(GENRE_TAG).first().isVisible({ timeout: 0 }).then(async (v) => {
-      if (v) return true
-      try { await page.getByText(GENRE_TAG).first().waitFor({ state: 'visible', timeout: 1_000 }); return true } catch { return false }
-    })
+    // A card change ("5, 4, blip!" or the film-reel run, picked at random) is on screen for about 1 s.
+    const change = page.getByRole('status', { name: /^(Next card countdown|Film reel change|Iris change|Clapper change)$/ })
+    try { await change.waitFor({ state: 'visible', timeout: 1_000 }); return true } catch { return false }
   }
 
   test('with reduce motion, the card-change animation is skipped', async ({ page }) => {
@@ -113,6 +108,67 @@ test.describe('A2: the OS "reduce motion" setting is respected', () => {
     await page.emulateMedia({ reducedMotion: 'no-preference' })
     expect(await playOneCardAndWatchTransition(page)).toBe(true)
   })
+
+  test('between cards: "5, 4, blip!" then the next card, in under 2 seconds', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await page.addInitScript(() => localStorage.setItem('plotmix_force_card_change', '"leader"'))
+    // Record what the countdown shows, and when, as it happens.
+    await page.addInitScript(() => {
+      window.__leader = []
+      new MutationObserver(() => {
+        const el = document.querySelector('[aria-label="Next card countdown"]')
+        const v = el ? (el.textContent || 'blip') : 'gone'
+        if (window.__leader[window.__leader.length - 1]?.v !== v) window.__leader.push({ v, t: performance.now() })
+      }).observe(document, { subtree: true, childList: true, characterData: true })
+    })
+    expect(await playOneCardAndWatchTransition(page)).toBe(true)
+    await expect.poll(() => page.evaluate(() => window.__leader.map((x) => x.v).join(' ')), { timeout: 3_000 }).toMatch(/5 4 blip gone$/)
+    const tl = await page.evaluate(() => window.__leader)
+    const start = tl.find((x) => x.v === '5').t
+    expect(tl[tl.length - 1].t - start).toBeLessThan(2_000)
+  })
+
+  for (const [kind, label] of [['reel', 'Film reel change'], ['iris', 'Iris change'], ['clapper', 'Clapper change']]) {
+    test(`between cards: ${label.toLowerCase()} (one of four, picked at random), under 2 seconds`, async ({ page }) => {
+      await page.emulateMedia({ reducedMotion: 'no-preference' })
+      await page.addInitScript((k) => localStorage.setItem('plotmix_force_card_change', JSON.stringify(k)), kind)
+      expect(await playOneCardAndWatchTransition(page)).toBe(true)
+      await expect(page.getByRole('status', { name: label })).toBeAttached()
+      await expect(page.getByRole('status', { name: label })).toHaveCount(0, { timeout: 2_000 })
+    })
+  }
+  test('the clapperboard shows the next scene number', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await page.addInitScript(() => localStorage.setItem('plotmix_force_card_change', '"clapper"'))
+    expect(await playOneCardAndWatchTransition(page)).toBe(true)
+    await expect(page.getByRole('status', { name: 'Clapper change' })).toContainText('SCENE 2')
+    await page.waitForTimeout(600) // still SCENE 2 after the card underneath has changed
+    await expect(page.getByRole('status', { name: 'Clapper change' })).toContainText('SCENE 2')
+  })
+
+  test('the same card change never plays twice in a row', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await page.addInitScript(() => {
+      window.__changes = []
+      new MutationObserver(() => {
+        const el = document.querySelector('[aria-label="Next card countdown"], [aria-label="Film reel change"], [aria-label="Iris change"], [aria-label="Clapper change"]')
+        if (el && window.__last !== el) { window.__changes.push(el.getAttribute('aria-label')); window.__last = el }
+      }).observe(document, { subtree: true, childList: true })
+    })
+    const deck = readDeck()
+    const ids = [77, 1, 2, 3, 11, 12, 13]
+    await resumeStandardWithCards(page, ids)
+    for (let i = 0; i < 6; i++) {
+      await submitGuess(page, deck.find((c) => c.id === ids[i]).mashedTitle)
+      await expect(page.getByRole('button', { name: 'Next', exact: true })).toBeVisible()
+      await continueToCard(page, 'standard', i + 1)
+      await page.waitForTimeout(1_500)
+    }
+    const changes = await page.evaluate(() => window.__changes)
+    expect(changes.length).toBe(6)
+    for (let i = 1; i < changes.length; i++) expect(changes[i]).not.toBe(changes[i - 1])
+  })
+
 })
 
 test.describe('P1: sticker images are lightweight', () => {
@@ -125,6 +181,21 @@ test.describe('P1: sticker images are lightweight', () => {
 })
 
 test.describe('G10: a title revealed word by word completes the card', () => {
+  test('owner report: "officespace" then "cowboys" solves "Office Space Cowboys"', async ({ page }) => {
+    await resumeStandardWithCards(page, [35])
+    await submitGuess(page, 'officespace')
+    await expect(page.getByRole('button', { name: 'Next' })).toHaveCount(0) // one film named isn't enough
+    await submitGuess(page, 'cowboys')
+    await expect(page.getByRole('button', { name: 'Next' })).toBeVisible()
+    const s = await waitForSave(page, 'standard', () => true)
+    expect(s).toBeTruthy()
+  })
+  test('words typed run together count for each word ("office" then "spacecowboys")', async ({ page }) => {
+    await resumeStandardWithCards(page, [35])
+    await submitGuess(page, 'office')
+    await submitGuess(page, 'spacecowboys')
+    await expect(page.getByRole('button', { name: 'Next' })).toBeVisible()
+  })
   test('words typed several at a time count, so a fully revealed title is solved', async ({ page }) => {
     // #77 "The Nightmare Before Christmas Story": the owner got stuck here on 2026-10-15.
     await resumeStandardWithCards(page, [77])

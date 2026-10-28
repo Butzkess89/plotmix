@@ -2,7 +2,7 @@
 // research-based excitement features (Tier 1-3) plus the arcade side-quest.
 import { test, expect } from '@playwright/test'
 import {
-  openMenu, startMode, submitGuess, guessInput, currentCard, pinDailyDate, resumeStandardWithCards,
+  openMenu, startMode, submitGuess, guessInput, currentCard, pinDailyDate, resumeStandardWithCards, waitForSave,
 } from './helpers.js'
 
 const LONGEST_PLOT_CARD = 57
@@ -93,7 +93,7 @@ test.describe('D. Daily number and countdown', () => {
     const card = await currentCard(page, 'daily')
     await submitGuess(page, card.mashedTitle)
     await page.getByRole('button', { name: 'Finish' }).click()
-    await expect(page.getByLabel('Next Daily')).toHaveText('Daily #14 · Next Daily in 12:00:00')
+    await expect(page.getByLabel('Next Daily')).toHaveText('Next Daily in 12:00:00') // no Daily number on screen (owner request 2026-10-26)
   })
 })
 
@@ -112,31 +112,46 @@ test.describe('E. Points roll and shake', () => {
 
 const dayNumber = (y, m, d) => Math.floor(Date.UTC(y, m - 1, d) / 86400000)
 
-test.describe('F. Film Vault and ticket stubs', () => {
-  test('a solved card adds its stub to the Vault, after the welcome stub', async ({ page }) => {
-    await resumeStandardWithCards(page, [77, 1])
-    await submitGuess(page, 'The Nightmare Before Christmas Story')
-    await page.getByRole('button', { name: 'Next' }).click()
-    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('plotmix_vault') || '[]'))).toEqual([77])
-    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('plotmix_stubs')))).toEqual({ earned: 2, spent: 0 })
-    await page.getByRole('button', { name: 'Exit to menu' }).click()
-    await page.getByRole('button', { name: 'Film Vault' }).click()
-    await expect(page.getByLabel('Vault progress')).toHaveText('2/95 stubs collected')
-    await expect(page.getByLabel('Stub: The Nightmare Before Christmas Story')).toBeVisible()
-  })
-
-  test('replaying a finished Daily earns no extra stub', async ({ page }) => {
-    await pinDailyDate(page)
+test.describe('F. Popcorn Panic on the menu', () => {
+  test('sits under Speed Run as a popcorn bucket, with no Film Vault', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('plotmix_arcade_passes', '2'))
     await openMenu(page)
-    await startMode(page, 'daily')
-    const card = await currentCard(page, 'daily')
-    await submitGuess(page, card.mashedTitle)
-    await page.getByRole('button', { name: 'Finish' }).click()
-    await page.getByRole('button', { name: 'Play Again' }).click()
-    await submitGuess(page, card.mashedTitle)
-    await page.getByRole('button', { name: 'Finish' }).click()
-    await expect(page.getByText('The End')).toBeVisible()
-    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('plotmix_stubs')).earned)).toBe(2)
+    const btn = page.getByRole('button', { name: 'Popcorn Panic', exact: true })
+    await expect(btn).toContainText('2 plays')
+    const speed = await page.getByRole('button', { name: 'Speed Run' }).boundingBox()
+    const box = await btn.boundingBox()
+    expect(box.y).toBeGreaterThan(speed.y + speed.height - 1)
+    await expect(page.getByRole('button', { name: 'Film Vault' })).toHaveCount(0)
+    await btn.click()
+    await expect(page.getByLabel('Arcade passes')).toHaveText('You have 2 plays')
+  })
+})
+
+test.describe('Menu layout', () => {
+  for (const height of [874, 700, 640]) {
+    test(`the T-rex never overlaps a menu button (402×${height}, saved game)`, async ({ page }) => {
+      await page.setViewportSize({ width: 402, height })
+      await resumeStandardWithCards(page, [77])
+      await submitGuess(page, 'zzqxwrong')
+      await waitForSave(page, 'standard', (st) => st.guesses.length === 1)
+      await openMenu(page) // reload: the saved game puts Resume Game on the menu
+      await expect(page.getByRole('button', { name: 'Resume Game' })).toBeVisible()
+      const rex = await page.locator('img[src="/stickers/Happy.webp"]').boundingBox()
+      const pop = await page.getByRole('button', { name: 'Popcorn Panic', exact: true }).boundingBox()
+      const resume = await page.getByRole('button', { name: 'Resume Game' }).boundingBox()
+      expect(rex.height).toBeGreaterThan(60)
+      expect(rex.y).toBeGreaterThanOrEqual(pop.y + pop.height)
+      expect(rex.y + rex.height).toBeLessThanOrEqual(resume.y)
+    })
+  }
+})
+
+test.describe('Popcorn Panic test link', () => {
+  test('?popcorn on a test build opens Popcorn Panic with 3 plays', async ({ page }) => {
+    await page.goto('/?popcorn')
+    await expect(page.getByLabel('Arcade passes')).toHaveText('You have 3 plays')
+    await page.getByRole('button', { name: 'Play Popcorn Panic' }).click()
+    await expect(page.getByLabel('Popcorn arena')).toBeVisible()
   })
 })
 
@@ -266,42 +281,87 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
   async function startGame(page, passes = 1) {
     await page.addInitScript((n) => { if (localStorage.getItem('plotmix_arcade_passes') === null) localStorage.setItem('plotmix_arcade_passes', String(n)) }, passes)
     await openMenu(page)
-    await page.getByRole('button', { name: 'Arcade' }).click()
+    await page.getByRole('button', { name: 'Popcorn Panic', exact: true }).click()
     await page.getByRole('button', { name: 'Play Popcorn Panic' }).click()
   }
-  const piece = (page, name) => page.getByRole('button', { name, exact: true }).first()
+  // Pieces fall; the player slides the popcorn box (it follows the pointer) under them.
+  const piece = (page, name) => page.getByRole('img', { name, exact: true }).first()
+  // The lowest piece of these kinds that hasn't yet reached the box.
+  async function lowest(page, names) {
+    return page.evaluate((ns) => {
+      const arena = document.querySelector('[aria-label="Popcorn arena"]')
+      if (!arena) return null
+      const catchLine = arena.getBoundingClientRect().bottom - 70
+      const els = [...document.querySelectorAll('[role="img"]')].filter((e) => ns.includes(e.getAttribute('aria-label')))
+        .map((e) => e.getBoundingClientRect()).filter((r) => r.top + r.height / 2 < catchLine)
+      if (!els.length) return null
+      const r = els.sort((a, b) => b.top - a.top)[0]
+      return { x: r.left + r.width / 2 }
+    }, names)
+  }
+  async function moveBoxUnder(page, names) {
+    const target = await lowest(page, names)
+    if (target) await page.mouse.move(target.x, 760)
+  }
+  const score = async (page) => Number((await page.getByLabel(/^Score: \d+$/).getAttribute('aria-label')).split(': ')[1])
   async function catchPopcorn(page, n) {
-    for (let i = 0; i < n; i++) {
-      await expect(piece(page, 'Popcorn')).toBeAttached({ timeout: 10_000 })
-      await piece(page, 'Popcorn').dispatchEvent('pointerdown')
-    }
+    const end = Date.now() + 25_000
+    while ((await score(page)) < n && Date.now() < end) { await moveBoxUnder(page, ['Popcorn']); await page.waitForTimeout(40) }
   }
   async function loseAllLives(page) {
-    while (!(await page.getByLabel('Arcade result').count())) {
-      const bad = page.getByRole('button', { name: /^(Burnt popcorn|Unpopped kernel)$/ }).first()
-      if (await bad.count()) await bad.dispatchEvent('pointerdown').catch(() => {})
-      await page.waitForTimeout(60)
+    const end = Date.now() + 40_000
+    while (!(await page.getByLabel('Arcade result').count()) && Date.now() < end) {
+      await moveBoxUnder(page, ['Burnt popcorn', 'Unpopped kernel', 'Ringing phone', 'Vampire bat']); await page.waitForTimeout(40)
     }
   }
 
-  test('locked until earned by 5 mashups in a row', async ({ page }) => {
+  test('locked until earned, with no rules or prize list up front', async ({ page }) => {
     await openMenu(page)
-    await page.getByRole('button', { name: 'Arcade' }).click()
+    await page.getByRole('button', { name: 'Popcorn Panic', exact: true }).click()
     await expect(page.getByRole('button', { name: 'Play Popcorn Panic' })).toBeDisabled()
-    await expect(page.getByLabel('Arcade passes')).toHaveText('Solve 5 mashups in a row to earn a play')
+    await expect(page.getByLabel('Arcade passes')).toHaveText('🔒 Solve 5 mashups in a row in Standard or Speed Run to unlock a play')
+    await expect(page.getByText(/Burnt popcorn|Reel|Free Hint|points:/)).toHaveCount(0)
   })
 
-  test('solving 5 mashups in a row earns one play', async ({ page }) => {
+  async function solveFiveInARow(page) {
     const { readDeck } = await import('./helpers.js')
     const ids = [77, 1, 2, 3, 11]
     const deck = readDeck()
     await resumeStandardWithCards(page, ids)
     for (const [i, id] of ids.entries()) {
       await submitGuess(page, deck.find((c) => c.id === id).mashedTitle)
-      if (i === 4) await expect(page.getByText('5 in a row! Popcorn Panic play earned')).toBeVisible()
-      await page.getByRole('button', { name: 'Next' }).click()
+      if (i < 4) await page.getByRole('button', { name: 'Next' }).click()
     }
+  }
+
+  test('5 in a row offers Popcorn Panic; continuing saves the play for later', async ({ page }) => {
+    await solveFiveInARow(page)
+    // The offer appears with the result and stays until the player chooses.
+    const offer = page.getByRole('dialog', { name: 'Popcorn Panic offer' })
+    await expect(offer).toBeVisible()
+    await page.waitForTimeout(4000)
+    await expect(offer).toBeVisible()
+    await expect(offer).toContainText("You've solved 5 PlotMixes in a row!")
+    await expect(offer).toContainText('Badge unlocked: Box Office Smash')
+    await expect(page.getByRole('button', { name: /Play Popcorn Panic to win hidden prizes/ })).toBeVisible()
+    // Continuing goes straight on to the next PlotMix.
+    await page.getByRole('button', { name: 'Continue to the next PlotMix' }).click()
+    await waitForSave(page, 'standard', (s) => s.cardIdx === 5)
+    await expect(offer).toHaveCount(0)
     expect(await page.evaluate(() => localStorage.getItem('plotmix_arcade_passes'))).toBe('1')
+  })
+
+  test('playing from the offer starts the game at once and returns to the next card', async ({ page }) => {
+    test.setTimeout(150_000) // five solves plus a round of up to 45 s (slow on the Safari engine in CI)
+    await seedRandom(page)
+    await solveFiveInARow(page)
+    await page.getByRole('button', { name: /^🍿 Play Popcorn Panic/ }).click()
+    await expect(page.getByLabel('Lives: 3')).toBeVisible()
+    await loseAllLives(page)
+    await page.getByRole('button', { name: 'Back to the game' }).click()
+    await waitForSave(page, 'standard', (s) => s.cardIdx === 5)
+    await expect(guessInput(page)).toBeEnabled()
+    expect(await page.evaluate(() => localStorage.getItem('plotmix_arcade_passes'))).toBe('0')
   })
 
   test('pieces look like popcorn, burnt popcorn, unpopped kernels and chocolate candies', async ({ page }) => {
@@ -310,54 +370,182 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
     for (const name of ['Popcorn', 'Burnt popcorn', 'Unpopped kernel', 'Chocolate candy']) {
       await expect(piece(page, name)).toBeAttached({ timeout: 20_000 })
     }
+    await expect(page.getByRole('img', { name: 'Popcorn box' })).toBeVisible()
   })
 
-  test('endless: it speeds up every 5 seconds and ends when the lives run out', async ({ page }) => {
-    await seedRandom(page)
+  // Fix Math.random so every piece is the same kind and falls in the same spot
+  // (0.1 = popcorn, 0.7 = burnt popcorn, 0.95 = chocolate candy; others below).
+  const fixRandom = (page, v) => page.evaluate((x) => { Math.random = () => x }, v)
+  const fixRandomOnLoad = (page, v) => page.addInitScript((x) => { Math.random = () => x }, v)
+  async function holdBoxUnderFirst(page, name) {
+    const p = typeof name === 'string' ? piece(page, name) : page.getByRole('img', { name }).first()
+    await expect(p).toBeAttached({ timeout: 10_000 })
+    const box = await p.boundingBox()
+    await page.mouse.move(box.x + box.width / 2, 760)
+  }
+  const BAD = /^(Burnt popcorn|Unpopped kernel)$/
+
+  test('it speeds up every 5 seconds and ends when the lives run out', async ({ page }) => {
+    await fixRandomOnLoad(page, 0.1)
     await startGame(page)
-    await expect(page.getByLabel('Level 1')).toBeVisible()
-    await expect(page.getByLabel('Level 2')).toBeVisible({ timeout: 7_000 })
+    await holdBoxUnderFirst(page, 'Popcorn')
+    await expect(page.getByLabel('Speed 1')).toBeVisible()
+    await expect(page.getByLabel('Speed 2')).toBeVisible({ timeout: 7_000 })
+    // Each speed-up is shown with a fast-forward symbol, speed lines and a shake; no "levels" wording.
+    await expect(page.getByRole('status', { name: 'Speeding up' })).toBeAttached()
+    await expect(page.getByText(/level/i)).toHaveCount(0)
     await expect(page.getByLabel('Lives: 3')).toBeVisible()
-    await loseAllLives(page)
-    await expect(page.getByLabel('Arcade result')).toContainText('Out of lives on level')
+    await fixRandom(page, 0.7) // from now on only bad pieces, all falling in one spot
+    await holdBoxUnderFirst(page, BAD)
+    await expect(page.getByLabel('Arcade result')).toContainText(/Out of lives after \d+ seconds?!/, { timeout: 20_000 })
     // No paying to play again: the only way out is Done, and the play is used up.
     await expect(page.getByRole('button', { name: /play again/i })).toHaveCount(0)
     await page.getByRole('button', { name: 'Done' }).click()
-    await page.getByRole('button', { name: 'Arcade' }).click()
+    await page.getByRole('button', { name: 'Popcorn Panic', exact: true }).click()
     await expect(page.getByRole('button', { name: 'Play Popcorn Panic' })).toBeDisabled()
   })
 
-  test('quick catches build a combo, and 10 in a row starts a Popcorn Frenzy', async ({ page }) => {
-    await seedRandom(page)
+  test('popcorn caught in a row builds a combo; 15 in a row starts a Popcorn Frenzy', async ({ page }) => {
+    await fixRandomOnLoad(page, 0.1)
     await startGame(page)
-    await catchPopcorn(page, 5)
-    await expect(page.getByLabel('Combo ×2')).toBeVisible()
-    await catchPopcorn(page, 5)
-    await expect(page.getByLabel('Arcade event')).toHaveText('🍿 POPCORN FRENZY!')
-    await expect(page.getByLabel('Combo ×3')).toBeVisible()
+    await holdBoxUnderFirst(page, 'Popcorn')
+    await expect(page.getByLabel('Combo ×2')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByLabel('Combo ×3')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByLabel('Arcade event')).toHaveText('🍿 POPCORN FRENZY!', { timeout: 15_000 })
   })
 
-  test('a chocolate candy gives a boost', async ({ page }) => {
-    await seedRandom(page)
+  test('a Popcorn Frenzy cannot set off the next one (owner report: it went on forever)', async ({ page }) => {
+    await fixRandomOnLoad(page, 0.1)
+    await page.addInitScript(() => {
+      window.__frenzies = 0
+      new MutationObserver(() => {
+        const el = document.querySelector('[aria-label="Arcade event"]')
+        const key = el && el.textContent.includes('FRENZY') ? el : null
+        if (key && key !== window.__lastFrenzy) { window.__frenzies++; window.__lastFrenzy = key }
+      }).observe(document, { subtree: true, childList: true })
+    })
     await startGame(page)
-    await expect(piece(page, 'Chocolate candy')).toBeAttached({ timeout: 20_000 })
-    await piece(page, 'Chocolate candy').dispatchEvent('pointerdown')
-    await expect(page.getByLabel('Arcade event')).toContainText('🍫')
+    await holdBoxUnderFirst(page, 'Popcorn')
+    await expect.poll(() => page.evaluate(() => window.__frenzies), { timeout: 20_000 }).toBe(1)
+    // The frenzy lasts 2.5 s and the next needs another 15 in a row after it ends.
+    await page.waitForTimeout(4_000)
+    expect(await page.evaluate(() => window.__frenzies)).toBe(1)
+  })
+
+  test('each play is on a 45-second timer', async ({ page }) => {
+    test.setTimeout(90_000)
+    await fixRandomOnLoad(page, 0.1) // everything falls far from the box, so no lives are lost
+    await startGame(page)
+    await expect(page.getByLabel('Time left: 45')).toBeVisible()
+    await expect(page.getByLabel('Time left: 40')).toBeVisible({ timeout: 7_000 })
+    await expect(page.getByLabel('Arcade result')).toContainText("Time's up! You lasted all 45 seconds.", { timeout: 45_000 })
+    await expect(page.getByLabel('Lives: 3')).toBeVisible()
+  })
+
+  test('tapping fires the laser: a bad piece explodes for points and a charge is used', async ({ page }) => {
+    await fixRandomOnLoad(page, 0.7)
+    await startGame(page)
+    await expect(page.getByLabel('Laser charges: 3')).toBeVisible()
+    const p = piece(page, 'Burnt popcorn')
+    await expect(p).toBeAttached({ timeout: 10_000 })
+    const box = await p.boundingBox()
+    await page.mouse.click(box.x + box.width / 2, 800)
+    await expect(page.locator('[data-boom]').first()).toBeAttached()
+    await expect(page.getByLabel('Arcade event')).toHaveText('💥 Zapped! +2')
+    await expect(page.getByLabel('Laser charges: 2')).toBeVisible()
+    await expect(page.getByLabel('Lives: 3')).toBeVisible()
+    expect(await score(page)).toBe(2)
+  })
+
+  test('the laser runs dry after 3 quick shots, then recharges', async ({ page }) => {
+    await fixRandomOnLoad(page, 0.1)
+    await startGame(page)
+    for (let i = 0; i < 4; i++) await page.mouse.click(300, 800)
+    await expect(page.getByLabel('Laser charges: 0')).toBeVisible()
+    await expect(page.getByLabel('Arcade event')).toHaveText('🔋 Laser recharging…')
+    await expect(page.getByLabel('Laser charges: 1')).toBeVisible({ timeout: 4_000 })
+  })
+
+  // Level 1 odds put each fixed random value on one kind of piece.
+  for (const [v, name, event] of [
+    [0.46, 'Movie ticket', /Golden seat! \+5/],
+    [0.5, 'Film reel', /Film reel! \+3/],
+    [0.88, 'Ringing phone', /Phones off in the theatre! −1 life/],
+    [0.975, '3D glasses', /slow motion/],
+    [0.99, 'Clapperboard', /Action! Laser fully charged/],
+  ]) {
+    test(`cinema extras: catching a ${name.toLowerCase()}`, async ({ page }) => {
+      // Record every message shown: with only bad pieces falling, the game can end (and the
+      // message vanish) within a second.
+      await page.addInitScript(() => {
+        window.__events = []
+        new MutationObserver(() => {
+          const el = document.querySelector('[aria-label="Arcade event"]')
+          if (el && window.__events[window.__events.length - 1] !== el.textContent) window.__events.push(el.textContent)
+        }).observe(document, { subtree: true, childList: true, characterData: true })
+      })
+      await fixRandomOnLoad(page, v)
+      await startGame(page)
+      await holdBoxUnderFirst(page, name)
+      await expect.poll(() => page.evaluate(() => window.__events.join(' | ')), { timeout: 10_000 }).toMatch(event)
+    })
+  }
+
+  test('vampire bats swoop from side to side', async ({ page }) => {
+    await fixRandomOnLoad(page, 0.92)
+    await startGame(page)
+    const bat = piece(page, 'Vampire bat')
+    await expect(bat).toBeAttached({ timeout: 10_000 })
+    // Sample its position over most of a swoop (one swoop takes about 1.6 s).
+    const xs = []
+    for (let i = 0; i < 5; i++) { const b = await bat.boundingBox(); if (b) xs.push(b.x); await page.waitForTimeout(200) }
+    expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(20)
+  })
+
+  test('catching burnt popcorn costs a life and breaks the combo', async ({ page }) => {
+    // Record every lives value shown: on a slow phone several bad pieces can land between
+    // two checks, so "Lives: 2" may only be on screen for a moment.
+    await page.addInitScript(() => {
+      window.__lives = []
+      new MutationObserver(() => {
+        const el = document.querySelector('[aria-label^="Lives: "]')
+        const n = el && Number(el.getAttribute('aria-label').slice(7))
+        if (el && window.__lives[window.__lives.length - 1] !== n) window.__lives.push(n)
+      }).observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-label'] })
+    })
+    await fixRandomOnLoad(page, 0.1)
+    await startGame(page)
+    await holdBoxUnderFirst(page, 'Popcorn')
+    await expect(page.getByLabel('Combo ×2')).toBeVisible({ timeout: 15_000 })
+    await fixRandom(page, 0.7)
+    await holdBoxUnderFirst(page, BAD)
+    await expect.poll(() => page.evaluate(() => window.__lives), { timeout: 10_000 }).toEqual(expect.arrayContaining([3, 2]))
+    expect((await page.evaluate(() => window.__lives)).slice(0, 2)).toEqual([3, 2]) // one life per bad piece
+    await expect(page.getByLabel('Combo ×2')).toHaveCount(0)
+  })
+
+  test('a chocolate candy caught in the box gives a boost', async ({ page }) => {
+    await fixRandomOnLoad(page, 0.95)
+    await startGame(page)
+    await holdBoxUnderFirst(page, 'Chocolate candy')
+    await expect(page.getByLabel('Arcade event')).toContainText('🍫', { timeout: 10_000 })
   })
 
   test('a winning score earns a power-up and a new record is celebrated', async ({ page }) => {
-    test.setTimeout(60_000)
-    await seedRandom(page)
+    await fixRandomOnLoad(page, 0.1)
     await startGame(page)
-    await catchPopcorn(page, 6) // 1+1+1+1+2+2 = 8 points: Bronze
-    await loseAllLives(page)
+    await holdBoxUnderFirst(page, 'Popcorn')
+    await expect.poll(() => score(page), { timeout: 25_000 }).toBeGreaterThanOrEqual(40)
+    await fixRandom(page, 0.7)
+    await holdBoxUnderFirst(page, BAD)
+    await expect(page.getByLabel('Arcade result')).toBeVisible({ timeout: 20_000 })
     await expect(page.getByLabel('New record')).toBeVisible()
     await expect(page.getByLabel('Arcade result')).toContainText(/Reel!/)
     const power = await page.evaluate(() => JSON.parse(localStorage.getItem('plotmix_powerups')))
     expect(power.hint + power.peek).toBeGreaterThan(0)
     await page.getByRole('button', { name: 'Done' }).click()
-    await page.getByRole('button', { name: 'Film Vault' }).click()
-    await expect(page.getByRole('button', { name: /Curtains: (Midnight Blue|Emerald|Gold Lamé)$/ })).toBeEnabled()
+    await page.getByRole('button', { name: 'Popcorn Panic', exact: true }).click()
+    await expect(page.getByRole('button', { name: /Curtains: (Midnight Blue|Emerald Green)$/ })).toBeEnabled()
   })
 })
 
@@ -371,10 +559,12 @@ test.describe('Arcade power-ups in the main game', () => {
     await resumeStandardWithCards(page, [77])
     await page.getByRole('button', { name: 'Open hints' }).click()
     await page.getByRole('button', { name: 'Use a Free Hint (1 left)' }).click()
+    // The hints close so the power-up can be seen working (owner request 2026-10-26).
+    await expect(page.getByRole('button', { name: 'Close hints' })).toHaveCount(0)
+    await expect(page.getByText('PTS: 10')).toBeVisible()
+    await page.getByRole('button', { name: 'Open hints' }).click()
     await expect(page.getByRole('button', { name: /Year & Genre.*✓/ })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Use a Free Hint (0 left)' })).toBeDisabled()
-    await page.getByRole('button', { name: 'Close hints' }).click()
-    await expect(page.getByText('PTS: 10')).toBeVisible()
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('plotmix_powerups')))).toEqual({ hint: 0, peek: 0 })
   })
 
@@ -384,7 +574,7 @@ test.describe('Arcade power-ups in the main game', () => {
     expect(await shownLetters(page)).toBe('')
     await page.getByRole('button', { name: 'Open hints' }).click()
     await page.getByRole('button', { name: 'Use a Popcorn Peek (1 left)' }).click()
-    await page.getByRole('button', { name: 'Close hints' }).click()
+    await expect(page.getByRole('button', { name: 'Close hints' })).toHaveCount(0) // closes by itself
     // the 3rd, 6th, 9th... letter of the title
     const letters = 'TheNightmareBeforeChristmasStory'.split('').filter((_, i) => (i + 1) % 3 === 0).join('')
     await expect.poll(() => shownLetters(page)).toBe(letters)
@@ -398,5 +588,47 @@ test.describe('Arcade power-ups in the main game', () => {
     await startMode(page, 'daily')
     await page.getByRole('button', { name: 'Open hints' }).click()
     await expect(page.getByRole('button', { name: /Use a Free Hint/ })).toHaveCount(0)
+  })
+})
+
+test.describe('Win sticker clips', () => {
+  // The popcorn sticker was cut off because its listed length (2.1 s) was shorter than the clip (3.7 s).
+  test('listed clip lengths match the real video files', () => {
+    const { readFileSync } = require('node:fs')
+    const { join } = require('node:path')
+    const src = readFileSync(join(process.cwd(), 'PlotMix.jsx'), 'utf8')
+    const listed = [...src.matchAll(/\{ src: "(\/stickers\/[a-z]+\.mp4)", durationMs: (\d+) \}/g)]
+    expect(listed.length).toBe(2)
+    for (const [, file, ms] of listed) {
+      const d = readFileSync(join(process.cwd(), 'public', file))
+      const i = d.indexOf('mvhd')
+      const seconds = d.readUInt32BE(i + 16 + 4) / d.readUInt32BE(i + 16)
+      expect(Math.abs(Number(ms) / 1000 - seconds)).toBeLessThan(0.1)
+    }
+  })
+})
+
+test.describe('Owner fixes 2026-10-25', () => {
+  test('solving word by word turns the letters green with the flip', async ({ page }) => {
+    await resumeStandardWithCards(page, [77])
+    for (const w of ['Nightmare', 'Before', 'Christmas', 'Story']) await submitGuess(page, w)
+    await expect.poll(() => page.evaluate(() => [...document.querySelectorAll('[aria-label="Title letters"] div')]
+      .filter((d) => /tileWinFlip/.test(d.style.animation)).length)).toBeGreaterThan(20)
+    await page.waitForTimeout(1300)
+    const colours = await page.evaluate(() => [...new Set([...document.querySelectorAll('[aria-label="Title letters"] div')]
+      .filter((d) => d.children.length === 0 && d.textContent).map((d) => getComputedStyle(d).color))])
+    expect(colours).toEqual(['rgb(21, 128, 61)'])
+  })
+
+  test('"in a row" drops to 0 as soon as a card is lost, then counts again', async ({ page }) => {
+    await resumeStandardWithCards(page, [77, 1, 2])
+    await submitGuess(page, 'The Nightmare Before Christmas Story')
+    await expect(page.getByLabel('Streak: 1')).toBeVisible()
+    await page.getByRole('button', { name: 'Next' }).click()
+    for (let i = 0; i < 6; i++) await submitGuess(page, `zzqxwrong${'abcdef'[i]}`)
+    await expect(page.getByLabel('Streak: 0')).toBeVisible() // already on the lost card's result
+    await page.getByRole('button', { name: 'Next' }).click()
+    await submitGuess(page, '13 Going on 30 Days of Night')
+    await expect(page.getByLabel('Streak: 1')).toBeVisible()
   })
 })
