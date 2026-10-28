@@ -4336,7 +4336,7 @@ const CINEMA_KEYFRAMES = `
   @keyframes tileFlip { 0%{transform:rotateX(90deg) scale(0.9)} 60%{transform:rotateX(-12deg) scale(1.06)} 100%{transform:rotateX(0) scale(1)} }
   @keyframes itemSpin { from{transform:rotate(var(--r0))} to{transform:rotate(var(--r1))} }
   @keyframes kernelArc { 0%{transform:translateY(0) scale(0.5);opacity:0} 10%{opacity:1} 50%{transform:translateY(-46vh) scale(1)} 90%{opacity:1} 100%{transform:translateY(-6vh) scale(0.9);opacity:0} }
-  @keyframes creditsRoll { from{transform:translateY(118px)} to{transform:translateY(-100%)} }
+  @keyframes creditsRoll { from{transform:translateY(160px)} to{transform:translateY(-100%)} }
 `;
 
 //
@@ -6716,6 +6716,8 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,perfectRun=false,g
   useEffect(()=>{ if(reducedMotion) return; const id=setTimeout(()=>setPostCredits(true),6000); return ()=>clearTimeout(id); },[reducedMotion]);
   const tomorrowCard = useMemo(()=>{ const d=new Date(); d.setDate(d.getDate()+1); return dailyCardFor(uniqueCardsByMoviePair(MASTER_DECK), d); },[]);
   const teaserGenres = (tomorrowCard?.hintData?.films||[]).map(f=>String(f.genre||"").split(/[,/]/)[0].trim()).filter(Boolean);
+  const CREDITS_H = 160; // keep in step with the creditsRoll keyframe's start
+  const CREDITS_FADE = "linear-gradient(to bottom, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%)";
   const credits = [
     ["", "A PlotMix Production"],
     ["Starring", "You"],
@@ -6846,15 +6848,19 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,perfectRun=false,g
           </button>
         )}
 
-        {/* End credits */}
-        <div aria-label="Credits" style={{height:118,overflow:reducedMotion?"auto":"hidden",marginBottom:18,borderTop:"1px solid rgba(255,255,255,0.2)",borderBottom:"1px solid rgba(255,255,255,0.2)",position:"relative"}}>
-          <div style={{display:"flex",flexDirection:"column",gap:8,padding:"8px 0",animation:reducedMotion?"none":"creditsRoll 14s linear 0.6s infinite"}}>
+        {/* End credits: a cinema screen, bold white names rolling up on see-through black,
+            fading in and out at the edges (owner request 2026-10-28). */}
+        <div aria-label="Credits" style={{marginBottom:18,borderRadius:12,background:"rgba(0,0,0,0.72)",boxShadow:"inset 0 0 24px rgba(0,0,0,0.6)"}}>
+          <div style={{height:CREDITS_H,overflow:reducedMotion?"auto":"hidden",position:"relative",
+            WebkitMaskImage:reducedMotion?"none":CREDITS_FADE, maskImage:reducedMotion?"none":CREDITS_FADE}}>
+          <div style={{display:"flex",flexDirection:"column",gap:14,padding:"14px 16px",textAlign:"center",animation:reducedMotion?"none":"creditsRoll 18s linear 0.6s infinite"}}>
             {credits.map(([role,name],i)=>(
-              <div key={i} style={{fontFamily:"'Outfit',sans-serif",fontSize:12.5,lineHeight:1.3,color:"#fff"}}>
-                {role && <div style={{fontSize:10,letterSpacing:"0.12em",textTransform:"uppercase",color:"rgba(255,255,255,0.65)"}}>{role}</div>}
-                <div style={{fontWeight:700}}>{name}</div>
+              <div key={i} style={{fontFamily:"'Outfit',sans-serif",lineHeight:1.25,color:"#fff"}}>
+                {role && <div style={{fontSize:10.5,fontWeight:600,letterSpacing:"0.22em",textTransform:"uppercase",color:"rgba(255,255,255,0.6)",marginBottom:3}}>{role}</div>}
+                <div data-credit-name style={{fontSize:16,fontWeight:800,letterSpacing:"0.02em",textShadow:"0 1px 2px rgba(0,0,0,0.8)"}}>{name}</div>
               </div>
             ))}
+          </div>
           </div>
         </div>
 

@@ -90,6 +90,24 @@ test.describe('Badges', () => {
 })
 
 test.describe('End screen extras', () => {
+  test('the credits roll like a film: bold white names on a see-through black screen (owner request 2026-10-28)', async ({ page }) => {
+    await finishDailyPerfectly(page)
+    const credits = page.getByLabel('Credits', { exact: true })
+    await expect(credits).toBeVisible()
+    const look = await credits.evaluate((el) => {
+      const bg = getComputedStyle(el).backgroundColor.match(/[\d.]+/g).map(Number)
+      const name = el.querySelector('[data-credit-name]')
+      const n = getComputedStyle(name)
+      return { bg, weight: Number(n.fontWeight), color: n.color, size: parseFloat(n.fontSize) }
+    })
+    expect(look.bg.slice(0, 3)).toEqual([0, 0, 0])
+    expect(look.bg[3]).toBeGreaterThan(0.5)
+    expect(look.bg[3]).toBeLessThan(0.95)
+    expect(look.weight).toBeGreaterThanOrEqual(800)
+    expect(look.color).toBe('rgb(255, 255, 255)')
+    expect(look.size).toBeGreaterThanOrEqual(15)
+  })
+
   test('a perfect Daily is rated G, reviewed and credited, with the badge on the shelf', async ({ page }) => {
     await finishDailyPerfectly(page)
     await expect(page.getByLabel("Rated G: Got 'Em All")).toBeVisible()
