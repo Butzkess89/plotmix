@@ -3,6 +3,7 @@
 import { test, expect } from '@playwright/test'
 import {
   openMenu, startMode, submitGuess, currentCard, pinDailyDate, resumeStandardWithCards, waitForSave, readDeck,
+  tapSymbol,
 } from './helpers.js'
 
 const card77 = () => readDeck().find((c) => c.id === 77)
@@ -100,7 +101,11 @@ test.describe('Curtains (owner request 2026-10-26)', () => {
 test.describe('5. Post-credits scene', () => {
   test("teases tomorrow's Daily after the credits", async ({ page }) => {
     await finishDaily(page)
-    await expect(page.getByRole('status', { name: 'Post-credits scene' })).toContainText(/Tomorrow's Daily Challenge: a .+ mashup\. Same time, same theatre\./, { timeout: 9_000 })
+    // A clapperboard symbol pops in after the credits; tapping it shows the teaser.
+    const clapper = page.getByRole('button', { name: /^Post-credits scene/ })
+    await expect(clapper).toBeVisible({ timeout: 9_000 })
+    await clapper.click()
+    await expect(page.getByRole('status', { name: 'Symbol info' })).toContainText(/Post-credits scene: Tomorrow's Daily Challenge: a .+ mashup\. Same time, same theatre\./)
   })
 })
 

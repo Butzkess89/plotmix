@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   openMenu, startMode, submitGuess, guessInput, currentCard, pinDailyDate, resumeStandardWithCards, waitForSave, readDeck, continueToCard,
+  tapSymbol,
 } from './helpers.js'
 
 const nextButton = (page) => page.getByRole('button', { name: 'Next' })
@@ -90,6 +91,20 @@ test.describe('Badges', () => {
 })
 
 test.describe('End screen extras', () => {
+  test('the end screen shows symbols, not sentences; tapping one says what it is (owner request 2026-10-28)', async ({ page }) => {
+    await finishDailyPerfectly(page)
+    const info = page.getByRole('status', { name: 'Symbol info' })
+    await expect(info).toHaveText('')
+    for (const gone of ['Popcorn Panic plays saved', 'Daily streak:', 'Perfect Dailies in a row:', 'Tap one to see how to earn it']) {
+      await expect(page.getByText(gone)).toHaveCount(0)
+    }
+    await expect(await tapSymbol(page, 'Solved: 1')).toHaveText('Solved: 1')
+    await expect(await tapSymbol(page, /Popcorn Panic play/)).toHaveText(/^\d+ Popcorn Panic plays? saved$/)
+    await expect(await tapSymbol(page, "Badge: Director's Cut")).toContainText("Director's Cut")
+    await page.getByRole('button', { name: "Badge: Director's Cut" }).click() // tapping again hides it
+    await expect(info).toHaveText('')
+  })
+
   test('the credits roll like a film: bold white names on a see-through black screen (owner request 2026-10-28)', async ({ page }) => {
     await finishDailyPerfectly(page)
     const credits = page.getByLabel('Credits', { exact: true })
@@ -153,13 +168,13 @@ test.describe('Gold Lamé curtains: 3 perfect Dailies in a row, or one perfect r
 
   test('a first perfect Daily counts 1 of 3', async ({ page }) => {
     await playDaily(page, { before: 0, perfect: true })
-    await expect(page.getByLabel('Perfect Dailies in a row')).toContainText('1 of 3')
+    await expect(await tapSymbol(page, /^Perfect Dailies in a row/)).toContainText('Perfect Dailies in a row: 1 of 3')
     expect(await won(page)).not.toContain('perfectDaily3')
   })
 
   test('the third perfect Daily in a row unlocks them', async ({ page }) => {
     await playDaily(page, { before: 2, perfect: true })
-    await expect(page.getByLabel('Gold curtains')).toHaveText('✨ 3 perfect Dailies in a row: Gold Lamé curtains unlocked!')
+    await expect(await tapSymbol(page, /^3 perfect Dailies in a row/)).toHaveText('3 perfect Dailies in a row: Gold Lamé curtains unlocked!')
     expect(await won(page)).toContain('perfectDaily3')
   })
 
@@ -191,7 +206,7 @@ test.describe('Gold Lamé curtains: 3 perfect Dailies in a row, or one perfect r
   test('a perfect Standard run (no hints, no mistakes) also unlocks them', async ({ page }) => {
     test.setTimeout(240_000)
     await playStandardRun(page)
-    await expect(page.getByLabel('Perfect run')).toHaveText('✨ A perfect run: no hints, no mistakes! Gold Lamé curtains unlocked!')
+    await expect(await tapSymbol(page, /^A perfect run/)).toHaveText('A perfect run: no hints, no mistakes! Gold Lamé curtains unlocked!')
     await expect(page.getByLabel('Camera flashes')).toBeAttached() // red-carpet flashes (owner request 2026-10-26)
     expect(await won(page)).toContain('perfectDaily3')
   })
@@ -199,14 +214,15 @@ test.describe('Gold Lamé curtains: 3 perfect Dailies in a row, or one perfect r
   test('one hint in an otherwise perfect run does not', async ({ page }) => {
     test.setTimeout(240_000)
     await playStandardRun(page, { hintOnCard: 3 })
-    await expect(page.getByLabel('Perfect run')).toHaveCount(0)
+    await expect(page.getByText('The End')).toBeVisible()
+    await expect(page.getByRole('button', { name: /^A perfect run/ })).toHaveCount(0)
     await expect(page.getByLabel('Camera flashes')).toHaveCount(0)
     expect(await won(page)).not.toContain('perfectDaily3')
   })
 
   test('one wrong guess, even on a solved Daily, starts the count again', async ({ page }) => {
     await playDaily(page, { before: 2, perfect: false })
-    await expect(page.getByLabel('Perfect Dailies in a row')).toContainText('0 of 3')
+    await expect(await tapSymbol(page, /^Perfect Dailies in a row/)).toContainText('Perfect Dailies in a row: 0 of 3')
     expect(await won(page)).not.toContain('perfectDaily3')
   })
 })

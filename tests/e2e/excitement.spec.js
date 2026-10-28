@@ -3,6 +3,7 @@
 import { test, expect } from '@playwright/test'
 import {
   openMenu, startMode, submitGuess, guessInput, currentCard, pinDailyDate, resumeStandardWithCards, waitForSave,
+  tapSymbol,
 } from './helpers.js'
 
 const LONGEST_PLOT_CARD = 57
@@ -226,7 +227,7 @@ test.describe('J. Daily streak with a weekly saver', () => {
     const card = await currentCard(page, 'daily')
     await submitGuess(page, card.mashedTitle)
     await page.getByRole('button', { name: 'Finish' }).click()
-    await expect(page.getByLabel('Daily streak')).toHaveText('🔥 Daily streak: 4 days · 🧊 streak saver covered a missed day')
+    await expect(await tapSymbol(page, /^Daily streak/)).toHaveText('Daily streak: 4 days · 🧊 streak saver covered a missed day')
   })
   test('two missed days start the streak again', async ({ page }) => {
     await page.addInitScript((last) => {
@@ -238,7 +239,7 @@ test.describe('J. Daily streak with a weekly saver', () => {
     const card = await currentCard(page, 'daily')
     await submitGuess(page, card.mashedTitle)
     await page.getByRole('button', { name: 'Finish' }).click()
-    await expect(page.getByLabel('Daily streak')).toHaveText('🔥 Daily streak: 1 day')
+    await expect(await tapSymbol(page, /^Daily streak/)).toHaveText('Daily streak: 1 day')
   })
 })
 
