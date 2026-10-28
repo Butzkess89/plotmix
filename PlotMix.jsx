@@ -2505,6 +2505,33 @@ function ChromaKeyVideo({
 // Paths/masks copied exactly from source, not redrawn. useId() keeps mask refs
 // collision-free across repeated renders of the same icon.
 // 
+// Home: a little cinema (owner request 2026-10-28), drawn in code so it stays crisp.
+function IconCinema({size=24}) {
+  const ink="#3B2416";
+  return (
+    <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true" style={{display:"block",flexShrink:0}}>
+      {/* clapperboard and popcorn on the roof */}
+      <rect x="24" y="15" width="16" height="11" rx="1.5" fill="#6B6E78" stroke={ink} strokeWidth="2"/>
+      <path d="M24 19h16" stroke={ink} strokeWidth="1.5"/>
+      <path d="M27 15.5l2 3.5M31 15.5l2 3.5M35 15.5l2 3.5" stroke="#E6E6EA" strokeWidth="1.6"/>
+      <path d="M38 12h11l-2 15h-7z" fill="#E8262C" stroke={ink} strokeWidth="2" strokeLinejoin="round"/>
+      <path d="M41.5 13v13M45 13v13" stroke="#fff" strokeWidth="1.3"/>
+      <path d="M37.5 12.5c-1-3 2-4.5 3.5-3 0-2.5 3.5-3 4.5-1 1.5-1.8 4.5-.8 4 1.8 1.5.6 1.3 2.2.5 2.4z" fill="#FFE7A3" stroke={ink} strokeWidth="1.8" strokeLinejoin="round"/>
+      {/* building */}
+      <rect x="12" y="23" width="40" height="34" rx="3" fill="#BFE9FF" stroke={ink} strokeWidth="2.2"/>
+      <rect x="7" y="29" width="50" height="7" fill="#2B9BEA" stroke={ink} strokeWidth="2"/>
+      <rect x="13" y="26" width="38" height="13" rx="4" fill="#FFCB5C" stroke={ink} strokeWidth="2.2"/>
+      <text x="32" y="35.6" textAnchor="middle" fontFamily="'Outfit',sans-serif" fontWeight="800" fontSize="8" letterSpacing="0.6" fill={ink}>CINEMA</text>
+      {/* doors */}
+      <rect x="21" y="42" width="22" height="2.6" fill="#E8262C" stroke={ink} strokeWidth="1.6"/>
+      <rect x="23" y="44.6" width="18" height="12.4" fill="#4A73E0" stroke={ink} strokeWidth="1.8"/>
+      <path d="M32 44.6v12.4" stroke={ink} strokeWidth="1.6"/>
+      <path d="M25 52l4-5M34 52l4-5" stroke="#B9CCFF" strokeWidth="1.4" strokeLinecap="round"/>
+      <rect x="8" y="56" width="48" height="3.4" fill="#E8262C" stroke={ink} strokeWidth="1.8"/>
+    </svg>
+  );
+}
+
 function IconStar({size=21}) {
   return (
     <svg width={size} height={size*(21/21)} viewBox="156 77 22 22" xmlns="http://www.w3.org/2000/svg">
@@ -6432,7 +6459,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
               <div style={{fontSize:38,marginBottom:8}}>{m.emoji}</div>
               <div style={{...YELLOW_STICKER_TEXT,fontSize:15,textTransform:"uppercase",marginBottom:10,lineHeight:1.45}}>{m.headline}</div>
               <p style={{margin:"0 0 22px",fontFamily:"'Outfit',sans-serif",fontSize:14,color:"rgba(255,255,255,0.9)",lineHeight:1.6}}>{m.sub}</p>
-              <button onClick={()=>{clearSession(mode.id);onQuit();}} style={{...BTN.primary,width:"100%",padding:"14px 0"}}>Home</button>
+              <button onClick={()=>{clearSession(mode.id);onQuit();}} style={{...BTN.primary,width:"100%",padding:"14px 0",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}><IconCinema size={24}/>Home</button>
             </div>
           </div>
         );
@@ -6893,7 +6920,7 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,perfectRun=false,g
 
         <div style={{marginTop:"auto",display:"flex",gap:10}}>
           <button onClick={onMenu} style={{...BTN.cyan,flex:1,padding:"13px 0",display:"flex",alignItems:"center",justifyContent:"center",gap:8,fontSize:12}}>
-            <span aria-hidden="true">🎬</span>
+            <IconCinema size={32}/>
             <span style={{...WHITE_STICKER_TEXT,fontSize:12,letterSpacing:"0.03em",textTransform:"uppercase"}}>Home</span>
           </button>
           <button onClick={onPlayAgain} style={{...BTN.primary,flex:1,padding:"13px 0",fontSize:12}}>

@@ -117,6 +117,14 @@ test.describe('End screen extras', () => {
     await expect(page.getByRole('button', { name: /^Daily streak/ })).toHaveCount(0)
   })
 
+  test('Home is a little cinema, not a clapperboard (owner request 2026-10-28)', async ({ page }) => {
+    await finishDailyPerfectly(page)
+    const home = page.getByRole('button', { name: 'Home', exact: true })
+    await expect(home).toBeVisible()
+    await expect(home).not.toContainText('🎬')
+    await expect(home.locator('svg text')).toHaveText('CINEMA')
+  })
+
   test('the end screen shows symbols, not sentences; tapping one says what it is (owner request 2026-10-28)', async ({ page }) => {
     await page.addInitScript(() => { if (!sessionStorage.getItem('seeded')) { localStorage.setItem('plotmix_arcade_passes', '2'); sessionStorage.setItem('seeded', '1') } })
     await finishDailyPerfectly(page)
