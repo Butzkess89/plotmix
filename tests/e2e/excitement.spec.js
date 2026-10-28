@@ -445,7 +445,11 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
     await fixRandomOnLoad(page, 0.1) // everything falls far from the box, so no lives are lost
     await startGame(page)
     await expect(page.getByLabel('Time left: 45')).toBeVisible()
-    await expect(page.getByLabel('Time left: 40')).toBeVisible({ timeout: 7_000 })
+    // The clock is counting down: within 7 s it reads 40 or less. (Waiting for exactly
+    // "40" could miss its one-second window on a busy Safari-engine runner.)
+    const timeLeft = () => page.locator('[aria-label^="Time left: "]').getAttribute('aria-label').then((l) => Number(l.split(': ')[1]))
+    await expect.poll(timeLeft, { timeout: 7_000 }).toBeLessThanOrEqual(40)
+    expect(await timeLeft()).toBeGreaterThanOrEqual(36) // ...and not jumping ahead
     await expect(page.getByLabel('Arcade result')).toContainText("Time's up! You lasted all 45 seconds.", { timeout: 45_000 })
     await expect(page.getByLabel('Lives: 3')).toBeVisible()
   })
