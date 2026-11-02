@@ -217,3 +217,24 @@ test.describe('G10: a title revealed word by word completes the card', () => {
     await expect(page.getByRole('button', { name: 'Next' })).toBeVisible()
   })
 })
+
+test.describe('Hints never end the card by spending its last points', () => {
+  // Owner report 2026-11-02: after opening every hint, going back to the card showed
+  // the end-of-card screen, as if the game had pressed Skip. The last hint had used
+  // up the card's points, which ends the card at 0.
+  test('a hint that would leave 0 points is blocked, and the card stays in play', async ({ page }) => {
+    await resumeStandardWithCards(page, [11]) // a card with a Director's Whisper
+    for (let i = 0; i < 4; i++) await submitGuess(page, `${WRONG_GUESS}${i}`)
+    await expect(page.getByText('PTS: 6')).toBeVisible()
+    await page.getByRole('button', { name: 'Open hints' }).click()
+    await page.getByRole('button', { name: /Year & Genre/ }).click()
+    await page.getByRole('button', { name: /Director's Whisper/ }).click()
+    const actors = page.getByRole('button', { name: /Lead Actors/ })
+    await expect(actors).toBeDisabled()
+    await expect(actors).toContainText('not enough pts')
+    await page.getByRole('button', { name: 'Close hints' }).click()
+    await page.waitForTimeout(1500) // a lost card would show its result after ~1 s
+    await expect(page.getByRole('button', { name: 'Next' })).toHaveCount(0)
+    await expect(page.getByText('PTS: 3')).toBeVisible()
+  })
+})
