@@ -3893,7 +3893,7 @@ function ClapperTake({take, note, reducedMotion=false}) {
 
 // Run streak shown as the owner's popcorn bucket art: 8 drawings that fill up (and spill)
 // as the streak grows; kernels pop on every film found (owner request 2026-11-04).
-const POPCORN_STAGES = Array.from({length:8}, (_,i)=>`/stickers/popcorn-${i}.webp`);
+const POPCORN_STAGES = Array.from({length:9}, (_,i)=>`/stickers/popcorn-${i}.webp`);
 function PopcornMeter({streak, popKey, reducedMotion=false}) {
   const level = Math.min(POPCORN_STAGES.length-1, streak);
   const kernels = [[-30,-34],[-14,-48],[4,-54],[20,-44],[32,-28]];
@@ -6425,10 +6425,10 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
               <div style={{background:"#fff",borderRadius:22,padding:"26px 20px 22px",boxSizing:"border-box",position:"relative",border:`2px solid ${T.border}`,boxShadow:T.shadow,marginTop:0}}>
                 {/* Speed Run: a big countdown clock where the difficulty badge used to be (owner request 2026-11-04). */}
                 {mode.timeLimit>0&&(
-                  <div aria-label="Time left" style={{position:"absolute",top:-40,right:-6,display:"flex",alignItems:"center",gap:4,
+                  <div aria-label="Time left" style={{position:"absolute",top:-40,left:0,right:0,display:"flex",alignItems:"center",justifyContent:"center",gap:4,
                     animation:!reducedMotion&&timeLeft<=10&&timeLeft>0?"ptsShake 0.5s ease infinite":"none","--amp":"2px"}}>
                     <IconStopwatch size={54}/>
-                    <span style={{...YELLOW_STICKER_TEXT,fontSize:30,lineHeight:1,color:timeLeft<=10?"#FF5A5A":T.gold}}>
+                    <span style={{...YELLOW_STICKER_TEXT,fontSize:30,lineHeight:1,color:timeLeft<=10?"#FF5A5A":"#FFFFFF"}}>
                       {`${Math.floor(timeLeft/60)}:${String(timeLeft%60).padStart(2,"0")}`}
                     </span>
                   </div>
