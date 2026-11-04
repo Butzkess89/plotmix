@@ -100,12 +100,23 @@ test.describe('D. Daily number and countdown', () => {
 test.describe('E. Points roll and shake', () => {
   test('losing points shakes the counter, harder for bigger losses', async ({ page }) => {
     await resumeStandardWithCards(page, [77])
-    const amp = () => page.evaluate(() => [...document.querySelectorAll('span')].find((s) => /^\$\d+M$/.test(s.textContent))?.style.getPropertyValue('--amp'))
+    // The shake lasts 0.36 s, which a slow browser can miss between polls, so record every
+    // shake strength the budget counter shows instead of sampling it.
+    await page.evaluate(() => {
+      window.__amps = []
+      const record = () => {
+        const el = [...document.querySelectorAll('span')].find((s) => /^\$\d+M$/.test(s.textContent))
+        const v = el?.style.getPropertyValue('--amp')
+        if (v && v !== '0px' && window.__amps[window.__amps.length - 1] !== v) window.__amps.push(v)
+      }
+      new MutationObserver(record).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['style'] })
+    })
+    const amps = () => page.evaluate(() => window.__amps)
     await submitGuess(page, 'zzqxwrong') // -1
-    await expect.poll(amp).toBe('4px')
+    await expect.poll(amps).toEqual(['4px'])
     await expect(page.getByText('$9M')).toBeVisible()
     await submitGuess(page, 'zzqa zzqb zzqc') // -3
-    await expect.poll(amp).toBe('8px')
+    await expect.poll(amps).toEqual(['4px', '8px'])
     await expect(page.getByText('$6M')).toBeVisible()
   })
 })
