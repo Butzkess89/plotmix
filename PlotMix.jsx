@@ -3894,18 +3894,32 @@ function ClapperTake({take, note, reducedMotion=false}) {
 // Run streak shown as the owner's popcorn bucket art: 8 drawings that fill up (and spill)
 // as the streak grows; kernels pop on every film found (owner request 2026-11-04).
 const POPCORN_STAGES = Array.from({length:9}, (_,i)=>`/stickers/popcorn-${i}.webp`);
-function PopcornMeter({streak, popKey, reducedMotion=false}) {
+function PopcornMeter({streak, popKey, reducedMotion=false, inline=false}) {
   const level = Math.min(POPCORN_STAGES.length-1, streak);
   const kernels = [[-30,-34],[-14,-48],[4,-54],[20,-44],[32,-28]];
-  return (
-    <div aria-label={`Streak: ${streak}`} style={{position:"absolute",top:6,left:"50%",transform:"translateX(-50%)",zIndex:250,width:120,pointerEvents:"none",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start"}}>
+  const bucketW = inline ? 58 : 76;
+  const bucket = (
+    <div style={{position:"relative",width:bucketW}}>
       <img src={POPCORN_STAGES[level]} alt="" aria-hidden="true" draggable="false"
-        style={{display:"block",width:76,height:"auto",userSelect:"none",filter:"drop-shadow(0 3px 0 rgba(0,0,0,0.35))",animation:reducedMotion||!popKey?"none":"scorePulse 0.28s ease"}} key={`b-${level}-${popKey}`}/>
-      <span style={{marginTop:-4,height:20,padding:"0 9px",borderRadius:10,background:"#FFD84D",border:"1.5px solid #1C1D21",fontFamily:FONT_FIGMA_STICKER,fontSize:10,color:"#1C1D21",display:"flex",alignItems:"center",whiteSpace:"nowrap",boxSizing:"border-box",animation:reducedMotion?"none":"titlePop 0.35s ease both"}}>{streak} in a row</span>
+        style={{display:"block",width:bucketW,height:"auto",userSelect:"none",filter:"drop-shadow(0 3px 0 rgba(0,0,0,0.35))",animation:reducedMotion||!popKey?"none":"scorePulse 0.28s ease"}} key={`b-${level}-${popKey}`}/>
       {!reducedMotion && popKey > 0 && kernels.map(([dx,dy],i)=>(
-        <span key={`${popKey}-${i}`} style={{position:"absolute",left:52,top:30,width:9,height:9,borderRadius:"50%",background:"#FFF6D8",border:"1px solid #1C1D21",
+        <span key={`${popKey}-${i}`} style={{position:"absolute",left:bucketW/2-4,top:bucketW*0.3,width:9,height:9,borderRadius:"50%",background:"#FFF6D8",border:"1px solid #1C1D21",
           "--dx":`${dx}px`,"--dy":`${dy}px`,animation:`kernelPop 0.7s cubic-bezier(.2,.8,.3,1) ${i*30}ms both`}}/>
       ))}
+    </div>
+  );
+  // Regular runs: bucket + streak sit centered on the plot card's top edge, like the Speed Run clock.
+  if (inline) return (
+    <div aria-label={`Streak: ${streak}`} style={{position:"absolute",top:-40,left:0,right:0,display:"flex",alignItems:"center",justifyContent:"center",gap:8,pointerEvents:"none"}}>
+      {bucket}
+      <span style={{...YELLOW_STICKER_TEXT,fontSize:20,lineHeight:1,position:"relative",top:-10,color:"#FFFFFF",whiteSpace:"nowrap"}}>{streak} in a row</span>
+    </div>
+  );
+  // Speed Run: the clock owns the card edge, so the bucket sits top-center between the X and sound buttons.
+  return (
+    <div aria-label={`Streak: ${streak}`} style={{position:"absolute",top:6,left:"50%",transform:"translateX(-50%)",zIndex:250,width:120,pointerEvents:"none",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start"}}>
+      {bucket}
+      <span style={{marginTop:4,height:20,padding:"0 9px",borderRadius:10,background:"#FFD84D",border:"1.5px solid #1C1D21",fontFamily:FONT_FIGMA_STICKER,fontSize:10,color:"#1C1D21",display:"flex",alignItems:"center",whiteSpace:"nowrap",boxSizing:"border-box",animation:reducedMotion?"none":"titlePop 0.35s ease both"}}>{streak} in a row</span>
     </div>
   );
 }
@@ -6322,7 +6336,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
         </div>
       )}
 
-      <PopcornMeter streak={runStreak} popKey={popKey} reducedMotion={reducedMotion}/>
+      {mode.timeLimit>0&&<PopcornMeter streak={runStreak} popKey={popKey} reducedMotion={reducedMotion}/>}
       {clapper && <ClapperTake key={clapper.key} take={clapper.take} note={clapper.note} reducedMotion={reducedMotion}/>}
       {badgeToast && <BadgeToast badges={badgeToast}/>}
       {countingDown && <FilmLeaderCountdown reducedMotion={reducedMotion} onDone={()=>setCountingDown(false)}/>}
@@ -6408,12 +6422,15 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
 
         {/* HEADER — stat row only; the X exit button floats fixed above (see below) */}
         {/* Big art, no bubbles (owner request 2026-11-04): scene clapper left, budget bag right. */}
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:16,padding:`112px 4px ${mode.timeLimit>0?66:30}px`}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:16,padding:mode.timeLimit>0?"112px 4px 66px":"86px 4px 48px"}}>
           <SceneClapper scene={cardIdx+1} total={deck.length}/>
           <div aria-label="Studio budget" style={{display:"flex",alignItems:"center",gap:8}}>
             <img src="/stickers/budget-bag.webp" alt="" aria-hidden="true" draggable="false"
               style={{display:"block",width:74,height:"auto",userSelect:"none",filter:"drop-shadow(0 3px 0 rgba(0,0,0,0.35))"}}/>
-            <RollingPoints value={liveCardPts} reducedMotion={reducedMotion} style={{...YELLOW_STICKER_TEXT,fontSize:30,lineHeight:1}}/>
+            <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+              <RollingPoints value={liveCardPts} reducedMotion={reducedMotion} style={{...YELLOW_STICKER_TEXT,fontSize:30,lineHeight:1}}/>
+              <span aria-hidden="true" style={{...WHITE_STICKER_TEXT,fontSize:12,lineHeight:1,letterSpacing:1.5}}>BUDGET</span>
+            </div>
           </div>
         </div>
 
@@ -6424,6 +6441,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
               {/*  PLOT CARD  */}
               <div style={{background:"#fff",borderRadius:22,padding:"26px 20px 22px",boxSizing:"border-box",position:"relative",border:`2px solid ${T.border}`,boxShadow:T.shadow,marginTop:0}}>
                 {/* Speed Run: a big countdown clock where the difficulty badge used to be (owner request 2026-11-04). */}
+                {!(mode.timeLimit>0)&&<PopcornMeter inline streak={runStreak} popKey={popKey} reducedMotion={reducedMotion}/>}
                 {mode.timeLimit>0&&(
                   <div aria-label="Time left" style={{position:"absolute",top:-40,left:0,right:0,display:"flex",alignItems:"center",justifyContent:"center",gap:4,
                     animation:!reducedMotion&&timeLeft<=10&&timeLeft>0?"ptsShake 0.5s ease infinite":"none","--amp":"2px"}}>
