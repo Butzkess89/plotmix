@@ -83,6 +83,12 @@ export async function continueToCard(page, modeId, nextIdx) {
   }).toPass({ timeout: 20_000 })
 }
 
+// The end screen shows symbols only; tapping one shows what it is in the "Symbol info" line.
+export async function tapSymbol(page, name) {
+  await page.getByRole('button', { name }).click()
+  return page.getByRole('status', { name: 'Symbol info' })
+}
+
 export async function currentCard(page, modeId) {
   const session = await waitForSave(page, modeId)
   return session.deck[session.cardIdx]

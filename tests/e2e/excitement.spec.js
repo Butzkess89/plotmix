@@ -3,6 +3,7 @@
 import { test, expect } from '@playwright/test'
 import {
   openMenu, startMode, submitGuess, guessInput, currentCard, pinDailyDate, resumeStandardWithCards, waitForSave,
+  tapSymbol,
 } from './helpers.js'
 
 const LONGEST_PLOT_CARD = 57
@@ -226,7 +227,7 @@ test.describe('J. Daily streak with a weekly saver', () => {
     const card = await currentCard(page, 'daily')
     await submitGuess(page, card.mashedTitle)
     await page.getByRole('button', { name: 'Finish' }).click()
-    await expect(page.getByLabel('Daily streak')).toHaveText('🔥 Daily streak: 4 days · 🧊 streak saver covered a missed day')
+    await expect(await tapSymbol(page, /^Daily streak/)).toHaveText('Daily streak: 4 days · 🧊 streak saver covered a missed day')
   })
   test('two missed days start the streak again', async ({ page }) => {
     await page.addInitScript((last) => {
@@ -238,7 +239,7 @@ test.describe('J. Daily streak with a weekly saver', () => {
     const card = await currentCard(page, 'daily')
     await submitGuess(page, card.mashedTitle)
     await page.getByRole('button', { name: 'Finish' }).click()
-    await expect(page.getByLabel('Daily streak')).toHaveText('🔥 Daily streak: 1 day')
+    await expect(await tapSymbol(page, /^Daily streak/)).toHaveText('Daily streak: 1 day')
   })
 })
 
@@ -365,7 +366,14 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
   })
 
   test('pieces look like popcorn, burnt popcorn, unpopped kernels and chocolate candies', async ({ page }) => {
-    await seedRandom(page)
+    // Every random draw lands on one of the four kinds (0.1/0.2 popcorn, 0.6/0.65 burnt,
+    // 0.78/0.8 kernel, 0.955 candy). A cycle of 7 keeps all four coming whatever else
+    // uses random numbers, so the test never depends on a lucky seed.
+    await page.addInitScript(() => {
+      const cycle = [0.1, 0.6, 0.8, 0.955, 0.2, 0.65, 0.78]
+      let i = 0
+      Math.random = () => cycle[i++ % cycle.length]
+    })
     await startGame(page)
     for (const name of ['Popcorn', 'Burnt popcorn', 'Unpopped kernel', 'Chocolate candy']) {
       await expect(piece(page, name)).toBeAttached({ timeout: 20_000 })
@@ -437,7 +445,11 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
     await fixRandomOnLoad(page, 0.1) // everything falls far from the box, so no lives are lost
     await startGame(page)
     await expect(page.getByLabel('Time left: 45')).toBeVisible()
-    await expect(page.getByLabel('Time left: 40')).toBeVisible({ timeout: 7_000 })
+    // The clock is counting down: within 7 s it reads 40 or less. (Waiting for exactly
+    // "40" could miss its one-second window on a busy Safari-engine runner.)
+    const timeLeft = () => page.locator('[aria-label^="Time left: "]').getAttribute('aria-label').then((l) => Number(l.split(': ')[1]))
+    await expect.poll(timeLeft, { timeout: 7_000 }).toBeLessThanOrEqual(40)
+    expect(await timeLeft()).toBeGreaterThanOrEqual(36) // ...and not jumping ahead
     await expect(page.getByLabel('Arcade result')).toContainText("Time's up! You lasted all 45 seconds.", { timeout: 45_000 })
     await expect(page.getByLabel('Lives: 3')).toBeVisible()
   })

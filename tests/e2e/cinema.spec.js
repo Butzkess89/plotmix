@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   openMenu, startMode, submitGuess, guessInput, currentCard, pinDailyDate, resumeStandardWithCards, waitForSave, readDeck, continueToCard,
+  tapSymbol,
 } from './helpers.js'
 
 const nextButton = (page) => page.getByRole('button', { name: 'Next' })
@@ -90,6 +91,73 @@ test.describe('Badges', () => {
 })
 
 test.describe('End screen extras', () => {
+  test('each fact shows once: a Daily has one 🔥 (the Daily streak), no Skip tile and no "best run" (owner request 2026-10-28)', async ({ page }) => {
+    await finishDailyPerfectly(page)
+    await expect(page.getByRole('button', { name: /^Daily streak/ })).toHaveCount(1)
+    await expect(page.getByRole('button', { name: /^Best run in a row/ })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /^Skipped/ })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /Popcorn Panic play/ })).toHaveCount(0) // none saved: nothing to show
+    // The post-credits ticket has its own symbol, not the Director's Cut clapperboard.
+    const ticket = page.getByRole('button', { name: /^Post-credits scene/ })
+    await expect(ticket).toBeVisible({ timeout: 9_000 })
+    await expect(ticket).toContainText('🎟️')
+  })
+
+  test('Standard keeps its run tiles: Skipped and best run in a row, and no Daily streak', async ({ page }) => {
+    await openMenu(page)
+    await startMode(page, 'standard')
+    for (let i = 0; i < 6; i++) { // six skips use up the hearts and end the run
+      await page.getByRole('button', { name: 'Skip card' }).click()
+      await page.getByRole('button', { name: 'Skip It' }).click()
+      await page.getByRole('button', { name: /^(Next|Finish)$/ }).click()
+    }
+    await expect(page.getByText('The End')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Skipped: 6' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Best run in a row: 0' })).toBeVisible()
+    await expect(page.getByRole('button', { name: /^Daily streak/ })).toHaveCount(0)
+  })
+
+  test('Home is a little cinema, not a clapperboard (owner request 2026-10-28)', async ({ page }) => {
+    await finishDailyPerfectly(page)
+    const home = page.getByRole('button', { name: 'Home', exact: true })
+    await expect(home).toBeVisible()
+    await expect(home).not.toContainText('🎬')
+    await expect(home.locator('svg text')).toHaveText('CINEMA')
+  })
+
+  test('the end screen shows symbols, not sentences; tapping one says what it is (owner request 2026-10-28)', async ({ page }) => {
+    await page.addInitScript(() => { if (!sessionStorage.getItem('seeded')) { localStorage.setItem('plotmix_arcade_passes', '2'); sessionStorage.setItem('seeded', '1') } })
+    await finishDailyPerfectly(page)
+    const info = page.getByRole('status', { name: 'Symbol info' })
+    await expect(info).toHaveText('')
+    for (const gone of ['Popcorn Panic plays saved', 'Daily streak:', 'Perfect Dailies in a row:', 'Tap one to see how to earn it']) {
+      await expect(page.getByText(gone)).toHaveCount(0)
+    }
+    await expect(await tapSymbol(page, 'Solved: 1')).toHaveText('Solved: 1')
+    await expect(await tapSymbol(page, /Popcorn Panic play/)).toHaveText('2 Popcorn Panic plays saved')
+    await expect(await tapSymbol(page, "Badge: Director's Cut")).toContainText("Director's Cut")
+    await page.getByRole('button', { name: "Badge: Director's Cut" }).click() // tapping again hides it
+    await expect(info).toHaveText('')
+  })
+
+  test('the credits roll like a film: bold white names on a see-through black screen (owner request 2026-10-28)', async ({ page }) => {
+    await finishDailyPerfectly(page)
+    const credits = page.getByLabel('Credits', { exact: true })
+    await expect(credits).toBeVisible()
+    const look = await credits.evaluate((el) => {
+      const bg = getComputedStyle(el).backgroundColor.match(/[\d.]+/g).map(Number)
+      const name = el.querySelector('[data-credit-name]')
+      const n = getComputedStyle(name)
+      return { bg, weight: Number(n.fontWeight), color: n.color, size: parseFloat(n.fontSize) }
+    })
+    expect(look.bg.slice(0, 3)).toEqual([0, 0, 0])
+    expect(look.bg[3]).toBeGreaterThan(0.5)
+    expect(look.bg[3]).toBeLessThan(0.95)
+    expect(look.weight).toBeGreaterThanOrEqual(800)
+    expect(look.color).toBe('rgb(255, 255, 255)')
+    expect(look.size).toBeGreaterThanOrEqual(15)
+  })
+
   test('a perfect Daily is rated G, reviewed and credited, with the badge on the shelf', async ({ page }) => {
     await finishDailyPerfectly(page)
     await expect(page.getByLabel("Rated G: Got 'Em All")).toBeVisible()
@@ -135,13 +203,13 @@ test.describe('Gold Lamé curtains: 3 perfect Dailies in a row, or one perfect r
 
   test('a first perfect Daily counts 1 of 3', async ({ page }) => {
     await playDaily(page, { before: 0, perfect: true })
-    await expect(page.getByLabel('Perfect Dailies in a row')).toContainText('1 of 3')
+    await expect(await tapSymbol(page, /^Perfect Dailies in a row/)).toContainText('Perfect Dailies in a row: 1 of 3')
     expect(await won(page)).not.toContain('perfectDaily3')
   })
 
   test('the third perfect Daily in a row unlocks them', async ({ page }) => {
     await playDaily(page, { before: 2, perfect: true })
-    await expect(page.getByLabel('Gold curtains')).toHaveText('✨ 3 perfect Dailies in a row: Gold Lamé curtains unlocked!')
+    await expect(await tapSymbol(page, /^3 perfect Dailies in a row/)).toHaveText('3 perfect Dailies in a row: Gold Lamé curtains unlocked!')
     expect(await won(page)).toContain('perfectDaily3')
   })
 
@@ -173,7 +241,7 @@ test.describe('Gold Lamé curtains: 3 perfect Dailies in a row, or one perfect r
   test('a perfect Standard run (no hints, no mistakes) also unlocks them', async ({ page }) => {
     test.setTimeout(240_000)
     await playStandardRun(page)
-    await expect(page.getByLabel('Perfect run')).toHaveText('✨ A perfect run: no hints, no mistakes! Gold Lamé curtains unlocked!')
+    await expect(await tapSymbol(page, /^A perfect run/)).toHaveText('A perfect run: no hints, no mistakes! Gold Lamé curtains unlocked!')
     await expect(page.getByLabel('Camera flashes')).toBeAttached() // red-carpet flashes (owner request 2026-10-26)
     expect(await won(page)).toContain('perfectDaily3')
   })
@@ -181,14 +249,15 @@ test.describe('Gold Lamé curtains: 3 perfect Dailies in a row, or one perfect r
   test('one hint in an otherwise perfect run does not', async ({ page }) => {
     test.setTimeout(240_000)
     await playStandardRun(page, { hintOnCard: 3 })
-    await expect(page.getByLabel('Perfect run')).toHaveCount(0)
+    await expect(page.getByText('The End')).toBeVisible()
+    await expect(page.getByRole('button', { name: /^A perfect run/ })).toHaveCount(0)
     await expect(page.getByLabel('Camera flashes')).toHaveCount(0)
     expect(await won(page)).not.toContain('perfectDaily3')
   })
 
   test('one wrong guess, even on a solved Daily, starts the count again', async ({ page }) => {
     await playDaily(page, { before: 2, perfect: false })
-    await expect(page.getByLabel('Perfect Dailies in a row')).toContainText('0 of 3')
+    await expect(await tapSymbol(page, /^Perfect Dailies in a row/)).toContainText('Perfect Dailies in a row: 0 of 3')
     expect(await won(page)).not.toContain('perfectDaily3')
   })
 })
