@@ -6428,7 +6428,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
                   <div aria-label="Time left" style={{position:"absolute",top:-40,left:0,right:0,display:"flex",alignItems:"center",justifyContent:"center",gap:4,
                     animation:!reducedMotion&&timeLeft<=10&&timeLeft>0?"ptsShake 0.5s ease infinite":"none","--amp":"2px"}}>
                     <IconStopwatch size={54}/>
-                    <span style={{...YELLOW_STICKER_TEXT,fontSize:30,lineHeight:1,color:timeLeft<=10?"#FF5A5A":"#FFFFFF"}}>
+                    <span style={{...YELLOW_STICKER_TEXT,fontSize:30,lineHeight:1,position:"relative",top:-12,color:timeLeft<=10?"#FF5A5A":"#FFFFFF"}}>
                       {`${Math.floor(timeLeft/60)}:${String(timeLeft%60).padStart(2,"0")}`}
                     </span>
                   </div>
