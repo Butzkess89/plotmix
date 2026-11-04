@@ -5469,7 +5469,10 @@ function HangmanTitle({card, found, guesses=[], reducedMotion=false, peek=false}
 // (Figma nodes 2:118616 → 2:133413 → 2:148210, the three "Hints — Revealed N" states).
 // 
 function HintsModal({card, hintsRevealed, guessesLeft, onReveal, onClose, hintAnimationSrc, reducedMotion=false, transitionFamily=TRANSITION_FAMILIES.punchy,
-  powerups=null, peekUsed=false, freeHints=[], onFreeHint, onPeek}) {
+  powerups=null, peekUsed=false, freeHints=[], onFreeHint, onPeek, pointsLeft=Infinity}) {
+  // A hint that would spend the card's last points would end the card on the spot
+  // (it looked like the game skipped it, owner report 2026-11-02), so it is blocked.
+  const unaffordable = (cost) => pointsLeft <= cost;
   const [showHintAnim, setShowHintAnim] = useState(true);
   const [recentlyUnlocked, setRecentlyUnlocked] = useState(null);
   const hintAnim = typeof hintAnimationSrc === "string"
@@ -5483,6 +5486,10 @@ function HintsModal({card, hintsRevealed, guessesLeft, onReveal, onClose, hintAn
   const actorsRevealed = hintsRevealed.includes(HINT_TIERS[1].id);
   const whisperRevealed = hintsRevealed.includes("whisper");
   const whisperText = card.hints?.[0] ? maskTitleWords(card.hints[0], card) : null;
+  const yearGenreOff = yearGenreRevealed || guessesLeft===0 || unaffordable(HINT_TIERS[0].rewardPenalty);
+  const whisperOff = whisperRevealed || guessesLeft===0 || unaffordable(HINT_TIERS[2].rewardPenalty);
+  const actorsOff = actorsRevealed || guessesLeft===0 || unaffordable(HINT_TIERS[1].rewardPenalty);
+  const noPts = (revealed, cost) => !revealed && unaffordable(cost) ? " · not enough pts" : "";
 
   const revealWithFx = (tierId) => {
     if (tierId === HINT_TIERS[1].id) SFX.rip();
@@ -5564,24 +5571,24 @@ function HintsModal({card, hintsRevealed, guessesLeft, onReveal, onClose, hintAn
         )}
 
         <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:16}}>
-          <button onClick={()=>revealWithFx(HINT_TIERS[0].id)} disabled={yearGenreRevealed||guessesLeft===0}
-            style={{...BTN.cyan,opacity:yearGenreRevealed?0.4:guessesLeft===0?0.4:1,cursor:yearGenreRevealed||guessesLeft===0?"not-allowed":"pointer",padding:"13px 0"}}>
+          <button onClick={()=>revealWithFx(HINT_TIERS[0].id)} disabled={yearGenreOff}
+            style={{...BTN.cyan,opacity:yearGenreOff?0.4:1,cursor:yearGenreOff?"not-allowed":"pointer",padding:"13px 0"}}>
             <span style={{...WHITE_STICKER_TEXT,fontSize:13,letterSpacing:"0.03em",textTransform:"uppercase"}}>
-              Year & Genre  -1 pts{yearGenreRevealed?" ✓":""}
+              Year & Genre  -1 pts{yearGenreRevealed?" ✓":""}{noPts(yearGenreRevealed,HINT_TIERS[0].rewardPenalty)}
             </span>
           </button>
           {whisperText && (
-            <button onClick={()=>revealWithFx("whisper")} disabled={whisperRevealed||guessesLeft===0}
-              style={{...BTN.cyan,background:"#8F7BFD",opacity:whisperRevealed||guessesLeft===0?0.4:1,cursor:whisperRevealed||guessesLeft===0?"not-allowed":"pointer",padding:"13px 0"}}>
+            <button onClick={()=>revealWithFx("whisper")} disabled={whisperOff}
+              style={{...BTN.cyan,background:"#8F7BFD",opacity:whisperOff?0.4:1,cursor:whisperOff?"not-allowed":"pointer",padding:"13px 0"}}>
               <span style={{...WHITE_STICKER_TEXT,fontSize:13,letterSpacing:"0.03em",textTransform:"uppercase"}}>
-                Director's Whisper  -2 pts{whisperRevealed?" ✓":""}
+                Director's Whisper  -2 pts{whisperRevealed?" ✓":""}{noPts(whisperRevealed,HINT_TIERS[2].rewardPenalty)}
               </span>
             </button>
           )}
-          <button onClick={()=>revealWithFx(HINT_TIERS[1].id)} disabled={actorsRevealed||guessesLeft===0}
-            style={{...BTN.primary,opacity:actorsRevealed?0.4:guessesLeft===0?0.4:1,cursor:actorsRevealed||guessesLeft===0?"not-allowed":"pointer",padding:"13px 0"}}>
+          <button onClick={()=>revealWithFx(HINT_TIERS[1].id)} disabled={actorsOff}
+            style={{...BTN.primary,opacity:actorsOff?0.4:1,cursor:actorsOff?"not-allowed":"pointer",padding:"13px 0"}}>
             <span style={{...WHITE_STICKER_TEXT,fontSize:13,letterSpacing:"0.03em",textTransform:"uppercase"}}>
-              Lead Actors  -3 pts{actorsRevealed?" ✓":""}
+              Lead Actors  -3 pts{actorsRevealed?" ✓":""}{noPts(actorsRevealed,HINT_TIERS[1].rewardPenalty)}
             </span>
           </button>
           {powerups && (powerups.hint>0 || powerups.peek>0 || freeHints.length>0 || peekUsed) && (
@@ -5887,6 +5894,9 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   // Reveal a hint tier — modular, add future tiers to HINT_TIERS array
   const handleRevealHint=(tierId)=>{
     if(hintsRevealed.includes(tierId)||both||cardLost||viewOnly) return;
+    // Never let a paid hint spend the card's last points: that ends the card at once.
+    const tier=HINT_TIERS.find(t=>t.id===tierId);
+    if(tier && currentReward<=tier.rewardPenalty) return;
     setHintsRevealed(p=>[...p,tierId]);
     SFX.hint();
   };
@@ -6558,7 +6568,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
                 <HintsModal card={card} hintsRevealed={hintsRevealed} guessesLeft={guessesRemainingForCard}
                   powerups={powerupsAllowed ? loadPowerups() : null} peekUsed={peek} freeHints={freeHints}
                   onFreeHint={handleFreeHint} onPeek={handlePeek}
-                  onReveal={handleRevealHint} onClose={()=>setShowHints(false)} hintAnimationSrc={STICKER_ASSETS.hintAnimation}
+                  onReveal={handleRevealHint} pointsLeft={currentReward} onClose={()=>setShowHints(false)} hintAnimationSrc={STICKER_ASSETS.hintAnimation}
                   reducedMotion={reducedMotion} transitionFamily={transitionFamily}/>
               )}
 
