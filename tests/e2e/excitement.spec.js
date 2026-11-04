@@ -625,7 +625,7 @@ test.describe('Owner fixes 2026-10-25', () => {
     await submitGuess(page, 'The Nightmare Before Christmas Story')
     await expect(page.getByLabel('Streak: 1')).toBeVisible()
     await page.getByRole('button', { name: 'Next' }).click()
-    for (let i = 0; i < 6; i++) await submitGuess(page, `zzqxwrong${'abcdef'[i]}`)
+    for (let i = 0; i < 10; i++) await submitGuess(page, `zzqxwrong${'abcdefghij'[i]}`)
     await expect(page.getByLabel('Streak: 0')).toBeVisible() // already on the lost card's result
     await page.getByRole('button', { name: 'Next' }).click()
     await submitGuess(page, '13 Going on 30 Days of Night')

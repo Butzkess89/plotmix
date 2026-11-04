@@ -10,7 +10,7 @@ import {
 const WRONG_GUESS = 'zzqxwrong'
 
 async function loseCardWithWrongGuesses(page) {
-  for (let i = 0; i < 6; i++) await submitGuess(page, `${WRONG_GUESS}${i}`)
+  for (let i = 0; i < 10; i++) await submitGuess(page, `${WRONG_GUESS}${i}`)
 }
 
 test.describe('G1: repeated taps on Next apply the round once', () => {

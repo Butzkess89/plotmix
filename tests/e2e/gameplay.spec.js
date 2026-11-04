@@ -3,7 +3,7 @@
 //   - each card starts at 10 points
 //   - each wrong word in a guess -1 (a one-word wrong guess costs 1), "Year & Genre" hint -1, "Lead Actors" hint -3
 //   - guessing each film separately is not penalised
-//   - 6 wrong guesses lose the card; a lost or skipped card costs 1 heart
+//   - no guess limit: 10 one-word wrong guesses drain the card's points and lose it; a lost or skipped card costs 1 heart
 import { test, expect } from '@playwright/test'
 import {
   openMenu, startMode, submitGuess, guessInput, waitForSave, currentCard, pointsCounter, pinDailyDate, resumeStandardWithCards,
@@ -71,18 +71,21 @@ test.describe('guessing and scoring', () => {
     expect(session.results[0].guessList).toEqual([WRONG_GUESS, card.mashedTitle])
   })
 
-  test('six wrong guesses lose the card, score 0 and cost one heart', async ({ page }) => {
+  test('wrong guesses only end the card once its points run out, then cost one heart', async ({ page }) => {
     await openMenu(page)
     await startMode(page, 'standard')
 
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 9; i++) {
       await submitGuess(page, `${WRONG_GUESS}${i}`)
     }
+    await expect(guessInput(page)).toBeEnabled() // no guess limit: 1 point still left
+    await submitGuess(page, `${WRONG_GUESS}9`)
     await expect(guessInput(page)).toBeDisabled()
+    await expect(page.getByRole('img', { name: 'Cancelled' })).toBeVisible()
     await finishRound(page, 'Next')
 
     const session = await waitForSave(page, 'standard', (s) => s.cardIdx === 1)
-    expect(session.results[0]).toMatchObject({ solved: false, pts: 0, guesses: 6 })
+    expect(session.results[0]).toMatchObject({ solved: false, pts: 0, guesses: 10 })
     expect(session.totalScore).toBe(0)
     expect(session.lives).toBe(5)
   })

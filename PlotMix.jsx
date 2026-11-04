@@ -3863,7 +3863,7 @@ function getCriticReview(ratio) {
 const LS_BADGES = "plotmix_badges";
 const BADGES = [
   { id:"directorsCut",    name:"Director's Cut",    emoji:"🎬", desc:"Solved a card with no hints" },
-  { id:"plotTwist",       name:"Plot Twist",        emoji:"🌀", desc:"Solved a card on its last guess" },
+  { id:"plotTwist",       name:"Plot Twist",        emoji:"🌀", desc:"Solved a card with its last point" },
   { id:"boxOfficeSmash",  name:"Box Office Smash",  emoji:"💥", desc:"Solved 5 cards in a row" },
   { id:"goldenPopcorn",   name:"Golden Popcorn",    emoji:"🍿", desc:"Solved every card in a full run" },
   { id:"straightToVideo", name:"Straight to Video", emoji:"📼", desc:"Finished a run with 0 points" },
@@ -5495,7 +5495,7 @@ function HangmanTitle({card, found, guesses=[], reducedMotion=false, peek=false}
 // Buttons stay visible but gray out once purchased, matching Figma exactly
 // (Figma nodes 2:118616 → 2:133413 → 2:148210, the three "Hints — Revealed N" states).
 // 
-function HintsModal({card, hintsRevealed, guessesLeft, onReveal, onClose, hintAnimationSrc, reducedMotion=false, transitionFamily=TRANSITION_FAMILIES.punchy,
+function HintsModal({card, hintsRevealed, onReveal, onClose, hintAnimationSrc, reducedMotion=false, transitionFamily=TRANSITION_FAMILIES.punchy,
   powerups=null, peekUsed=false, freeHints=[], onFreeHint, onPeek, pointsLeft=Infinity}) {
   // A hint that would spend the card's last points would end the card on the spot
   // (it looked like the game skipped it, owner report 2026-11-02), so it is blocked.
@@ -5513,9 +5513,9 @@ function HintsModal({card, hintsRevealed, guessesLeft, onReveal, onClose, hintAn
   const actorsRevealed = hintsRevealed.includes(HINT_TIERS[1].id);
   const whisperRevealed = hintsRevealed.includes("whisper");
   const whisperText = card.hints?.[0] ? maskTitleWords(card.hints[0], card) : null;
-  const yearGenreOff = yearGenreRevealed || guessesLeft===0 || unaffordable(HINT_TIERS[0].rewardPenalty);
-  const whisperOff = whisperRevealed || guessesLeft===0 || unaffordable(HINT_TIERS[2].rewardPenalty);
-  const actorsOff = actorsRevealed || guessesLeft===0 || unaffordable(HINT_TIERS[1].rewardPenalty);
+  const yearGenreOff = yearGenreRevealed || unaffordable(HINT_TIERS[0].rewardPenalty);
+  const whisperOff = whisperRevealed || unaffordable(HINT_TIERS[2].rewardPenalty);
+  const actorsOff = actorsRevealed || unaffordable(HINT_TIERS[1].rewardPenalty);
   const noPts = (revealed, cost) => !revealed && unaffordable(cost) ? " · not enough pts" : "";
 
   const revealWithFx = (tierId) => {
@@ -5755,7 +5755,6 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   // Wrong guesses affect reward only.
   const heartsLeft=lives;
   const wrongGuessCount=guessStates.filter(state=>state==="miss").length;
-  const guessesRemainingForCard=Math.max(0, mode.maxGuesses-wrongGuessCount);
 
   // Reward tracking — derived from hint/individual-film state
   const hintCount=hintsRevealed.length;
@@ -5771,7 +5770,8 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   const wrongWordPenalty=guesses.reduce((sum,g)=>sum+guessPenalty(g, card),0);
   const currentReward=calcReward(hintsRevealed.filter((id)=>!freeHints.includes(id)),filmFoundByIndividualGuessCount,wrongWordPenalty);
   const rewardSpent = !both && currentReward <= 0;
-  const cardLost=!both&&(guessesRemainingForCard===0 || rewardSpent);
+  // Owner decision 2026-11-04: there is no guess limit. A card ends only when its points run out.
+  const cardLost=!both&&rewardSpent;
   const over=both||cardLost;
   const tension=mode.difficultyPacing==="escalating"?marathonTension(cardIdx,deck.length):0;
   const accent=tension>0.6?`hsl(${Math.round(20-tension*20)},88%,56%)`:mode.accentColor;
@@ -5841,12 +5841,13 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       SFX.wrong();
       buzz([30,50,30]);
       // The 3rd wrong guess on a card: the crowd boos and throws a tomato (instead of the clapper).
-      if(wrongGuessCount+1 === 3 && 3 < mode.maxGuesses && !reducedMotion){
+      const endsCard = guessPenalty(g, card) >= currentReward;
+      if(wrongGuessCount+1 === 3 && !endsCard && !reducedMotion){
         SFX.boo(); SFX.splat(0.95);
         setBoo({key:Date.now()});
       }
-      // The next take, unless this miss used the card's last guess.
-      else if(wrongGuessCount+1 < mode.maxGuesses){
+      // The next take, unless this miss spent the card's last points.
+      else if(!endsCard){
         SFX.clap();
         setClapper({key:Date.now(), take:wrongGuessCount+2, note:pickRandom("directorNote", DIRECTOR_NOTES)});
         if (clapperTimerRef.current) clearTimeout(clapperTimerRef.current);
@@ -6262,7 +6263,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     if(phase!=="result" || isRewound || skipped || timedOut || !both) return;
     const ids=[];
     if(hintCount===0) ids.push("directorsCut");
-    if(wrongGuessCount===mode.maxGuesses-1) ids.push("plotTwist");
+    if(currentReward===1) ids.push("plotTwist");
     if(runStreak>=5) ids.push("boxOfficeSmash");
     const fresh=earnBadges(ids);
     const earned=BADGES.filter(b=>fresh.includes(b.id));
@@ -6518,7 +6519,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
           )}
           <div style={HUD_STAT_PILL}>
             <IconHeart size={28}/>
-            <span style={HUD_COUNTER_TEXT}>{guessesRemainingForCard}/{mode.maxGuesses}</span>
+            <span style={HUD_COUNTER_TEXT}>{lives}/{mode.maxGuesses}</span>
           </div>
         </div>
 
@@ -6593,7 +6594,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
 
               {/*  HINTS MODAL  */}
               {showHints&&!both&&!viewOnly&&(
-                <HintsModal card={card} hintsRevealed={hintsRevealed} guessesLeft={guessesRemainingForCard}
+                <HintsModal card={card} hintsRevealed={hintsRevealed} 
                   powerups={powerupsAllowed ? loadPowerups() : null} peekUsed={peek} freeHints={freeHints}
                   onFreeHint={handleFreeHint} onPeek={handlePeek}
                   onReveal={handleRevealHint} pointsLeft={currentReward} onClose={()=>setShowHints(false)} hintAnimationSrc={STICKER_ASSETS.hintAnimation}

@@ -117,7 +117,7 @@ test.describe('#6 the first Daily result of the day is the one kept', () => {
 
     // Replay and lose.
     await page.getByRole('button', { name: 'Play Again' }).click()
-    for (let i = 0; i < 6; i++) await submitGuess(page, `zzqxwrong${i}`)
+    for (let i = 0; i < 10; i++) await submitGuess(page, `zzqxwrong${i}`)
     await page.getByRole('button', { name: 'Finish' }).click()
     await expect(page.getByText('The End')).toBeVisible()
     await expect(page.getByText(/first result.*kept/i)).toBeVisible()
