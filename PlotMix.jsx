@@ -2527,21 +2527,18 @@ function IconStar({size=21}) {
 }
 
 
-const TARGET_ICON_SVG = `<svg viewBox="35 75 27 24" width="100%" height="100%" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block">
-<ellipse cx="45.768" cy="88.065" rx="8.00945" ry="9.08635" fill="#B12A2E" stroke="#000" stroke-width="0.45"/>
-<ellipse cx="47.058" cy="87.783" rx="7.2985" ry="9.08635" fill="#ED4444" stroke="#000" stroke-width="0.42"/>
-<ellipse cx="47.130" cy="87.702" rx="6.02486" ry="7.46314" fill="white" stroke="#000" stroke-width="0.38"/>
-<ellipse cx="47.535" cy="87.614" rx="4.54503" ry="5.5768" fill="#ED4444" stroke="#000" stroke-width="0.34"/>
-<ellipse cx="47.679" cy="87.582" rx="3.13588" ry="3.976" fill="white" stroke="#000" stroke-width="0.3"/>
-<ellipse cx="47.830" cy="87.549" rx="1.71205" ry="2.06867" fill="#ED4444" stroke="#000" stroke-width="0.26"/>
-<path d="M53.6268 83.8734L58.8403 82.7449L56.5232 86.1304L59.9989 87.8232L54.2061 88.9517L51.9303 86.8828L53.6268 83.8734Z" fill="#4076FE" stroke="#000" stroke-width="0.45" stroke-linejoin="round"/>
-<rect width="11.1719" height="0.959245" rx="0.479622" transform="matrix(0.980855 -0.194741 0.194732 0.980856 47.1719 87.4032)" fill="#4B4B4B" stroke="#000" stroke-width="0.2"/>
-</svg>`;
-
-function IconTarget({size=25}) {
+// Card counter icon: a small clapperboard (owner decision 2026-11-04: no non-cinema icons in the HUD).
+function IconClapper({size=24}) {
+  const stripes=[5,13,21];
   return (
-    <span style={{display:"inline-block",width:size,height:size*(22/25),flexShrink:0,transform:"translateY(0.5px)"}}
-      dangerouslySetInnerHTML={{__html: TARGET_ICON_SVG}}/>
+    <svg width={size} height={size*(22/26)} viewBox="0 0 26 22" aria-hidden="true" style={{display:"block",flexShrink:0,overflow:"visible"}}>
+      <g transform="rotate(-14 2 8)">
+        <rect x="1" y="3" width="24" height="5" rx="1" fill="#F3F4FF" stroke="#1C1D21" strokeWidth="1.2"/>
+        {stripes.map(x=><polygon key={x} points={`${x},3 ${x+4},3 ${x+1.5},8 ${x-2.5},8`} fill="#1C1D21"/>)}
+      </g>
+      <rect x="1" y="9" width="24" height="12" rx="1.5" fill="#F3F4FF" stroke="#1C1D21" strokeWidth="1.2"/>
+      <rect x="1" y="9" width="24" height="4" fill="#1C1D21"/>
+    </svg>
   );
 }
 
@@ -6461,8 +6458,8 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
         {/* HEADER — stat row only; the X exit button floats fixed above (see below) */}
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,padding:"72px 0 24px"}}>
           <div style={HUD_STAT_PILL}>
-            <IconTarget size={25}/>
-            <span style={HUD_COUNTER_TEXT}>{cardIdx+1}/{deck.length}</span>
+            <IconClapper size={24}/>
+            <span aria-label={`Scene ${cardIdx+1} of ${deck.length}`} style={HUD_COUNTER_TEXT}><span style={{fontSize:"0.62em",marginRight:4,letterSpacing:"0.04em"}}>SCENE</span>{cardIdx+1}/{deck.length}</span>
           </div>
           <div style={HUD_STAT_PILL} aria-label="Studio budget">
             <span aria-hidden="true" style={{fontSize:19,lineHeight:1}}>💰</span>
