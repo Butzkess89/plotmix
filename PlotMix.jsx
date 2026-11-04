@@ -2080,6 +2080,11 @@ const SFX = {
     });
     playNoise(1.1, 0.04, 0, { type: "bandpass", from: 500, to: 380, q: 0.6 }, 0.2);
   },
+  // Rubber stamp: a short dry thwack
+  stamp: (delay = 0) => {
+    playNoise(0.09, 0.2, delay, { type: "lowpass", from: 900, to: 200, q: 0.8 }, 0.002);
+    playTone(80, "square", 0.08, 0.1, delay);
+  },
   splat: (delay = 0) => {
     playNoise(0.25, 0.22, delay, { type: "lowpass", from: 1800, to: 300, q: 0.7 }, 0.005);
     playTone(95, "sine", 0.18, 0.12, delay);
@@ -3207,6 +3212,14 @@ const MSG_BANKS = {
     { headline:"Wrapped. Not In A Good Way.", sub:"No lives remain. Somewhere a projectionist is quietly turning off the lamp.", emoji:"💡" },
     { headline:"Lost To The Archive.", sub:"You have run out of lives. The only surviving print is in a vault nobody can open.", emoji:"🗄️" },
   ],
+  // The card's points hit 0 before it was solved: the studio cancels it.
+  outOfPoints: [
+    { headline:"The Studio Has Pulled The Plug.", sub:"Love the energy. Hate the spending. You are out of points, so this one is cancelled.", emoji:"📋" },
+    { headline:"Cancelled After One Episode.", sub:"The execs watched the numbers drop to zero and called it before the second act.", emoji:"📺" },
+    { headline:"Greenlight Revoked.", sub:"Points: zero. Budget: gone. The studio is \"going in a different direction\".", emoji:"🚦" },
+    { headline:"Shelved Indefinitely.", sub:"Out of points. The execs had one meeting about it and nobody brought snacks.", emoji:"🗃️" },
+    { headline:"Notes From The Top: No.", sub:"The money ran out before the answer did. Please return your lanyard at the gate.", emoji:"🪪" },
+  ],
   burnedOut: [
     { headline:"Over Budget, Over Schedule.", sub:"You found it, but the money ran out somewhere in act two. Nothing left to pay you with.", emoji:"💸" },
     { headline:"Released Straight to Bargain Bin.", sub:"Technically completed. Commercially, a catastrophe. Zero points.", emoji:"📉" },
@@ -3293,9 +3306,10 @@ const MSG_BANKS = {
   ],
 };
 
-function getResultMessage(both, hintsUsed, guessCount, maxGuesses, skipped=false, reward=null, timedOut=false) {
+function getResultMessage(both, hintsUsed, guessCount, maxGuesses, skipped=false, reward=null, timedOut=false, outOfPoints=false) {
   if (skipped) return pickRandom("skipped", MSG_BANKS.skipped);
   if (timedOut) return pickRandom("timesUp", MSG_BANKS.timesUp);
+  if (outOfPoints) return pickRandom("outOfPoints", MSG_BANKS.outOfPoints);
   if (both && reward === 0) return pickRandom("burnedOut", MSG_BANKS.burnedOut);
   if (both && hintsUsed === 0 && guessCount === 1) return pickRandom("perfect1", MSG_BANKS.perfect1);
   if (both && hintsUsed === 0 && guessCount === 2) return pickRandom("perfect2", MSG_BANKS.perfect2);
@@ -3313,13 +3327,20 @@ function getResultMessage(both, hintsUsed, guessCount, maxGuesses, skipped=false
 // 
 // ROUND RESULT POPUP — auto-shown the moment a round ends
 // 
-function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, roundScore, bonus=null, onBonus, cardIdx, totalCards, results=[], isLast, onNext, onMenu, skipped=false, timedOut=false, showSticker=false, stickerSrc=null, stickerDurationMs=2200, onStickerEnded, reducedMotion=false, transitionFamily=TRANSITION_FAMILIES.punchy}) {
+function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, roundScore, bonus=null, onBonus, cardIdx, totalCards, results=[], isLast, onNext, onMenu, skipped=false, timedOut=false, outOfPoints=false, showSticker=false, stickerSrc=null, stickerDurationMs=2200, onStickerEnded, reducedMotion=false, transitionFamily=TRANSITION_FAMILIES.punchy}) {
   const both = found[0] && found[1];
   const won = both;
   const msgRef = useRef(null);
   if (!msgRef.current) {
-    msgRef.current = getResultMessage(both, hintCount, guessCount, maxGuesses, skipped, roundScore, timedOut);
+    msgRef.current = getResultMessage(both, hintCount, guessCount, maxGuesses, skipped, roundScore, timedOut, outOfPoints && !both && !skipped && !timedOut);
   }
+  const cancelled = outOfPoints && !both && !skipped && !timedOut;
+  // The CANCELLED stamp thwacks down just after the title lands.
+  useEffect(() => {
+    if (!cancelled) return;
+    const id = setTimeout(() => SFX.stamp(), reducedMotion ? 0 : 900);
+    return () => clearTimeout(id);
+  }, [cancelled, reducedMotion]);
   const msg = msgRef.current;
   const title = card.mashedTitle || card.movies.join(" + ");
   const [showConnection,setShowConnection]=useState(false);
@@ -3589,6 +3610,12 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
 
             <div style={{position:"absolute",left:rx(25),top:ry(titleY),width:rx(352),height:ry(78),background:"#342698",border:"2px solid #F6A507",borderRadius:11,boxShadow:"0 4px 0 #1C1D21",padding:"10px 12px",boxSizing:"border-box",display:"flex",alignItems:"center",justifyContent:"center",...titleSlam}}>
               <div style={popupTitleStyle}>{title}</div>
+              {cancelled && (
+                <div aria-label="Cancelled" role="img"
+                  style={{position:"absolute",left:"50%",top:"50%",transform:"translate(-50%,-50%) rotate(-12deg)",border:"3px solid #E8344E",borderRadius:6,padding:"4px 14px",color:"#E8344E",background:"rgba(255,255,255,0.08)",fontFamily:FONT_FIGMA_STICKER,fontSize:"clamp(20px, 7vw, 30px)",letterSpacing:"0.08em",lineHeight:1,whiteSpace:"nowrap",pointerEvents:"none",mixBlendMode:"screen",textShadow:"0 0 1px #E8344E",animation:reducedMotion?"none":"cancelStamp 380ms cubic-bezier(.3,1.6,.5,1) 900ms both"}}>
+                  CANCELLED
+                </div>
+              )}
             </div>
 
             <div style={{position:"absolute",left:rx(24),top:ry(401),width:rx(131),height:ry(40),background:"#D3CAFE",border:"2px solid #1C1D21",borderRadius:9,boxShadow:"0 4px 0 #1C1D21",padding:"0 10px",display:"inline-flex",alignItems:"center",gap:8,justifyContent:"center",boxSizing:"border-box",...stagedRise(320, 8)}}>
@@ -6411,6 +6438,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
           isLast={isLast||timedOut}
           skipped={skipped}
           timedOut={timedOut}
+          outOfPoints={rewardSpent}
           showSticker={showWinAnimation && both}
           stickerSrc={winAnimationSrc}
           stickerDurationMs={winAnimationDurationMs}
@@ -7076,6 +7104,7 @@ function PlotMixApp() {
         @keyframes slideIn { from{opacity:0;transform:translateX(-8px)}  to{opacity:1;transform:translateX(0)} }
         @keyframes slideUp { from{opacity:0;transform:translateY(20px)}  to{opacity:1;transform:translateY(0)} }
         @keyframes pulse   { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        @keyframes cancelStamp{ 0%{opacity:0;transform:translate(-50%,-50%) rotate(-12deg) scale(2.4)} 70%{opacity:1;transform:translate(-50%,-50%) rotate(-12deg) scale(0.94)} 100%{opacity:1;transform:translate(-50%,-50%) rotate(-12deg) scale(1)} }
         @keyframes titlePop{ 0%{opacity:0;transform:scale(0.75)} 60%{transform:scale(1.06)} 100%{opacity:1;transform:scale(1)} }
         @keyframes impactShake { 0%{transform:translateX(0)} 25%{transform:translateX(-6px)} 50%{transform:translateX(5px)} 75%{transform:translateX(-3px)} 100%{transform:translateX(0)} }
         @keyframes impactFlash { 0%{opacity:0} 30%{opacity:1} 100%{opacity:0} }
