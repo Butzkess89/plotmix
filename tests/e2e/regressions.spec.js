@@ -131,9 +131,20 @@ test.describe('A2: the OS "reduce motion" setting is respected', () => {
     test(`between cards: ${label.toLowerCase()} (one of four, picked at random), under 2 seconds`, async ({ page }) => {
       await page.emulateMedia({ reducedMotion: 'no-preference' })
       await page.addInitScript((k) => localStorage.setItem('plotmix_force_card_change', JSON.stringify(k)), kind)
+      // Time the overlay in the page itself (as the leader test does), so slow test-runner
+      // polling on a busy CI machine is not counted as time the animation was on screen.
+      await page.addInitScript((name) => {
+        window.__overlay = {}
+        new MutationObserver(() => {
+          const on = !!document.querySelector(`[aria-label="${name}"]`)
+          if (on && window.__overlay.start == null) window.__overlay.start = performance.now()
+          if (!on && window.__overlay.start != null && window.__overlay.end == null) window.__overlay.end = performance.now()
+        }).observe(document, { subtree: true, childList: true })
+      }, label)
       expect(await playOneCardAndWatchTransition(page)).toBe(true)
-      await expect(page.getByRole('status', { name: label })).toBeAttached()
-      await expect(page.getByRole('status', { name: label })).toHaveCount(0, { timeout: 2_000 })
+      await expect(page.getByRole('status', { name: label })).toHaveCount(0, { timeout: 5_000 })
+      const { start, end } = await page.evaluate(() => window.__overlay)
+      expect(end - start).toBeLessThan(2_000)
     })
   }
   test('the clapperboard shows the next scene number', async ({ page }) => {
