@@ -100,13 +100,13 @@ test.describe('D. Daily number and countdown', () => {
 test.describe('E. Points roll and shake', () => {
   test('losing points shakes the counter, harder for bigger losses', async ({ page }) => {
     await resumeStandardWithCards(page, [77])
-    const amp = () => page.evaluate(() => [...document.querySelectorAll('span')].find((s) => /^PTS: /.test(s.textContent))?.style.getPropertyValue('--amp'))
+    const amp = () => page.evaluate(() => [...document.querySelectorAll('span')].find((s) => /^\$\d+M$/.test(s.textContent))?.style.getPropertyValue('--amp'))
     await submitGuess(page, 'zzqxwrong') // -1
     await expect.poll(amp).toBe('4px')
-    await expect(page.getByText('PTS: 9')).toBeVisible()
+    await expect(page.getByText('$9M')).toBeVisible()
     await submitGuess(page, 'zzqa zzqb zzqc') // -3
     await expect.poll(amp).toBe('8px')
-    await expect(page.getByText('PTS: 6')).toBeVisible()
+    await expect(page.getByText('$6M')).toBeVisible()
   })
 })
 
@@ -256,7 +256,7 @@ test.describe("L. Director's Whisper hint", () => {
     await page.getByRole('button', { name: 'Open hints' }).click()
     await page.getByRole('button', { name: /Director's Whisper/ }).click()
     await page.getByRole('button', { name: 'Close hints' }).click()
-    await expect(page.getByText('PTS: 8')).toBeVisible()
+    await expect(page.getByText('$8M')).toBeVisible()
   })
   test('title words in the clue are blanked', async ({ page }) => {
     const { readDeck } = await import('./helpers.js')
@@ -561,7 +561,7 @@ test.describe('Arcade power-ups in the main game', () => {
     await page.getByRole('button', { name: 'Use a Free Hint (1 left)' }).click()
     // The hints close so the power-up can be seen working (owner request 2026-10-26).
     await expect(page.getByRole('button', { name: 'Close hints' })).toHaveCount(0)
-    await expect(page.getByText('PTS: 10')).toBeVisible()
+    await expect(page.getByText('$10M')).toBeVisible()
     await page.getByRole('button', { name: 'Open hints' }).click()
     await expect(page.getByRole('button', { name: /Year & Genre.*✓/ })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Use a Free Hint (0 left)' })).toBeDisabled()
@@ -578,7 +578,7 @@ test.describe('Arcade power-ups in the main game', () => {
     // the 3rd, 6th, 9th... letter of the title
     const letters = 'TheNightmareBeforeChristmasStory'.split('').filter((_, i) => (i + 1) % 3 === 0).join('')
     await expect.poll(() => shownLetters(page)).toBe(letters)
-    await expect(page.getByText('PTS: 10')).toBeVisible()
+    await expect(page.getByText('$10M')).toBeVisible()
   })
 
   test('power-ups are not offered in the Daily', async ({ page }) => {
@@ -620,14 +620,16 @@ test.describe('Owner fixes 2026-10-25', () => {
     expect(colours).toEqual(['rgb(21, 128, 61)'])
   })
 
-  test('"in a row" drops to 0 as soon as a card is lost, then counts again', async ({ page }) => {
+  test('"in a row" drops to 0 as soon as a card is skipped, then counts again', async ({ page }) => {
     await resumeStandardWithCards(page, [77, 1, 2])
     await submitGuess(page, 'The Nightmare Before Christmas Story')
     await expect(page.getByLabel('Streak: 1')).toBeVisible()
     await page.getByRole('button', { name: 'Next' }).click()
-    for (let i = 0; i < 10; i++) await submitGuess(page, `zzqxwrong${'abcdefghij'[i]}`)
-    await expect(page.getByLabel('Streak: 0')).toBeVisible() // already on the lost card's result
+    await page.getByRole('button', { name: 'Skip card' }).click()
+    await page.getByRole('button', { name: 'Skip It' }).click()
+    await expect(page.getByLabel('Streak: 0')).toBeVisible() // already on the skipped card's result
     await page.getByRole('button', { name: 'Next' }).click()
+    await waitForSave(page, 'standard', (st) => st.cardIdx === 2)
     await submitGuess(page, '13 Going on 30 Days of Night')
     await expect(page.getByLabel('Streak: 1')).toBeVisible()
   })

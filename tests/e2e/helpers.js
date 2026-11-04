@@ -88,7 +88,7 @@ export async function currentCard(page, modeId) {
   return session.deck[session.cardIdx]
 }
 
-export const pointsCounter = (page) => page.getByText(/^PTS: \d+$/)
+export const pointsCounter = (page) => page.getByText(/^\$\d+M$/)
 
 // The card list, read straight from PlotMix.jsx (same method as tests/data/deck-check.mjs).
 // Tests run from the project root, where playwright.config.js lives.
@@ -108,7 +108,7 @@ export async function resumeStandardWithCards(page, cardIds) {
   const save = {
     standard: {
       modeName: MODES.standard.label, modeId: 'standard', cardIdx: 0, guesses: [], hintsRevealed: [],
-      results: [], totalScore: 0, lives: 6, timeLeft: 0, deckLen: deck.length, deck,
+      results: [], totalScore: 0, budget: 10, timeLeft: 0, deckLen: deck.length, deck,
       dailyKey: null, schemaVersion: 2, savedAt: Date.now(),
     },
   }
