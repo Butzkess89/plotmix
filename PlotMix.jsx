@@ -2527,18 +2527,20 @@ function IconStar({size=21}) {
 }
 
 
-// Card counter icon: a small clapperboard (owner decision 2026-11-04: no non-cinema icons in the HUD).
-function IconClapper({size=24}) {
-  const stripes=[5,13,21];
+// Card counter: the clapperboard from the opening title video, with its "?" painted out so
+// the scene number can sit on the slate (owner request 2026-11-04).
+function SceneClapper({scene, total}) {
   return (
-    <svg width={size} height={size*(22/26)} viewBox="0 0 26 22" aria-hidden="true" style={{display:"block",flexShrink:0,overflow:"visible"}}>
-      <g transform="rotate(-14 2 8)">
-        <rect x="1" y="3" width="24" height="5" rx="1" fill="#F3F4FF" stroke="#1C1D21" strokeWidth="1.2"/>
-        {stripes.map(x=><polygon key={x} points={`${x},3 ${x+4},3 ${x+1.5},8 ${x-2.5},8`} fill="#1C1D21"/>)}
-      </g>
-      <rect x="1" y="9" width="24" height="12" rx="1.5" fill="#F3F4FF" stroke="#1C1D21" strokeWidth="1.2"/>
-      <rect x="1" y="9" width="24" height="4" fill="#1C1D21"/>
-    </svg>
+    <div role="img" aria-label={`Scene ${scene} of ${total}`}
+      style={{position:"relative",width:86,height:84,flexShrink:0,margin:"-8px 0 -14px -4px"}}>
+      <img src="/stickers/scene-clapper.webp" alt="" aria-hidden="true" draggable="false"
+        style={{display:"block",width:"100%",height:"100%",userSelect:"none",pointerEvents:"none",filter:"drop-shadow(0 3px 0 #1C1D21)"}}/>
+      <div aria-hidden="true" style={{position:"absolute",left:"6%",right:"6%",top:"40%",bottom:"8%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
+        ...YELLOW_STICKER_TEXT,lineHeight:1,textAlign:"center"}}>
+        <span style={{fontSize:11,letterSpacing:"0.06em"}}>SCENE</span>
+        <span style={{fontSize:20,marginTop:2}}>{scene}/{total}</span>
+      </div>
+    </div>
   );
 }
 
@@ -6457,10 +6459,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
 
         {/* HEADER — stat row only; the X exit button floats fixed above (see below) */}
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,padding:"72px 0 24px"}}>
-          <div style={HUD_STAT_PILL}>
-            <IconClapper size={24}/>
-            <span aria-label={`Scene ${cardIdx+1} of ${deck.length}`} style={HUD_COUNTER_TEXT}><span style={{fontSize:"0.62em",marginRight:4,letterSpacing:"0.04em"}}>SCENE</span>{cardIdx+1}/{deck.length}</span>
-          </div>
+          <SceneClapper scene={cardIdx+1} total={deck.length}/>
           <div style={HUD_STAT_PILL} aria-label="Studio budget">
             <span aria-hidden="true" style={{fontSize:19,lineHeight:1}}>💰</span>
             <RollingPoints value={liveCardPts} reducedMotion={reducedMotion} style={HUD_COUNTER_TEXT}/>
