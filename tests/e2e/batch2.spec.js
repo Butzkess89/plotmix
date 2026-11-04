@@ -187,7 +187,8 @@ test.describe('#9 sound on/off', () => {
     await countSounds(page)
     await openMenu(page)
     await startMode(page, 'standard')
-    await expect(page.getByRole('button', { name: 'Sound' })).toBeVisible()
+    // The sound button lives on the main menu only, not during play (owner decision 2026-11-04).
+    await expect(page.getByRole('button', { name: 'Sound' })).toHaveCount(0)
     await submitGuess(page, 'zzqxwrong')
     await expect.poll(() => page.evaluate(() => window.__tones)).toBeGreaterThan(0)
   })

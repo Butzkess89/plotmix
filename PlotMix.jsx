@@ -6494,13 +6494,8 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
                 // Padding cancelled by negative margins: same layout as before, room for a backdrop.
                 margin:"-8px -20px",padding:"8px 20px",
                 ...(guessDocked?{...CHECKER_BG,boxShadow:"0 -6px 12px rgba(0,0,0,0.22)"}:{})}}>
-                {/* Sound sits at the right end of the typing row, just above the button bar (owner request 2026-11-04). */}
-                <div style={{display:"flex",alignItems:"center",gap:10}}>
-                  <div style={{flex:1,minWidth:0}}>
-                    <GuessInput ref={guessInputRef} onSubmit={handleGuess} disabled={both||cardLost||viewOnly||countingDown} allowSingleLetterY={allowSingleLetterY}/>
-                  </div>
-                  <SoundToggle style={{flexShrink:0}}/>
-                </div>
+                {/* No sound button during play: it lives on the main menu only (owner request 2026-11-04). */}
+                <GuessInput ref={guessInputRef} onSubmit={handleGuess} disabled={both||cardLost||viewOnly||countingDown} allowSingleLetterY={allowSingleLetterY}/>
               </div>
 
 
