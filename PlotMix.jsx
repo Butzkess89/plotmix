@@ -2532,13 +2532,13 @@ function IconStar({size=21}) {
 function SceneClapper({scene, total}) {
   return (
     <div role="img" aria-label={`Scene ${scene} of ${total}`}
-      style={{position:"relative",width:86,height:84,flexShrink:0,margin:"-8px 0 -14px -4px"}}>
+      style={{position:"relative",width:96,height:94,flexShrink:0}}>
       <img src="/stickers/scene-clapper.webp" alt="" aria-hidden="true" draggable="false"
         style={{display:"block",width:"100%",height:"100%",userSelect:"none",pointerEvents:"none",filter:"drop-shadow(0 3px 0 #1C1D21)"}}/>
       <div aria-hidden="true" style={{position:"absolute",left:"6%",right:"6%",top:"40%",bottom:"8%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
         ...YELLOW_STICKER_TEXT,lineHeight:1,textAlign:"center"}}>
-        <span style={{fontSize:11,letterSpacing:"0.06em"}}>SCENE</span>
-        <span style={{fontSize:20,marginTop:2}}>{scene}/{total}</span>
+        <span style={{fontSize:12,letterSpacing:"0.06em"}}>SCENE</span>
+        <span style={{fontSize:23,marginTop:2}}>{scene}/{total}</span>
       </div>
     </div>
   );
@@ -2608,49 +2608,6 @@ function IconStopwatch({size=48}) {
 }
 
 
-function DiffBadge({level, reason}) {
-  const s={
-    Easy:   {bg:T.green},
-    Medium: {bg:T.gold},
-    Hard:   {bg:T.red},
-  }[level]||{bg:T.textMuted};
-  const minWidthByLevel = { Easy: 58, Medium: 86, Hard: 62 };
-  const [show,setShow]=useState(false);
-  return (
-    <div style={{position:"relative",display:"inline-block"}}>
-      <span onMouseEnter={()=>setShow(true)} onMouseLeave={()=>setShow(false)}
-        style={{
-          background:s.bg,
-          color:"#FFFFFF",
-          border:`2px solid ${T.border}`,
-          borderRadius:999,
-          minHeight:28,
-          minWidth:minWidthByLevel[level] || 62,
-          padding:"0 12px",
-          fontSize:11,
-          lineHeight:1,
-          fontFamily:FONT_FIGMA_STICKER,
-          fontWeight:700,
-          letterSpacing:"0.04em",
-          textShadow:"none",
-          textTransform:"uppercase",
-          cursor:reason?"help":"default",
-          display:"inline-flex",
-          alignItems:"center",
-          justifyContent:"center",
-          whiteSpace:"nowrap",
-          boxShadow:"0 2px 0 #1C1D21",
-        }}>
-        {level}
-      </span>
-      {reason&&show&&(
-        <div style={{position:"absolute",bottom:"calc(100% + 8px)",left:0,background:"#fff",border:`2px solid ${T.border}`,borderRadius:T.r,padding:"12px 16px",fontSize:13,fontFamily:"'Outfit',sans-serif",color:T.textSecondary,zIndex:100,fontStyle:"italic",boxShadow:T.shadow,maxWidth:280,lineHeight:1.65,whiteSpace:"normal"}}>
-          {reason}
-        </div>
-      )}
-    </div>
-  );
-}
 
 
 
@@ -3934,27 +3891,19 @@ function ClapperTake({take, note, reducedMotion=false}) {
   );
 }
 
-// Run streak shown as a popcorn bucket that fills up; kernels pop on every film found.
+// Run streak shown as the owner's popcorn bucket art: 8 drawings that fill up (and spill)
+// as the streak grows; kernels pop on every film found (owner request 2026-11-04).
+const POPCORN_STAGES = Array.from({length:8}, (_,i)=>`/stickers/popcorn-${i}.webp`);
 function PopcornMeter({streak, popKey, reducedMotion=false}) {
-  // Shown from the start (empty at 0), with its "N in a row" label underneath.
-  const level = Math.min(5, streak);
-  const kernels = [[-26,-30],[-12,-42],[4,-46],[18,-38],[28,-24]];
+  const level = Math.min(POPCORN_STAGES.length-1, streak);
+  const kernels = [[-30,-34],[-14,-48],[4,-54],[20,-44],[32,-28]];
   return (
-    <div aria-label={`Streak: ${streak}`} style={{position:"absolute",top:12,left:"50%",transform:"translateX(-50%)",zIndex:250,width:80,height:58,pointerEvents:"none",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start"}}>
-      <svg width="26" height="31" viewBox="0 0 34 40" aria-hidden="true" style={{overflow:"visible",marginTop:6}}>
-        {Array.from({length:level}).map((_,i)=>(
-          <g key={i} transform={`translate(${5 + (i%3)*8 + (i>2?4:0)}, ${14 - (i>2?7:0)})`}>
-            <circle r="5.5" fill="#FFF6D8" stroke="#1C1D21" strokeWidth="1.2"/>
-            <circle r="2" cx="1.5" cy="-1" fill="#FFD84D"/>
-          </g>
-        ))}
-        <path d="M2 14 H32 L28 39 H6 Z" fill="#F3F4FF" stroke="#1C1D21" strokeWidth="1.6" strokeLinejoin="round"/>
-        <path d="M9 14 L11 39 M17 14 V39 M25 14 L23 39" stroke="#E4444F" strokeWidth="4"/>
-        <path d="M2 14 H32 L28 39 H6 Z" fill="none" stroke="#1C1D21" strokeWidth="1.6" strokeLinejoin="round"/>
-      </svg>
-      <span style={{marginTop:3,height:17,padding:"0 7px",borderRadius:9,background:"#FFD84D",border:"1.5px solid #1C1D21",fontFamily:FONT_FIGMA_STICKER,fontSize:8.5,color:"#1C1D21",display:"flex",alignItems:"center",whiteSpace:"nowrap",boxSizing:"border-box",animation:reducedMotion?"none":"titlePop 0.35s ease both"}}>{streak} in a row</span>
+    <div aria-label={`Streak: ${streak}`} style={{position:"absolute",top:6,left:"50%",transform:"translateX(-50%)",zIndex:250,width:120,pointerEvents:"none",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start"}}>
+      <img src={POPCORN_STAGES[level]} alt="" aria-hidden="true" draggable="false"
+        style={{display:"block",width:76,height:"auto",userSelect:"none",filter:"drop-shadow(0 3px 0 rgba(0,0,0,0.35))",animation:reducedMotion||!popKey?"none":"scorePulse 0.28s ease"}} key={`b-${level}-${popKey}`}/>
+      <span style={{marginTop:-4,height:20,padding:"0 9px",borderRadius:10,background:"#FFD84D",border:"1.5px solid #1C1D21",fontFamily:FONT_FIGMA_STICKER,fontSize:10,color:"#1C1D21",display:"flex",alignItems:"center",whiteSpace:"nowrap",boxSizing:"border-box",animation:reducedMotion?"none":"titlePop 0.35s ease both"}}>{streak} in a row</span>
       {!reducedMotion && popKey > 0 && kernels.map(([dx,dy],i)=>(
-        <span key={`${popKey}-${i}`} style={{position:"absolute",left:36,top:14,width:9,height:9,borderRadius:"50%",background:"#FFF6D8",border:"1px solid #1C1D21",
+        <span key={`${popKey}-${i}`} style={{position:"absolute",left:52,top:30,width:9,height:9,borderRadius:"50%",background:"#FFF6D8",border:"1px solid #1C1D21",
           "--dx":`${dx}px`,"--dy":`${dy}px`,animation:`kernelPop 0.7s cubic-bezier(.2,.8,.3,1) ${i*30}ms both`}}/>
       ))}
     </div>
@@ -6458,20 +6407,14 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       <div style={{maxWidth:402,margin:"0 auto",animation:cameraShakeLayerAnimation}}>
 
         {/* HEADER — stat row only; the X exit button floats fixed above (see below) */}
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,padding:"72px 0 24px"}}>
+        {/* Big art, no bubbles (owner request 2026-11-04): scene clapper left, budget bag right. */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:16,padding:`112px 4px ${mode.timeLimit>0?66:30}px`}}>
           <SceneClapper scene={cardIdx+1} total={deck.length}/>
-          <div style={HUD_STAT_PILL} aria-label="Studio budget">
-            <span aria-hidden="true" style={{fontSize:19,lineHeight:1}}>💰</span>
-            <RollingPoints value={liveCardPts} reducedMotion={reducedMotion} style={HUD_COUNTER_TEXT}/>
+          <div aria-label="Studio budget" style={{display:"flex",alignItems:"center",gap:8}}>
+            <img src="/stickers/budget-bag.webp" alt="" aria-hidden="true" draggable="false"
+              style={{display:"block",width:74,height:"auto",userSelect:"none",filter:"drop-shadow(0 3px 0 rgba(0,0,0,0.35))"}}/>
+            <RollingPoints value={liveCardPts} reducedMotion={reducedMotion} style={{...YELLOW_STICKER_TEXT,fontSize:30,lineHeight:1}}/>
           </div>
-          {mode.timeLimit>0&&(
-            <div style={HUD_STAT_PILL}>
-              <IconStopwatch size={22}/>
-              <span style={{...HUD_COUNTER_TEXT,color:timeLeft<=10?"#FF6B6B":"#FFFFFF"}}>
-                {String(Math.floor(timeLeft/60)).padStart(1,"0")}:{String(timeLeft%60).padStart(2,"0")}
-              </span>
-            </div>
-          )}
         </div>
 
         {/* PLAYING — structure matches Figma exactly: plot card, bare hangman tiles,
@@ -6480,13 +6423,17 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
 
               {/*  PLOT CARD  */}
               <div style={{background:"#fff",borderRadius:22,padding:"26px 20px 22px",boxSizing:"border-box",position:"relative",border:`2px solid ${T.border}`,boxShadow:T.shadow,marginTop:0}}>
-                <div style={{position:"absolute",top:-12,left:20,minWidth:104,height:24,padding:"0 10px",background:"#44408E",border:`1.5px solid ${T.border}`,borderRadius:4,boxShadow:"0 2px 0 #1C1D21",display:"inline-flex",alignItems:"center",justifyContent:"center",fontFamily:FONT_FIGMA_STICKER,fontSize:11,color:"#F3F4FF",textTransform:"uppercase",letterSpacing:"0.04em",lineHeight:1,whiteSpace:"nowrap"}}>
-                  Mashed Plot
-                </div>
-                <div style={{position:"absolute",top:-14,right:14}}>
-                  <DiffBadge level={card.difficulty} reason={card.difficultyReason}/>
-                </div>
-                <p style={{margin:"6px 0 0",fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:"clamp(16px, 5.3vw, 22px)",lineHeight:1.42,color:"#1C1D21"}}>
+                {/* Speed Run: a big countdown clock where the difficulty badge used to be (owner request 2026-11-04). */}
+                {mode.timeLimit>0&&(
+                  <div aria-label="Time left" style={{position:"absolute",top:-40,right:-6,display:"flex",alignItems:"center",gap:4,
+                    animation:!reducedMotion&&timeLeft<=10&&timeLeft>0?"ptsShake 0.5s ease infinite":"none","--amp":"2px"}}>
+                    <IconStopwatch size={54}/>
+                    <span style={{...YELLOW_STICKER_TEXT,fontSize:30,lineHeight:1,color:timeLeft<=10?"#FF5A5A":T.gold}}>
+                      {`${Math.floor(timeLeft/60)}:${String(timeLeft%60).padStart(2,"0")}`}
+                    </span>
+                  </div>
+                )}
+                <p style={{margin:0,fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:"clamp(16px, 5.3vw, 22px)",lineHeight:1.42,color:"#1C1D21"}}>
                   {card.mashedPlot}
                 </p>
                 {viewOnly&&(()=>{
