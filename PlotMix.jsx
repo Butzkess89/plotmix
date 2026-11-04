@@ -3894,10 +3894,10 @@ function ClapperTake({take, note, reducedMotion=false}) {
 // Run streak shown as the owner's popcorn bucket art: 8 drawings that fill up (and spill)
 // as the streak grows; kernels pop on every film found (owner request 2026-11-04).
 const POPCORN_STAGES = Array.from({length:9}, (_,i)=>`/stickers/popcorn-${i}.webp`);
-function PopcornMeter({streak, popKey, reducedMotion=false, inline=false}) {
+function PopcornMeter({streak, popKey, reducedMotion=false, inline=false, width}) {
   const level = Math.min(POPCORN_STAGES.length-1, streak);
   const kernels = [[-30,-34],[-14,-48],[4,-54],[20,-44],[32,-28]];
-  const bucketW = inline ? 58 : 76;
+  const bucketW = width || (inline ? 58 : 76);
   const bucket = (
     <div style={{position:"relative",width:bucketW}}>
       <img src={POPCORN_STAGES[level]} alt="" aria-hidden="true" draggable="false"
@@ -3908,13 +3908,8 @@ function PopcornMeter({streak, popKey, reducedMotion=false, inline=false}) {
       ))}
     </div>
   );
-  // Regular runs: bucket + streak sit centered on the plot card's top edge, like the Speed Run clock.
-  if (inline) return (
-    <div aria-label={`Streak: ${streak}`} style={{position:"absolute",top:-40,left:0,right:0,display:"flex",alignItems:"center",justifyContent:"center",gap:8,pointerEvents:"none"}}>
-      {bucket}
-      <span style={{...YELLOW_STICKER_TEXT,fontSize:20,lineHeight:1,position:"relative",top:-10,color:"#FFFFFF",whiteSpace:"nowrap"}}>{streak} in a row</span>
-    </div>
-  );
+  // Regular runs: just the bucket; the HUD places it and the streak text (owner layout 2026-11-04).
+  if (inline) return <div aria-label={`Streak: ${streak}`} style={{pointerEvents:"none"}}>{bucket}</div>;
   // Speed Run: the clock owns the card edge, so the bucket sits top-center between the X and sound buttons.
   return (
     <div aria-label={`Streak: ${streak}`} style={{position:"absolute",top:6,left:"50%",transform:"translateX(-50%)",zIndex:250,width:120,pointerEvents:"none",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start"}}>
@@ -6389,12 +6384,11 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       {/* Persistent exit X — fixed above every popup/modal, matches every Figma reference screen */}
       {/* 44x44 tap area (recommended minimum) around the same 33x35 icon, at the same spot */}
       <button onClick={()=>{clearSession(mode.id);onQuit();}} aria-label="Exit to menu"
-        style={{position:"absolute",top:20.5,left:14.5,zIndex:400,width:44,height:44,background:"transparent",border:"none",padding:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+        style={{position:"absolute",top:8,left:4,zIndex:400,width:44,height:44,background:"transparent",border:"none",padding:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
         <img src="/design-reference/Exit.svg" alt="" aria-hidden="true" draggable="false"
           style={{display:"block",width:33,height:35,pointerEvents:"none",userSelect:"none"}}/>
       </button>
 
-      <SoundToggle style={{position:"absolute",top:22,right:20,zIndex:400}}/>
 
 
       {/* Are-you-sure skip confirmation */}
@@ -6422,7 +6416,8 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
 
         {/* HEADER — stat row only; the X exit button floats fixed above (see below) */}
         {/* Big art, no bubbles (owner request 2026-11-04): scene clapper left, budget bag right. */}
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:16,padding:mode.timeLimit>0?"112px 4px 66px":"86px 4px 48px"}}>
+        {mode.timeLimit>0 ? (
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:16,padding:"112px 4px 66px"}}>
           <SceneClapper scene={cardIdx+1} total={deck.length}/>
           <div aria-label="Studio budget" style={{display:"flex",alignItems:"center",gap:8}}>
             <img src="/stickers/budget-bag.webp" alt="" aria-hidden="true" draggable="false"
@@ -6433,6 +6428,24 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
             </div>
           </div>
         </div>
+        ) : (
+          /* Regular runs: positions placed by the owner in the HUD layout lab (2026-11-04),
+             in px on a 402px screen; the HUD box starts 20px in, so x is offset by 20 and
+             spread as a % of its 362px width. The plot card starts 237px down. */
+          <div style={{position:"relative",height:237,zIndex:2}}>
+            {(()=>{ const at=(x,y)=>({position:"absolute",left:`${(x-20)/362*100}%`,top:y}); return (<>
+              <div style={at(63,35)}><SceneClapper scene={cardIdx+1} total={deck.length}/></div>
+              <img src="/stickers/budget-bag.webp" alt="" aria-hidden="true" draggable="false"
+                style={{...at(176,56),display:"block",width:93,height:"auto",userSelect:"none",filter:"drop-shadow(0 3px 0 rgba(0,0,0,0.35))"}}/>
+              <div aria-label="Studio budget" style={{...at(270,77),width:102,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                <RollingPoints value={liveCardPts} reducedMotion={reducedMotion} style={{...YELLOW_STICKER_TEXT,fontSize:30,lineHeight:1}}/>
+              <span aria-hidden="true" style={{...WHITE_STICKER_TEXT,fontSize:12,lineHeight:1,letterSpacing:1.5}}>BUDGET</span>
+              </div>
+              <div style={at(45,151)}><PopcornMeter inline width={104} streak={runStreak} popKey={popKey} reducedMotion={reducedMotion}/></div>
+              <span style={{...at(146,197),...WHITE_STICKER_TEXT,fontSize:17,lineHeight:1,whiteSpace:"nowrap"}}>{runStreak} in a row</span>
+            </>); })()}
+          </div>
+        )}
 
         {/* PLAYING — structure matches Figma exactly: plot card, bare hangman tiles,
             guess input, then a fixed bottom button bar. Nothing else. */}
@@ -6441,7 +6454,6 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
               {/*  PLOT CARD  */}
               <div style={{background:"#fff",borderRadius:22,padding:"26px 20px 22px",boxSizing:"border-box",position:"relative",border:`2px solid ${T.border}`,boxShadow:T.shadow,marginTop:0}}>
                 {/* Speed Run: a big countdown clock where the difficulty badge used to be (owner request 2026-11-04). */}
-                {!(mode.timeLimit>0)&&<PopcornMeter inline streak={runStreak} popKey={popKey} reducedMotion={reducedMotion}/>}
                 {mode.timeLimit>0&&(
                   <div aria-label="Time left" style={{position:"absolute",top:-40,left:0,right:0,display:"flex",alignItems:"center",justifyContent:"center",gap:4,
                     animation:!reducedMotion&&timeLeft<=10&&timeLeft>0?"ptsShake 0.5s ease infinite":"none","--amp":"2px"}}>
@@ -6482,7 +6494,13 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
                 // Padding cancelled by negative margins: same layout as before, room for a backdrop.
                 margin:"-8px -20px",padding:"8px 20px",
                 ...(guessDocked?{...CHECKER_BG,boxShadow:"0 -6px 12px rgba(0,0,0,0.22)"}:{})}}>
-                <GuessInput ref={guessInputRef} onSubmit={handleGuess} disabled={both||cardLost||viewOnly||countingDown} allowSingleLetterY={allowSingleLetterY}/>
+                {/* Sound sits at the right end of the typing row, just above the button bar (owner request 2026-11-04). */}
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <GuessInput ref={guessInputRef} onSubmit={handleGuess} disabled={both||cardLost||viewOnly||countingDown} allowSingleLetterY={allowSingleLetterY}/>
+                  </div>
+                  <SoundToggle style={{flexShrink:0}}/>
+                </div>
               </div>
 
 
