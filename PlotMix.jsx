@@ -2532,10 +2532,10 @@ function IconStar({size=21}) {
 function SceneClapper({scene, total}) {
   return (
     <div role="img" aria-label={`Scene ${scene} of ${total}`}
-      style={{position:"relative",width:96,height:94,flexShrink:0}}>
+      style={{position:"relative",width:96,height:103,flexShrink:0}}>
       <img src="/stickers/scene-clapper.webp" alt="" aria-hidden="true" draggable="false"
         style={{display:"block",width:"100%",height:"100%",userSelect:"none",pointerEvents:"none",filter:"drop-shadow(0 3px 0 #1C1D21)"}}/>
-      <div aria-hidden="true" style={{position:"absolute",left:"6%",right:"6%",top:"40%",bottom:"8%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
+      <div aria-hidden="true" style={{position:"absolute",left:"6%",right:"6%",top:"45%",bottom:"7%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
         ...YELLOW_STICKER_TEXT,lineHeight:1,textAlign:"center"}}>
         <span style={{fontSize:12,letterSpacing:"0.06em"}}>SCENE</span>
         <span style={{fontSize:23,marginTop:2}}>{scene}/{total}</span>
