@@ -3266,17 +3266,22 @@ function getResultMessage(both, hintsUsed, guessCount, maxGuesses, skipped=false
 // The two films on the win popup are old-fashioned roll tickets: kraft paper, a red printed
 // frame, a serial number on the stub and serrated tear edges (owner request 2026-11-05).
 const TICKET_EDGES = "conic-gradient(from 45deg at left, #0000, #000 1deg 89deg, #0000 90deg) left / 51% 7px repeat-y, conic-gradient(from -135deg at right, #0000, #000 1deg 89deg, #0000 90deg) right / 51% 7px repeat-y";
+// Old roll-ticket corners: a quarter-circle bite out of each corner (owner reference 2026-11-05).
+const TICKET_CORNER_R = 10;
+const TICKET_CORNERS = [["0 0","left top"],["100% 0","right top"],["0 100%","left bottom"],["100% 100%","right bottom"]].map(([at, place]) => `radial-gradient(circle ${TICKET_CORNER_R}px at ${at}, #0000 98%, #000) ${place} / 51% 51% no-repeat`).join(", ");
 const TICKET_PAPER = (tone) => `radial-gradient(rgba(92,70,38,0.16) 0.8px, transparent 1.3px) 0 0 / 6px 6px, radial-gradient(rgba(255,250,235,0.28) 0.8px, transparent 1.3px) 3px 2px / 9px 9px, linear-gradient(180deg, ${tone[0]}, ${tone[1]})`;
 function FilmTicket({chip, serial, tone = ["#DFCDA9", "#CDB68D"], tilt = 0, style, frame = 1.5}) {
   return (
     <div style={{width:chip.w ? `min(${chip.w}px, calc(100vw - 20px))` : `min(${chip.width + 34}px, calc(100% - 20px))`,height:chip.h ?? chip.height + 4,filter:"drop-shadow(0 3px 0 rgba(28,29,33,0.85))",...style}}>
+      <div style={{width:"100%",height:"100%",transform:`rotate(${tilt}deg)`,WebkitMask:TICKET_CORNERS,mask:TICKET_CORNERS}}>
       <div style={{position:"relative",width:"100%",height:"100%",boxSizing:"border-box",background:TICKET_PAPER(tone),
-        WebkitMask:TICKET_EDGES,mask:TICKET_EDGES,transform:`rotate(${tilt}deg)`,display:"flex",alignItems:"center",padding:"0 8px"}}>
-        <div style={{position:"absolute",inset:"5px 9px",border:`${frame}px solid #B0463E`,borderRadius:3,pointerEvents:"none"}}/>
+        WebkitMask:TICKET_EDGES,mask:TICKET_EDGES,display:"flex",alignItems:"center",padding:"0 8px"}}>
+        <div style={{position:"absolute",inset:"6px 11px",border:`${frame}px solid #B0463E`,borderRadius:3,pointerEvents:"none"}}/>
         <div style={{flex:1,minWidth:0,padding:"0 8px 0 12px",textAlign:"center",fontFamily:FONT_FIGMA_STICKER,fontSize:chip.fontSize,lineHeight:1.08,color:"#2A2420",textTransform:"uppercase",letterSpacing:"0.02em"}}>{chip.lines.join(" ")}</div>
         <div aria-hidden="true" style={{alignSelf:"stretch",width:26,flex:"none",margin:"5px 0",borderLeft:"1.5px solid #B0463E",display:"flex",alignItems:"center",justifyContent:"center"}}>
           <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:7.5,color:"#2A2420",writingMode:"vertical-rl",whiteSpace:"nowrap",letterSpacing:"0.06em"}}>{serial}</span>
         </div>
+      </div>
       </div>
     </div>
   );
@@ -3329,7 +3334,7 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
   const won = both;
   const msgRef = useRef(null);
   if (!msgRef.current) {
-    msgRef.current = getResultMessage(both, hintCount, guessCount, maxGuesses, skipped, roundScore, timedOut, outOfPoints && !both && !skipped && !timedOut);
+    msgRef.current = getResultMessage(both, hintCount, guessCount, maxGuesses, skipped, budgetLeft, timedOut, outOfPoints && !both && !skipped && !timedOut);
   }
   const cancelled = outOfPoints && !both && !skipped && !timedOut;
   // The CANCELLED stamp thwacks down just after the title lands.
@@ -3447,10 +3452,20 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
         transition: "opacity 180ms ease 520ms, transform 360ms cubic-bezier(.3,1.7,.5,1) 520ms",
       };
 
+  // After the first count-up, a later rise (the bonus question) pops the money bag instead.
+  const scoreShownRef = useRef(null);
+  const [bagPop, setBagPop] = useState(0);
   useEffect(() => {
+    const prev = scoreShownRef.current;
+    scoreShownRef.current = roundScore;
     if (reducedMotion) {
       setScoreDisplay(roundScore);
       return;
+    }
+    if (prev !== null && roundScore > prev) {
+      setBagPop(k => k + 1);
+      const id = setTimeout(() => setScoreDisplay(roundScore), 200);
+      return () => clearTimeout(id);
     }
     const start = performance.now();
     const duration = 650;
@@ -3531,6 +3546,12 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
     };
     const topTicket = ticketFor(card.movies[0]);
     const bottomTicket = ticketFor(card.movies[1]);
+    // A tilted ticket reaches higher/lower at its corners; push long ones down so they keep
+    // the same clearance from the title card (and each other) as the owner's layout.
+    const TILT1 = -4, TILT2 = 5;
+    const halfSpan = (t, deg) => { const r = Math.abs(deg) * Math.PI / 180; return t.h / 2 * Math.cos(r) + t.w / 2 * Math.sin(r); };
+    const ticket1Y = Math.max(147.5, 110 + halfSpan(topTicket, TILT1));
+    const ticket2Y = Math.max(242, ticket1Y + halfSpan(topTicket, TILT1) + 13.5 + halfSpan(bottomTicket, TILT2));
     return (
       <div style={{position:"fixed",inset:0,zIndex:300,display:"flex",justifyContent:"center",alignItems:"flex-end",overflowY:"auto",overflowX:"hidden",background:"rgba(0,0,0,0.35)",backdropFilter:reducedMotion?"none":"blur(5px)",animation:reducedMotion?"none":transitionFamily.popupBackdropIn}}
         onClick={e => e.target === e.currentTarget && !showConnection && onNext()}>
@@ -3600,17 +3621,24 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
             </div>
             </div>
 
-            <div style={{position:"absolute",left:rx(201),top:my(147.5),width:`min(${topTicket.w}px, calc(100% - 20px))`,height:topTicket.h,transform:"translate(-50%,-50%)"}}>
-              <FilmTicket chip={topTicket} frame={2} serial={String(312200 + (card.id||0) * 2).slice(-6)} tone={["#D6C29C", "#CDB68D"]} tilt={-4} style={{width:"100%",height:"100%",...smashIn(120, -280, "")}}/>
+            <div style={{position:"absolute",left:rx(201),top:my(ticket1Y),width:`min(${topTicket.w}px, calc(100% - 20px))`,height:topTicket.h,transform:"translate(-50%,-50%)"}}>
+              <FilmTicket chip={topTicket} frame={2} serial={String(312200 + (card.id||0) * 2).slice(-6)} tone={["#D6C29C", "#CDB68D"]} tilt={TILT1} style={{width:"100%",height:"100%",...smashIn(120, -280, "")}}/>
             </div>
-            <div style={{position:"absolute",left:rx(200),top:my(242),width:`min(${bottomTicket.w}px, calc(100% - 20px))`,height:bottomTicket.h,transform:"translate(-50%,-50%)"}}>
-              <FilmTicket chip={bottomTicket} frame={2} serial={String(312201 + (card.id||0) * 2).slice(-6)} tone={["#DAC7A2", "#D2BC94"]} tilt={5} style={{width:"100%",height:"100%",...smashIn(240, 280, "")}}/>
+            <div style={{position:"absolute",left:rx(200),top:my(ticket2Y),width:`min(${bottomTicket.w}px, calc(100% - 20px))`,height:bottomTicket.h,transform:"translate(-50%,-50%)"}}>
+              <FilmTicket chip={bottomTicket} frame={2} serial={String(312201 + (card.id||0) * 2).slice(-6)} tone={["#DAC7A2", "#D2BC94"]} tilt={TILT2} style={{width:"100%",height:"100%",...smashIn(240, 280, "")}}/>
             </div>
 
             {roundScore > 0 && <div style={{position:"absolute",left:rx(105),top:my(356.5),width:76,transform:"translate(-50%,-50%)",...stagedRise(320, 8, "translate(-50%,-50%)")}}>
+              {bagPop > 0 && !reducedMotion && <div key={`flare${bagPop}`} aria-hidden="true" style={{position:"absolute",left:"50%",top:"55%",width:170,height:170,margin:"-85px 0 0 -85px",borderRadius:"50%",pointerEvents:"none",zIndex:-1,
+                background:"repeating-conic-gradient(from 0deg, rgba(255,216,77,0.95) 0deg 9deg, rgba(255,216,77,0) 9deg 24deg)",
+                WebkitMask:"radial-gradient(circle, #000 18%, rgba(0,0,0,0.7) 40%, transparent 70%)",mask:"radial-gradient(circle, #000 18%, rgba(0,0,0,0.7) 40%, transparent 70%)",
+                animation:"bagFlare 1.1s ease-out both"}}/>}
+              <div key={`bag${bagPop}`} style={{position:"relative",animation:bagPop > 0 && !reducedMotion ? "bagPop 0.55s cubic-bezier(.3,1.4,.5,1) both" : "none"}}>
               <img src="/stickers/money-bag.webp" alt="" aria-hidden="true" width="76" height="93" style={{display:"block",width:76,height:"auto"}}/>
               <span aria-label="Box office" style={{position:"absolute",left:"49.4%",top:"56.3%",transform:"translate(-50%,-50%)",fontFamily:"'Outfit',sans-serif",fontWeight:800,fontSize:14,lineHeight:1,letterSpacing:"-0.02em",color:"#2A0E33",whiteSpace:"nowrap",animation:reducedMotion?"none":"scorePulse 0.28s ease"}}>+{money(scoreDisplay)}</span>
+              </div>
             </div>}
+            {roundScore === 0 && <img src="/stickers/Very-happy.webp" alt="" aria-hidden="true" width="92" height="92" style={{position:"absolute",left:rx(105),top:my(356.5),width:92,height:92,transform:"translate(-50%,-50%)",filter:"drop-shadow(0 3px 0 rgba(28,29,33,0.6))",...stagedRise(320, 8, "translate(-50%,-50%)")}}/>}
             {!reducedMotion && WIN_FLASH_SPOTS.map(([x,y],i)=>(
               <div key={`f${i}`} aria-hidden="true" style={{position:"absolute",left:`${x}%`,top:`${y}%`,width:96,height:96,opacity:0,pointerEvents:"none",zIndex:4,
                 background:"radial-gradient(circle, #FFFFFF 0%, rgba(255,255,255,0.85) 12%, rgba(255,250,220,0.35) 32%, rgba(255,255,255,0) 62%), linear-gradient(90deg, rgba(255,255,255,0) 44%, rgba(255,255,255,0.9) 50%, rgba(255,255,255,0) 56%) center/100% 4px no-repeat, linear-gradient(0deg, rgba(255,255,255,0) 44%, rgba(255,255,255,0.9) 50%, rgba(255,255,255,0) 56%) center/4px 100% no-repeat",
@@ -3622,7 +3650,7 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
                 const bg = dotFor(i);
                 const glyph = glyphFor(i);
                 return (
-                  <div key={i} style={{width:26,height:26,borderRadius:"50%",background:bg,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 0 #1C1D21",opacity:i<dotRevealCount?1:0.2,transform:i<dotRevealCount?"scale(1)":"scale(0.8)",transition:"opacity 0.22s ease, transform 0.22s ease",...(i===cardIdx && i<dotRevealCount && !reducedMotion ? {animation:"dotBeat 1.6s ease-in-out 0.3s infinite"} : {})}}>
+                  <div key={i} style={{width:26,height:26,borderRadius:"50%",background:bg,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 0 #1C1D21",opacity:i<dotRevealCount?1:0.2,transform:i<dotRevealCount?"scale(1)":"scale(0.8)",transition:"opacity 0.22s ease, transform 0.22s ease",...(i===cardIdx && i<dotRevealCount && !reducedMotion ? {animation:"dotBeat 2.4s ease-in-out 0.3s infinite"} : {})}}>
                     {i<dotRevealCount && (glyph==="x" ? <IconXMark size={10} color="#F08D87"/> : glyph==="check" ? <IconCheck size={10} color="#6AE89D"/> : null)}
                   </div>
                 );
@@ -3632,7 +3660,7 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
 
           {bonus && (<>
             <div role="group" aria-label="Which came first?" style={{height:106,background:"rgba(14,10,44,0.6)",textAlign:"center",position:"relative",zIndex:3,
-              ...(reducedMotion ? {} : {animation:`bonusFadeIn 0.8s ease ${(WIN_FLASH_TIMES[WIN_FLASH_TIMES.length-1] + 3000)/1000}s both`})}}>
+              ...(reducedMotion ? {} : {animation:`bonusFadeIn 0.45s ease ${(WIN_FLASH_TIMES[WIN_FLASH_TIMES.length-1] + 1000)/1000}s both`})}}>
               <div style={{...POPUP_YELLOW_TEXT,color:"#F6A507",fontSize:12,textTransform:"uppercase",position:"absolute",left:"50%",top:11,width:rx(370),transform:"translate(-50%,-50%)",lineHeight:1}}>Bonus: which came out first?</div>
               {bonus.films.map((f,i)=>{
                 const a=bonus.answer, picked=a?.pick===i, older=bonus.years[i]<bonus.years[1-i];
@@ -3700,7 +3728,7 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
                   const bg = dotFor(i);
                   const glyph = glyphFor(i);
                   return (
-                    <div key={i} style={{width:26,height:26,borderRadius:"50%",background:bg,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 0 #1C1D21",opacity:i<dotRevealCount?1:0.2,transform:i<dotRevealCount?"scale(1)":"scale(0.8)",transition:"opacity 0.22s ease, transform 0.22s ease",...(i===cardIdx && i<dotRevealCount && !reducedMotion ? {animation:"dotBeat 1.6s ease-in-out 0.3s infinite"} : {})}}>
+                    <div key={i} style={{width:26,height:26,borderRadius:"50%",background:bg,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 0 #1C1D21",opacity:i<dotRevealCount?1:0.2,transform:i<dotRevealCount?"scale(1)":"scale(0.8)",transition:"opacity 0.22s ease, transform 0.22s ease",...(i===cardIdx && i<dotRevealCount && !reducedMotion ? {animation:"dotBeat 2.4s ease-in-out 0.3s infinite"} : {})}}>
                       {i<dotRevealCount && (glyph==="x" ? <IconXMark size={10} color="#F08D87"/> : glyph==="check" ? <IconCheck size={10} color="#6AE89D"/> : null)}
                     </div>
                   );
@@ -3787,7 +3815,7 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
                   const bg = dotFor(i);
                   const glyph = glyphFor(i);
                   return (
-                    <div key={i} style={{width:26,height:26,borderRadius:"50%",background:bg,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 0 #1C1D21",opacity:i<dotRevealCount?1:0.2,transform:i<dotRevealCount?"scale(1)":"scale(0.8)",transition:"opacity 0.22s ease, transform 0.22s ease",...(i===cardIdx && i<dotRevealCount && !reducedMotion ? {animation:"dotBeat 1.6s ease-in-out 0.3s infinite"} : {})}}>
+                    <div key={i} style={{width:26,height:26,borderRadius:"50%",background:bg,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 0 #1C1D21",opacity:i<dotRevealCount?1:0.2,transform:i<dotRevealCount?"scale(1)":"scale(0.8)",transition:"opacity 0.22s ease, transform 0.22s ease",...(i===cardIdx && i<dotRevealCount && !reducedMotion ? {animation:"dotBeat 2.4s ease-in-out 0.3s infinite"} : {})}}>
                       {i<dotRevealCount && (glyph==="x" ? <IconXMark size={10} color="#F08D87"/> : glyph==="check" ? <IconCheck size={10} color="#6AE89D"/> : null)}
                     </div>
                   );
@@ -4308,7 +4336,9 @@ function BadgeToast({badges, onDone}) {
 }
 
 const CINEMA_KEYFRAMES = `
-  @keyframes dotBeat { 0%,52%,100%{transform:scale(1)} 12%{transform:scale(1.13)} 24%{transform:scale(1)} 36%{transform:scale(1.07)} }
+  @keyframes bagPop { 0%{transform:scale(1)} 35%{transform:scale(1.28)} 100%{transform:scale(1)} }
+  @keyframes bagFlare { 0%{opacity:0; transform:scale(0.4) rotate(0deg)} 25%{opacity:1; transform:scale(1.05) rotate(20deg)} 100%{opacity:0; transform:scale(1.3) rotate(60deg)} }
+  @keyframes dotBeat { 0%,100%{transform:scale(1)} 50%{transform:scale(1.12)} }
   @keyframes bonusFadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
   @keyframes bagDrop { 0%{transform:translate(-8px,-7px) rotate(-8deg)} 100%{transform:translate(0,0) rotate(0)} }
   @keyframes sparkleTwinkle { 0%,100%{transform:scale(1) rotate(0)} 50%{transform:scale(0.6) rotate(25deg)} }
