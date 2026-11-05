@@ -3108,49 +3108,38 @@ function ModeSelect({onSelect, onArcade}) {
 
         {/* Popcorn Panic sits under Speed Run (owner request 2026-10-25): plays are won by
             solving 5 mashups in a row in Standard or Speed Run. */}
-        {/* Owner 2026-11-05: an overflowing popcorn bucket with POPCORN PANIC printed on it. Its
-            height shrinks on short phones so the T-rex below always keeps room. */}
-        <button onClick={onArcade} aria-label="Popcorn Panic"
-          style={{position:"absolute",top:`${566/874*100}%`,left:"50%",transform:"translateX(-50%)",zIndex:3,
-            height:popcornMenuH(!!mostRecentSession),aspectRatio:"306 / 283",padding:0,border:"none",cursor:"pointer",
-            background:"url(/stickers/popcorn-8.webp) center / contain no-repeat",filter:"drop-shadow(0 4px 0 rgba(28,29,33,0.55))"}}>
-          <span style={{position:"absolute",left:"50%",top:"56%",transform:"translate(-50%,-50%) rotate(-5deg)",display:"flex",flexDirection:"column",alignItems:"center",
-            background:"#FFD84D",border:"2px solid #1C1D21",borderRadius:6,padding:"3px 6px 2px",boxShadow:"0 2px 0 #1C1D21",whiteSpace:"nowrap"}}>
-            <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:`calc(${popcornMenuH(!!mostRecentSession)} * 0.115)`,lineHeight:1.05,color:"#1C1D21"}}>POPCORN</span>
-            <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:`calc(${popcornMenuH(!!mostRecentSession)} * 0.135)`,lineHeight:1.05,color:"#E8344E"}}>PANIC!</span>
-          </span>
-          <span style={{position:"absolute",right:-10,top:"8%",transform:"rotate(10deg)",fontFamily:"'Outfit',sans-serif",fontSize:11,fontWeight:800,color:"#1C1D21",
-            background:"#FFF8E6",border:"2px solid #1C1D21",borderRadius:10,padding:"1px 6px",whiteSpace:"nowrap"}}>{passes>0?`${passes} play${passes===1?"":"s"}`:"🔒"}</span>
-        </button>
-
-        {/* The T-rex fills only the gap between Popcorn Panic and Resume Game, so it never
-            covers or hides under a button on shorter phones. */}
-        <div
-          aria-hidden="true"
-          style={{
-            position:"absolute",
-            left:0,right:0,
-            top:`calc(${566/874*100}% + ${popcornMenuH(!!mostRecentSession)} + 6px)`,
-            bottom:mostRecentSession?"calc(1.7% + 90px)":"2%",
-            display:"flex",alignItems:"center",justifyContent:"center",
-            pointerEvents:"none",
-            zIndex:1,
-          }}
-        >
+        {/* Owner 2026-11-05: the T-rex and an overflowing POPCORN PANIC bucket sit side by side
+            (T-rex left, bucket right) in the gap between Speed Run and Resume Game, both as big as
+            that gap allows, so neither covers a button on shorter phones. */}
+        <div style={{position:"absolute",left:16,right:16,top:`${566/874*100}%`,bottom:mostRecentSession?"calc(1.7% + 90px)":"calc(2% + 58px)",
+          display:"flex",alignItems:"center",justifyContent:"space-evenly",gap:8,zIndex:3,pointerEvents:"none",containerType:"size"}}>
           <img
             src="/stickers/Happy.webp"
             alt=""
+            aria-hidden="true"
             draggable="false"
             style={{
               display:"block",
               width:"auto",
-              height:"100%",
-              maxHeight:188,
+              height:"min(100%, 188px)",
+              maxWidth:"52%",
+              objectFit:"contain",
               filter:"drop-shadow(0 12px 16px rgba(0,0,0,0.42))",
               animation:"homeTrexFloat 3s ease-in-out infinite",
               transformOrigin:"50% 75%",
             }}
           />
+          <button onClick={onArcade} aria-label="Popcorn Panic"
+            style={{position:"relative",flex:"none",height:"min(100%, 150px)",aspectRatio:"306 / 283",padding:0,border:"none",cursor:"pointer",pointerEvents:"auto",
+              background:"url(/stickers/popcorn-8.webp) center / contain no-repeat",filter:"drop-shadow(0 4px 0 rgba(28,29,33,0.55))"}}>
+            <span style={{position:"absolute",left:"50%",top:"56%",transform:"translate(-50%,-50%) rotate(-5deg)",display:"flex",flexDirection:"column",alignItems:"center",
+              background:"#FFD84D",border:"2px solid #1C1D21",borderRadius:6,padding:"3px 6px 2px",boxShadow:"0 2px 0 #1C1D21",whiteSpace:"nowrap"}}>
+              <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:"min(11.5cqh, 17px)",lineHeight:1.05,color:"#1C1D21"}}>POPCORN</span>
+              <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:"min(13.5cqh, 20px)",lineHeight:1.05,color:"#E8344E"}}>PANIC!</span>
+            </span>
+            <span style={{position:"absolute",right:-8,top:"6%",transform:"rotate(10deg)",fontFamily:"'Outfit',sans-serif",fontSize:12,fontWeight:800,color:"#1C1D21",
+              background:"#FFF8E6",border:"2px solid #1C1D21",borderRadius:10,padding:"1px 7px",whiteSpace:"nowrap"}}>{passes>0?`${passes} play${passes===1?"":"s"}`:"🔒"}</span>
+          </button>
         </div>
 
         {mostRecentSession&&(
@@ -4706,9 +4695,6 @@ function maskTitleWords(text, card) {
   return text.replace(/[A-Za-z0-9'’]+/g, (w) => (words.has(normWord(w)) ? "▢".repeat(Math.min(w.length, 6)) : w));
 }
 
-// Height of the menu's Popcorn Panic bucket: full size on tall phones, smaller on short ones
-// so the T-rex between it and Resume Game keeps at least ~60px.
-const popcornMenuH = (hasResume) => hasResume ? "clamp(48px, calc(33dvh - 158px), 128px)" : "128px";
 // A popcorn box overflowing with popcorn (menu button for Popcorn Panic).
 function PopcornBucketIcon({size=34}) {
   return (

@@ -150,9 +150,14 @@ test.describe('Menu layout', () => {
       const rex = await page.locator('img[src="/stickers/Happy.webp"]').boundingBox()
       const pop = await page.getByRole('button', { name: 'Popcorn Panic', exact: true }).boundingBox()
       const resume = await page.getByRole('button', { name: 'Resume Game' }).boundingBox()
+      // Side by side (owner 2026-11-05): T-rex on the left, Popcorn Panic bucket on the right.
+      const speed = await page.getByRole('button', { name: 'Speed Run' }).boundingBox()
       expect(rex.height).toBeGreaterThan(60)
-      expect(rex.y).toBeGreaterThanOrEqual(pop.y + pop.height)
-      expect(rex.y + rex.height).toBeLessThanOrEqual(resume.y)
+      expect(rex.x + rex.width).toBeLessThanOrEqual(pop.x + 1)
+      for (const b of [rex, pop]) {
+        expect(b.y).toBeGreaterThanOrEqual(speed.y + speed.height - 8) // the T-rex floats a few px
+        expect(b.y + b.height).toBeLessThanOrEqual(resume.y)
+      }
     })
   }
 })
