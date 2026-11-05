@@ -113,7 +113,7 @@ const MASTER_DECK = [
     difficulty: "Hard",
     difficultyReason: "Sunset Boulevard is a classic but generationally less familiar",
     connection: "Before Sunset and Sunset Boulevard are both films saturated with longing for something that has already passed. One is tender and hopeful. The other is delusional and doomed.",
-    hintData: {"films": [{"year": 1950, "genre": "Noir Drama", "actors": ["William Holden", "Gloria Swanson"]}, {"year": 2004, "genre": "Romantic Drama", "actors": ["Ethan Hawke", "Julie Delpy"]}]},
+    hintData: {"films": [{"year": 2004, "genre": "Romantic Drama", "actors": ["Ethan Hawke", "Julie Delpy"]}, {"year": 1950, "genre": "Noir Drama", "actors": ["William Holden", "Gloria Swanson"]}]},
   },
   {
     id: 10,
@@ -289,7 +289,7 @@ const MASTER_DECK = [
     mashedPlot: "An advertising executive bets he can make a woman fall in love with him in 10 days. Meanwhile, a high-school boy cannot date Bianca until her anti-social older sister Kat has a boyfriend, so he pays the advertising executive to charm Kat.",
     movies: ["How to Lose a Guy in 10 Days", "10 Things I Hate About You"],
     aliases: [["how to lose a guy in 10 days"], ["10 things i hate about you"]],
-    hints: ["Both are early-2000s romantic comedies built around elaborate deceptions about love.", "Both feature a man paid or bet to win over a woman who wants nothing to do with him.", "Think: Kate Hudson meets Julia Stiles and Heath Ledger."],
+    hints: ["Both are turn-of-the-millennium romantic comedies built around elaborate deceptions about love.", "Both feature a man paid or bet to win over a woman who wants nothing to do with him.", "Think: Kate Hudson meets Julia Stiles and Heath Ledger."],
     difficulty: "Easy",
     difficultyReason: "Two beloved rom-coms with very compatible plots",
     connection: "How to Lose a Guy in 10 Days and 10 Things I Hate About You are both films about romantic manipulation that backfires \u2014 and both argue that genuine feeling always breaks through artifice eventually.",
@@ -532,7 +532,7 @@ const MASTER_DECK = [
     hints: ["Both films are comedies that use disguise and performance to explore identity and danger.", "One is a Billy Wilder classic; the other an Edgar Wright action-comedy.", "'Nobody's perfect' meets 'THE GREATER GOOD.'"],
     difficulty: "Medium",
     difficultyReason: "The shared word 'Hot' is the connector between two wildly different comedies",
-    connection: "Some Like It Hot and Hot Fuzz are both comedies in which ordinary people stumble into violent criminal conspiracies and must use wit and disguise to survive \u2014 separated by sixty years and an ocean.",
+    connection: "Some Like It Hot and Hot Fuzz are both comedies in which ordinary people stumble into violent criminal conspiracies and must use wit and disguise to survive \u2014 separated by nearly fifty years and an ocean.",
     hintData: {"films": [{"year": 1959, "genre": "Comedy", "actors": ["Marilyn Monroe", "Tony Curtis"]}, {"year": 2007, "genre": "Action Comedy", "actors": ["Simon Pegg", "Nick Frost"]}]},
   },
   {
