@@ -25,6 +25,9 @@ test('first visit goes intro -> onboarding -> menu without errors', async ({ pag
 test('tapping the intro video skips it (owner request 2026-11-05)', async ({ page }) => {
   await blockExternalFonts(page)
   await page.addInitScript(() => { try { localStorage.setItem('plotmix_onboarded', '1') } catch {} })
+  // Hold the video download: a browser without the H.264 codec (CI's Chromium) errors out and
+  // ends the intro on its own before the test can tap it.
+  await page.route('**/*.mp4', () => {})
   await page.goto('/')
   const intro = page.getByRole('button', { name: 'Skip intro' })
   await expect(intro).toBeVisible()
