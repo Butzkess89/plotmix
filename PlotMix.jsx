@@ -2061,6 +2061,7 @@ const SFX = {
   ticket: () => { for (let i = 0; i < 6; i++) playNoise(0.02, 0.08, i * 0.025, { type: "highpass", from: 3000, to: 3000, q: 1 }, 0.002); }, // ticket tear
   psst: () => playNoise(0.6, 0.06, 0, { type: "highpass", from: 3500, to: 5500, q: 0.8 }, 0.08), // the usher
   rip: () => playNoise(0.35, 0.12, 0, { type: "bandpass", from: 1200, to: 4000, q: 0.9 }, 0.01), // spoiler tape
+  snap: () => { playNoise(0.03, 0.14, 0, { type: "highpass", from: 2500, to: 2500, q: 1 }, 0.002); playNoise(0.05, 0.07, 0.05, { type: "bandpass", from: 1200, to: 1200, q: 1 }, 0.002); },
   shutter: (n = 6) => { for (let i = 0; i < n; i++) { const d = 0.2 + i * 0.37 + Math.random() * 0.15; playNoise(0.03, 0.12, d, { type: "highpass", from: 2500, to: 2500, q: 1 }, 0.002); playNoise(0.05, 0.06, d + 0.05, { type: "bandpass", from: 1200, to: 1200, q: 1 }, 0.002); } },
   iris: () => { playNoise(0.5, 0.06, 0, { type: "lowpass", from: 1400, to: 300, q: 0.7 }, 0.1); playNoise(0.5, 0.06, 0.6, { type: "lowpass", from: 300, to: 1400, q: 0.7 }, 0.1); },
   slate: () => {
@@ -3297,8 +3298,41 @@ function FameStar({size = 62, name = "YOU"}) {
     </svg>
   );
 }
-// Paparazzi flashes around the win popup as the title lands (owner request 2026-11-05).
-const WIN_FLASH_SPOTS = [[7, 6], [93, 9], [4, 38], [96, 33], [9, 66], [91, 63], [50, 1]];
+// Paparazzi flashes around the win popup as the title lands (owner request 2026-11-05):
+// three quick pops, a half-second hold, then two more. Each pop drains the card to black and white for a blink.
+const WIN_FLASH_TIMES = [550, 700, 850, 1350, 1500];
+const WIN_FLASH_SPOTS = [[7, 6], [93, 30], [6, 62], [92, 8], [50, 1]];
+const WIN_FLASH_MONO_MS = 70;
+
+// Box office payout: one sticker hand passes a money bag down to another, with a sparkle
+// (composition from the owner's reference, redrawn in the game's sticker style).
+function BoxOfficeHandoff({reducedMotion=false}) {
+  const ink = "#1C1D21", skin = "#F2C29B";
+  return (
+    <svg aria-hidden="true" width="104" height="66" viewBox="0 0 100 64" style={{display:"block",overflow:"visible",filter:"drop-shadow(0 3px 0 #1C1D21)"}}>
+      <g stroke={ink} strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round">
+        <path d="M-2 3 L21 3 L25 19 L-2 19 Z" fill="#342698"/>
+        <path d="M21 2 L28 2 L32 20 L25 20 Z" fill="#FFF8D6"/>
+        <g style={reducedMotion?undefined:{animation:"bagDrop 0.6s cubic-bezier(.3,1.5,.5,1) 0.5s both"}}>
+          <path d="M44 18 C38 23 29 29 29 41 C29 51 38 55 50 55 C62 55 71 51 71 41 C71 29 62 23 56 18 Z" fill="#E9C46A"/>
+          <path d="M44 18 L39 9 L46 12 L50 6 L54 12 L61 9 L56 18 Z" fill="#E9C46A"/>
+          <rect x="42" y="15.5" width="16" height="4.5" rx="2.2" fill="#B0463E"/>
+          <text x="50" y="47" textAnchor="middle" fontFamily={FONT_FIGMA_STICKER} fontSize="17" fill={ink} stroke="none">$</text>
+          <path d="M36 30 C34 34 33 38 34 42" fill="none" stroke="#FFF8D6" strokeWidth="2.4"/>
+        </g>
+        <path d="M30 5 C38 2 49 5 53 11 C55 15 52 18 48 17 L45 17 C46 20 42 22 38 21 L31 21 Z" fill={skin}/>
+        <path d="M44 9 C47 10 49 12 50 14" fill="none" strokeWidth="1.6"/>
+        <path d="M45 17 C42 16 39 16 37 17" fill="none" strokeWidth="1.6"/>
+        <path d="M102 46 L82 46 L80 62 L102 62 Z" fill="#F6A507"/>
+        <path d="M82 45 L75 45 L73 63 L80 63 Z" fill="#FFF8D6"/>
+        <path d="M74 48 C67 47 60 51 57 55 C55 59 58 62 63 61 L74 62 Z" fill={skin}/>
+        <path d="M67 48 C66 43 62 41 59 43 C58 45 61 48 64 49" fill={skin}/>
+        <path d="M84 4 L87 12 L95 15 L87 18 L84 26 L81 18 L73 15 L81 12 Z" fill="#FFD84D" style={reducedMotion?undefined:{transformOrigin:"84px 15px",animation:"sparkleTwinkle 1.4s ease-in-out 0.9s infinite"}}/>
+        <path d="M94 30 L95.5 33.5 L99 35 L95.5 36.5 L94 40 L92.5 36.5 L89 35 L92.5 33.5 Z" fill="#FFF8D6" strokeWidth="1.6"/>
+      </g>
+    </svg>
+  );
+}
 
 // Dressing-room lamps around the answer card on the win popup. Points run counter-clockwise
 // from the top middle, so staggering their animation by index makes the light chase counter-clockwise.
@@ -3334,11 +3368,16 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
   // A Walk of Fame star is only for a flawless solve: first guess, no hints.
   const flawless = won && hintCount === 0 && guessCount === 1;
   // Paparazzi shutters as the title lands, then the Walk of Fame star thwacks down.
+  const [mono,setMono]=useState(false);
   useEffect(() => {
     if (!won || reducedMotion) return;
-    const a = setTimeout(() => SFX.shutter(5), 380);
-    const b = flawless ? setTimeout(() => SFX.stamp(), 1150) : null;
-    return () => { clearTimeout(a); if (b) clearTimeout(b); };
+    const ids = [];
+    WIN_FLASH_TIMES.forEach(t => {
+      ids.push(setTimeout(() => { SFX.snap(); setMono(true); }, t));
+      ids.push(setTimeout(() => setMono(false), t + WIN_FLASH_MONO_MS));
+    });
+    if (flawless) ids.push(setTimeout(() => SFX.stamp(), 1900));
+    return () => ids.forEach(clearTimeout);
   }, [won, reducedMotion, flawless]);
   const msg = msgRef.current;
   const title = card.mashedTitle || card.movies.join(" + ");
@@ -3540,7 +3579,7 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
           </div>
         )}
 
-        <div style={{position:"relative",width:"min(402px, 100vw)",margin:"0 auto",borderRadius:"12px 12px 0 0",overflow:"visible",boxShadow:T.shadowLg,...resultSheetBg,backgroundColor:T.bgDeep,animation:reducedMotion?"none":transitionFamily.popupSheetIn,transformOrigin:"50% 100%"}}>
+        <div style={{position:"relative",width:"min(402px, 100vw)",margin:"0 auto",borderRadius:"12px 12px 0 0",overflow:"visible",boxShadow:T.shadowLg,...resultSheetBg,backgroundColor:T.bgDeep,animation:reducedMotion?"none":transitionFamily.popupSheetIn,transformOrigin:"50% 100%",filter:mono?"grayscale(1) contrast(1.3) brightness(1.15)":"none"}}>
           <div aria-hidden="true" style={{position:"absolute",inset:0,overflow:"hidden",borderRadius:"12px 12px 0 0",pointerEvents:"none"}}>
             <div style={{position:"absolute",left:"50%",top:"104%",width:1800,height:1800,margin:"-900px 0 0 -900px",background:WIN_RAYS_LAYER,animation:reducedMotion?"none":"raysSpin 40s linear infinite"}}/>
           </div>
@@ -3592,18 +3631,18 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
               <div style={popupTitleStyle}>{title}</div>
             </div>
 
-            <div style={{position:"absolute",left:rx(24),top:ry(401),width:rx(131),height:ry(40),background:"#D3CAFE",border:"2px solid #1C1D21",borderRadius:9,boxShadow:"0 4px 0 #1C1D21",padding:"0 10px",display:"inline-flex",alignItems:"center",gap:8,justifyContent:"center",boxSizing:"border-box",...stagedRise(320, 8)}}>
-              <span aria-hidden="true" style={{fontSize:16,lineHeight:1}}>💰</span>
-              <span aria-label="Box office" style={{...POPUP_SCORE_TEXT,display:"inline-block",animation:reducedMotion?"none":"scorePulse 0.28s ease"}}>+{money(scoreDisplay)}</span>
+            <div style={{position:"absolute",left:rx(18),top:ry(392),display:"flex",flexDirection:"column",alignItems:"center",gap:2,...stagedRise(320, 8)}}>
+              <BoxOfficeHandoff reducedMotion={reducedMotion}/>
+              <span aria-label="Box office" style={{...POPUP_SCORE_TEXT,color:"#FFD84D",fontSize:14,display:"inline-block",animation:reducedMotion?"none":"scorePulse 0.28s ease"}}>+{money(scoreDisplay)}</span>
             </div>
             {flawless && <div aria-label="Walk of Fame star" role="img" style={{position:"absolute",left:rx(164),top:ry(408),transform:"translate(-50%,-50%) rotate(-12deg)",zIndex:2,
-              animation:reducedMotion?"none":"fameStamp 0.38s cubic-bezier(.3,1.6,.5,1) 0.95s both"}}>
+              animation:reducedMotion?"none":"fameStamp 0.38s cubic-bezier(.3,1.6,.5,1) 1.75s both"}}>
               <FameStar/>
             </div>}
             {!reducedMotion && WIN_FLASH_SPOTS.map(([x,y],i)=>(
               <div key={`f${i}`} aria-hidden="true" style={{position:"absolute",left:`${x}%`,top:`${y}%`,width:96,height:96,opacity:0,pointerEvents:"none",zIndex:4,
                 background:"radial-gradient(circle, #FFFFFF 0%, rgba(255,255,255,0.85) 12%, rgba(255,250,220,0.35) 32%, rgba(255,255,255,0) 62%), linear-gradient(90deg, rgba(255,255,255,0) 44%, rgba(255,255,255,0.9) 50%, rgba(255,255,255,0) 56%) center/100% 4px no-repeat, linear-gradient(0deg, rgba(255,255,255,0) 44%, rgba(255,255,255,0.9) 50%, rgba(255,255,255,0) 56%) center/4px 100% no-repeat",
-                animation:`flashPop 1.1s ease-out ${0.55 + i*0.19}s 1 both`}}/>
+                animation:`flashPop 0.55s ease-out ${WIN_FLASH_TIMES[i]/1000 - 0.04}s 1 both`}}/>
             ))}
 
             <div style={{position:"absolute",left:rx(212),top:ry(388),display:"grid",gridTemplateColumns:"repeat(5, 26px)",gridTemplateRows:"repeat(2, 26px)",gap:"14px 9px",justifyContent:"center",...stagedRise(360, 8)}}>
@@ -4283,9 +4322,9 @@ function NextDailyCountdown() {
   return <span>{left}</span>;
 }
 
-function BadgeToast({badges}) {
+function BadgeToast({badges, onDone}) {
   return (
-    <div role="status" style={{position:"fixed",top:74,left:"50%",transform:"translateX(-50%)",zIndex:520,pointerEvents:"none",display:"flex",flexDirection:"column",gap:6,alignItems:"center",animation:"badgeIn 0.4s ease both"}}>
+    <div role="status" style={{position:"fixed",top:74,left:"50%",transform:"translateX(-50%)",zIndex:520,pointerEvents:"none",display:"flex",flexDirection:"column",gap:6,alignItems:"center",animation:"badgeDrop 6.1s cubic-bezier(.3,1,.4,1) both"}} onAnimationEnd={e=>{ if (e.target===e.currentTarget && onDone) onDone(); }}>
       {badges.map(b=>(
         <div key={b.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 14px",background:"#FFD84D",border:"2px solid #1C1D21",borderRadius:12,boxShadow:"0 3px 0 #1C1D21",whiteSpace:"nowrap"}}>
           <span style={{fontSize:18,lineHeight:1}}>{b.emoji}</span>
@@ -4297,6 +4336,9 @@ function BadgeToast({badges}) {
 }
 
 const CINEMA_KEYFRAMES = `
+  @keyframes bagDrop { 0%{transform:translate(-8px,-7px) rotate(-8deg)} 100%{transform:translate(0,0) rotate(0)} }
+  @keyframes sparkleTwinkle { 0%,100%{transform:scale(1) rotate(0)} 50%{transform:scale(0.6) rotate(25deg)} }
+  @keyframes badgeDrop { 0%{opacity:0;transform:translateX(-50%) translateY(-160px)} 5%{opacity:1;transform:translateX(-50%) translateY(6px)} 7.5%,89.5%{opacity:1;transform:translateX(-50%) translateY(0)} 100%{opacity:0;transform:translateX(-50%) translateY(-160px)} }
   @keyframes fameStamp { 0%{opacity:0; transform:translate(-50%,-50%) scale(2.6) rotate(-40deg)} 70%{opacity:1; transform:translate(-50%,-50%) scale(0.9) rotate(-8deg)} 100%{opacity:1; transform:translate(-50%,-50%) scale(1) rotate(-12deg)} }
   @keyframes raysSpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
   @keyframes bulbChase { 0%{background:#FFF8D6; box-shadow:0 0 8px 3px rgba(255,216,77,0.9)} 30%,100%{background:#9A7424; box-shadow:0 0 0 0 rgba(255,216,77,0)} }
@@ -6383,7 +6425,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
 
       {mode.timeLimit>0&&<PopcornMeter width={98} streak={runStreak} popKey={popKey} reducedMotion={reducedMotion}/>}
       {clapper && <ClapperTake key={clapper.key} take={clapper.take} note={clapper.note} reducedMotion={reducedMotion}/>}
-      {badgeToast && <BadgeToast badges={badgeToast}/>}
+      {badgeToast && <BadgeToast key={badgeToast.map(b=>b.id).join("|")} badges={badgeToast} onDone={()=>setBadgeToast(null)}/>}
       {countingDown && <FilmLeaderCountdown reducedMotion={reducedMotion} onDone={()=>setCountingDown(false)}/>}
       {/* Curtains open every time a game starts or is resumed (owner request 2026-10-26); the
           Daily adds its trailer line. */}
