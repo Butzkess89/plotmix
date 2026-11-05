@@ -3108,13 +3108,19 @@ function ModeSelect({onSelect, onArcade}) {
 
         {/* Popcorn Panic sits under Speed Run (owner request 2026-10-25): plays are won by
             solving 5 mashups in a row in Standard or Speed Run. */}
+        {/* Owner 2026-11-05: an overflowing popcorn bucket with POPCORN PANIC printed on it. Its
+            height shrinks on short phones so the T-rex below always keeps room. */}
         <button onClick={onArcade} aria-label="Popcorn Panic"
-          style={{position:"absolute",top:`${571/874*100}%`,left:"50%",transform:"translateX(-50%)",zIndex:3,
-            display:"flex",alignItems:"center",gap:8,padding:"4px 14px 4px 8px",height:42,boxSizing:"border-box",
-            background:"#FFF8E6",border:"2px solid #1C1D21",borderRadius:21,boxShadow:"0 3px 0 #1C1D21",cursor:"pointer",whiteSpace:"nowrap"}}>
-          <PopcornBucketIcon size={30}/>
-          <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:14,color:"#1C1D21",textTransform:"uppercase",letterSpacing:"0.01em"}}>Popcorn Panic</span>
-          <span style={{fontFamily:"'Outfit',sans-serif",fontSize:12,fontWeight:700,color:"#7A5C00"}}>{passes>0?`${passes} play${passes===1?"":"s"}`:"🔒"}</span>
+          style={{position:"absolute",top:`${566/874*100}%`,left:"50%",transform:"translateX(-50%)",zIndex:3,
+            height:popcornMenuH(!!mostRecentSession),aspectRatio:"306 / 283",padding:0,border:"none",cursor:"pointer",
+            background:"url(/stickers/popcorn-8.webp) center / contain no-repeat",filter:"drop-shadow(0 4px 0 rgba(28,29,33,0.55))"}}>
+          <span style={{position:"absolute",left:"50%",top:"56%",transform:"translate(-50%,-50%) rotate(-5deg)",display:"flex",flexDirection:"column",alignItems:"center",
+            background:"#FFD84D",border:"2px solid #1C1D21",borderRadius:6,padding:"3px 6px 2px",boxShadow:"0 2px 0 #1C1D21",whiteSpace:"nowrap"}}>
+            <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:`calc(${popcornMenuH(!!mostRecentSession)} * 0.115)`,lineHeight:1.05,color:"#1C1D21"}}>POPCORN</span>
+            <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:`calc(${popcornMenuH(!!mostRecentSession)} * 0.135)`,lineHeight:1.05,color:"#E8344E"}}>PANIC!</span>
+          </span>
+          <span style={{position:"absolute",right:-10,top:"8%",transform:"rotate(10deg)",fontFamily:"'Outfit',sans-serif",fontSize:11,fontWeight:800,color:"#1C1D21",
+            background:"#FFF8E6",border:"2px solid #1C1D21",borderRadius:10,padding:"1px 6px",whiteSpace:"nowrap"}}>{passes>0?`${passes} play${passes===1?"":"s"}`:"🔒"}</span>
         </button>
 
         {/* The T-rex fills only the gap between Popcorn Panic and Resume Game, so it never
@@ -3124,7 +3130,7 @@ function ModeSelect({onSelect, onArcade}) {
           style={{
             position:"absolute",
             left:0,right:0,
-            top:`calc(${571/874*100}% + 50px)`,
+            top:`calc(${566/874*100}% + ${popcornMenuH(!!mostRecentSession)} + 6px)`,
             bottom:mostRecentSession?"calc(1.7% + 90px)":"2%",
             display:"flex",alignItems:"center",justifyContent:"center",
             pointerEvents:"none",
@@ -3359,6 +3365,8 @@ const WIN_FLASH_SPOTS = [[7, 6], [93, 30], [6, 62], [92, 8], [50, 1]];
 const WIN_FLASH_MONO_MS = 70;
 
 // The money bag with an amount printed on it (owner's art, 2026-11-05) and a caption under it.
+// How far right of the sheet padding the skip / time-up / game-over bag sits (owner 2026-11-05: "a bit to the right").
+const SKIP_BAG_NUDGE_X = 30;
 function MoneyBag({text, ariaLabel, label, width = 76}) {
   return (
     <div style={{position:"relative",width,display:"inline-flex",flexDirection:"column",alignItems:"center",gap:3,flex:"none"}}>
@@ -3789,7 +3797,7 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
             </div>
 
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"nowrap"}}>
-              <MoneyBag text={money(budgetLeft)} ariaLabel="Budget left" label="Budget left"/>
+              <div style={{marginLeft:SKIP_BAG_NUDGE_X}}><MoneyBag text={money(budgetLeft)} ariaLabel="Budget left" label="Budget left"/></div>
 
               <div style={{display:"grid",gridTemplateColumns:"repeat(5, 26px)",gridTemplateRows:"repeat(2, 26px)",gap:"12px 9px",justifyContent:"center",marginRight:2}}>
                 {Array.from({length:dotCount}).map((_,i)=>{
@@ -3873,7 +3881,7 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
             )}
 
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"nowrap"}}>
-              <MoneyBag text={money(budgetLeft)} ariaLabel="Budget left" label="Budget left"/>
+              <div style={{marginLeft:SKIP_BAG_NUDGE_X}}><MoneyBag text={money(budgetLeft)} ariaLabel="Budget left" label="Budget left"/></div>
 
               <div style={{display:"grid",gridTemplateColumns:"repeat(5, 26px)",gridTemplateRows:"repeat(2, 26px)",gap:"12px 9px",justifyContent:"center",marginRight:2}}>
                 {Array.from({length:dotCount}).map((_,i)=>{
@@ -4698,6 +4706,9 @@ function maskTitleWords(text, card) {
   return text.replace(/[A-Za-z0-9'’]+/g, (w) => (words.has(normWord(w)) ? "▢".repeat(Math.min(w.length, 6)) : w));
 }
 
+// Height of the menu's Popcorn Panic bucket: full size on tall phones, smaller on short ones
+// so the T-rex between it and Resume Game keeps at least ~60px.
+const popcornMenuH = (hasResume) => hasResume ? "clamp(48px, calc(33dvh - 158px), 128px)" : "128px";
 // A popcorn box overflowing with popcorn (menu button for Popcorn Panic).
 function PopcornBucketIcon({size=34}) {
   return (
@@ -5746,8 +5757,7 @@ function HintsModal({card, hintsRevealed, onReveal, onClose, hintAnimationSrc, r
         ...(done ? {filter:"saturate(0.55)"} : {})}}>
       <span aria-hidden="true" style={{flex:"none",width:34,height:34,borderRadius:"50%",background:"#FFF8E6",border:"2px solid #1C1D21",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,lineHeight:1}}>{icon}</span>
       <span style={{...WHITE_STICKER_TEXT,flex:1,fontSize:12.5,letterSpacing:"0.03em",textTransform:"uppercase",lineHeight:1.15}}>{label}{done?" ✓":""}{warn}</span>
-      <span style={{flex:"none",fontFamily:FONT_FIGMA_STICKER,fontSize:12,color:"#1C1D21",background:done?"#B9B4D6":"#FFD84D",border:"2px solid #1C1D21",borderRadius:"4px 12px 12px 4px",padding:"5px 8px 5px 12px",transform:"rotate(4deg)",position:"relative",
-        boxShadow:"0 2px 0 #1C1D21"}}>
+      <span style={{flex:"none",fontFamily:FONT_FIGMA_STICKER,fontSize:12,color:"#1C1D21",background:done?"#B9B4D6":"#FFD84D",border:"2px solid #1C1D21",borderRadius:"4px 12px 12px 4px",padding:"5px 8px 5px 12px",transform:"rotate(4deg)",position:"relative",textShadow:"none"}}>
         <span aria-hidden="true" style={{position:"absolute",left:4,top:"50%",width:5,height:5,marginTop:-2.5,borderRadius:"50%",background:"#1C1D21"}}/>
         -{cost}
       </span>
