@@ -235,7 +235,7 @@ test.describe('Hints never end the card by spending its last points', () => {
   test('a hint that would leave 0 points is blocked, and the card stays in play', async ({ page }) => {
     await resumeStandardWithCards(page, [11]) // a card with a Director's Whisper
     for (let i = 0; i < 4; i++) await submitGuess(page, `${WRONG_GUESS}${i}`)
-    await expect(page.getByText('$6M')).toBeVisible()
+    await expect(page.getByText('$60M')).toBeVisible()
     await page.getByRole('button', { name: 'Open hints' }).click()
     await page.getByRole('button', { name: /Year & Genre/ }).click()
     await page.getByRole('button', { name: /Director's Whisper/ }).click()
@@ -245,6 +245,6 @@ test.describe('Hints never end the card by spending its last points', () => {
     await page.getByRole('button', { name: 'Close hints' }).click()
     await page.waitForTimeout(1500) // a lost card would show its result after ~1 s
     await expect(page.getByRole('button', { name: 'Next' })).toHaveCount(0)
-    await expect(page.getByText('$3M')).toBeVisible()
+    await expect(page.getByText('$30M')).toBeVisible()
   })
 })

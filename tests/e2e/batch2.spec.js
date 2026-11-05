@@ -65,7 +65,7 @@ test.describe('#3 naming one film never counts as the whole card', () => {
     await submitGuess(page, 'The Green Mile')
     await page.waitForTimeout(1_000)
     await expect(nextButton(page)).toHaveCount(0)
-    await expect(pointsCounter(page)).toHaveText('$10M') // a correct film name is free
+    await expect(pointsCounter(page)).toHaveText('$100M') // a correct film name is free
     await submitGuess(page, '8 Mile')
     await expect(nextButton(page)).toBeVisible()
   })
@@ -87,19 +87,19 @@ test.describe('#5 each wrong word costs a point; correct guesses are free', () =
     // #77 "The Nightmare Before Christmas Story"
     await resumeStandardWithCards(page, [77])
     await submitGuess(page, 'Halloween Town') // 2 wrong words
-    await expect(pointsCounter(page)).toHaveText('$8M')
+    await expect(pointsCounter(page)).toHaveText('$80M')
     await submitGuess(page, 'Christmas Vacation') // "Christmas" is in the title, "Vacation" is not
-    await expect(pointsCounter(page)).toHaveText('$7M')
+    await expect(pointsCounter(page)).toHaveText('$70M')
     await submitGuess(page, 'Nightmare Before') // both title words
-    await expect(pointsCounter(page)).toHaveText('$7M')
+    await expect(pointsCounter(page)).toHaveText('$70M')
     await submitGuess(page, 'A Christmas Story') // correct film name
-    await expect(pointsCounter(page)).toHaveText('$7M')
+    await expect(pointsCounter(page)).toHaveText('$70M')
   })
 
   test('grammar words are never counted as wrong', async ({ page }) => {
     await resumeStandardWithCards(page, [77])
     await submitGuess(page, 'Halloween of the Town')
-    await expect(pointsCounter(page)).toHaveText('$8M')
+    await expect(pointsCounter(page)).toHaveText('$80M')
   })
 })
 
@@ -179,7 +179,7 @@ test.describe('#9 sound on/off', () => {
     await expect(page.getByRole('button', { name: 'Sound' })).toHaveAttribute('aria-pressed', 'false')
     await startMode(page, 'standard')
     await submitGuess(page, 'zzqxwrong')
-    await expect(pointsCounter(page)).toHaveText('$9M')
+    await expect(pointsCounter(page)).toHaveText('$90M')
     expect(await page.evaluate(() => window.__tones)).toBe(0)
   })
 
@@ -229,7 +229,7 @@ test.describe('#8 only the real title counts as naming a film', () => {
     // #11 "Brokeback to the Future": "bttf" is not the real title of Back to the Future.
     await resumeStandardWithCards(page, [11])
     await submitGuess(page, 'bttf')
-    await expect(pointsCounter(page)).toHaveText('$9M')
+    await expect(pointsCounter(page)).toHaveText('$90M')
     await submitGuess(page, 'Back to the Future')
     await submitGuess(page, 'Brokeback Mountain')
     await expect(nextButton(page)).toBeVisible()

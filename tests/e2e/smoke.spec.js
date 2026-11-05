@@ -22,6 +22,19 @@ test('first visit goes intro -> onboarding -> menu without errors', async ({ pag
   expect(errors).toEqual([])
 })
 
+test('tapping the intro video skips it (owner request 2026-11-05)', async ({ page }) => {
+  await blockExternalFonts(page)
+  await page.addInitScript(() => { try { localStorage.setItem('plotmix_onboarded', '1') } catch {} })
+  // Hold the video download: a browser without the H.264 codec (CI's Chromium) errors out and
+  // ends the intro on its own before the test can tap it.
+  await page.route('**/*.mp4', () => {})
+  await page.goto('/')
+  const intro = page.getByRole('button', { name: 'Skip intro' })
+  await expect(intro).toBeVisible()
+  await intro.click()
+  await expect(page.getByRole('button', { name: MODES.standard.label })).toBeVisible({ timeout: 3_000 })
+})
+
 for (const [modeId, mode] of Object.entries(MODES)) {
   test(`${mode.label} starts a game with a full-value first card`, async ({ page }) => {
     const errors = []
@@ -30,7 +43,7 @@ for (const [modeId, mode] of Object.entries(MODES)) {
     await openMenu(page)
     await startMode(page, modeId)
 
-    await expect(pointsCounter(page)).toHaveText('$10M')
+    await expect(pointsCounter(page)).toHaveText('$100M')
 
     const session = await waitForSave(page, modeId)
     expect(session.cardIdx).toBe(0)
