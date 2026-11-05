@@ -1928,6 +1928,33 @@ function playNoise(duration, gain, delayStart = 0, filter = { type: "bandpass", 
   } catch (e) {}
 }
 
+// A held "sh": fast rise, steady hold, short release, through two "sh" formant bands.
+function playShush(duration, gain, delayStart = 0) {
+  if (!isSoundOn()) return;
+  try {
+    const ctx = getACtx(); if (!ctx) return;
+    if (!_noiseBuf) {
+      _noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+      const d = _noiseBuf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    const t0 = ctx.currentTime + delayStart, rel = Math.min(0.18, duration / 3);
+    [[2700, 1.8, 1], [1900, 1.4, 0.55]].forEach(([freq, q, mix]) => {
+      const src = ctx.createBufferSource(); src.buffer = _noiseBuf;
+      const f = ctx.createBiquadFilter(); f.type = "bandpass"; f.Q.value = q;
+      f.frequency.setValueAtTime(freq * 1.06, t0);
+      f.frequency.linearRampToValueAtTime(freq * 0.94, t0 + duration);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.linearRampToValueAtTime(gain * mix, t0 + 0.06);
+      g.gain.setValueAtTime(gain * mix, t0 + duration - rel);
+      g.gain.linearRampToValueAtTime(0.0001, t0 + duration);
+      src.connect(f); f.connect(g); g.connect(ctx.destination);
+      src.start(t0, Math.random()); src.stop(t0 + duration + 0.02);
+    });
+  } catch (e) {}
+}
+
 // One synth voice with an optional pitch slide and a low-pass filter (brass, whistles, voices).
 function playSynth({ type = "sawtooth", freq, slideTo = null, dur, gain, delay = 0, lp = null, attack = 0.02, vibrato = 0 }) {
   if (!isSoundOn()) return;
@@ -2062,7 +2089,9 @@ const SFX = {
   page: () => playNoise(0.18, 0.06, 0, { type: "highpass", from: 1500, to: 4500, q: 0.7 }, 0.03), // hints opened: paper rustle
   tick: () => playTone(1400, "sine", 0.03, 0.025), // any button tap
   ticket: () => { for (let i = 0; i < 6; i++) playNoise(0.02, 0.08, i * 0.025, { type: "highpass", from: 3000, to: 3000, q: 1 }, 0.002); }, // ticket tear
-  psst: () => playNoise(0.6, 0.06, 0, { type: "highpass", from: 3500, to: 5500, q: 0.8 }, 0.08), // the usher
+  // The usher's "shh... shhhhh!" (owner request 2026-11-05): a held, breathy hiss shaped like a
+  // human "sh" (energy around 2-3.5 kHz) rather than a whoosh, so it can't be mistaken for the curtain.
+  psst: () => { playShush(0.22, 0.09, 0); playShush(1.15, 0.12, 0.42); },
   rip: () => playNoise(0.35, 0.12, 0, { type: "bandpass", from: 1200, to: 4000, q: 0.9 }, 0.01), // spoiler tape
   snap: () => { playNoise(0.03, 0.14, 0, { type: "highpass", from: 2500, to: 2500, q: 1 }, 0.002); playNoise(0.05, 0.07, 0.05, { type: "bandpass", from: 1200, to: 1200, q: 1 }, 0.002); },
   shutter: (n = 6) => { for (let i = 0; i < n; i++) { const d = 0.2 + i * 0.37 + Math.random() * 0.15; playNoise(0.03, 0.12, d, { type: "highpass", from: 2500, to: 2500, q: 1 }, 0.002); playNoise(0.05, 0.06, d + 0.05, { type: "bandpass", from: 1200, to: 1200, q: 1 }, 0.002); } },
@@ -4283,19 +4312,33 @@ function CurtainReveal({line=null, zIndex=600, reducedMotion=false, colors=null}
   useEffect(()=>{
     if(reducedMotion) return;
     SFX.curtain(line ? 2.3 : 0.25);
-    const id=setTimeout(()=>setVisible(false), line ? 3600 : 1700);
+    const id=setTimeout(()=>setVisible(false), line ? 4100 : 2100);
     return ()=>clearTimeout(id);
   },[reducedMotion, line]);
   if(reducedMotion || !visible) return null;
   // With a line, the curtains wait until it has been read (owner feedback 2026-10-26).
   const delay = line ? 2.3 : 0.25;
   const [c0, c1] = colors || curtainColors();
-  const velvet = `repeating-linear-gradient(90deg, ${c0} 0px, ${c1} 14px, ${c0} 28px)`;
+  // Velvet with deep pleats: the folds bunch up as each side is drawn to the wings, and the
+  // hem lags a little behind the top like real fabric (owner request 2026-11-05).
+  const pleats = `repeating-linear-gradient(90deg, rgba(0,0,0,0.38) 0px, rgba(0,0,0,0) 7px, rgba(255,255,255,0.13) 13px, rgba(0,0,0,0) 19px, rgba(0,0,0,0.38) 26px)`;
+  const velvet = `linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(0,0,0,0.35) 100%), ${pleats}, repeating-linear-gradient(90deg, ${c0} 0px, ${c1} 13px, ${c0} 26px)`;
+  const swagFill = `linear-gradient(180deg, ${c1}, ${c0})`;
+  const SWAGS = 5;
   return (
     <div aria-hidden="true" style={{position:"fixed",inset:0,zIndex,pointerEvents:"none",overflow:"hidden"}}>
-      <div style={{position:"absolute",top:0,bottom:0,left:0,width:"51%",background:velvet,boxShadow:"inset -10px 0 18px rgba(0,0,0,0.45)",animation:`curtainLeft 1.1s ease-in-out ${delay}s both`}}/>
-      <div style={{position:"absolute",top:0,bottom:0,right:0,width:"51%",background:velvet,boxShadow:"inset 10px 0 18px rgba(0,0,0,0.45)",animation:`curtainRight 1.1s ease-in-out ${delay}s both`}}/>
-      <div style={{position:"absolute",top:0,left:0,right:0,height:34,background:"linear-gradient(#6E0A17,#A3192B)",borderBottom:"3px solid #F6A507",animation:`curtainValance 1.1s ease-in-out ${delay+0.2}s both`}}/>
+      <div style={{position:"absolute",top:0,bottom:0,left:0,width:"51%",background:velvet,boxShadow:"inset -14px 0 22px rgba(0,0,0,0.5)",transformOrigin:"0 0",animation:`curtainLeft 1.6s cubic-bezier(.55,.05,.35,1) ${delay}s both`}}/>
+      <div style={{position:"absolute",top:0,bottom:0,right:0,width:"51%",background:velvet,boxShadow:"inset 14px 0 22px rgba(0,0,0,0.5)",transformOrigin:"100% 0",animation:`curtainRight 1.6s cubic-bezier(.55,.05,.35,1) ${delay}s both`}}/>
+      {Array.from({length:SWAGS}).map((_,i)=>(
+        <div key={i} style={{position:"absolute",top:-4,left:`${i*(100/SWAGS) - 2}%`,width:`${100/SWAGS + 4}%`,height:78,zIndex:2,background:swagFill,
+          WebkitMask:"radial-gradient(ellipse 52% 100% at 50% 0, #000 98%, transparent 100%)",mask:"radial-gradient(ellipse 52% 100% at 50% 0, #000 98%, transparent 100%)",
+          boxShadow:"inset 0 -6px 0 #F6A507",transformOrigin:"50% 0",
+          animation:`curtainSwag 1.2s cubic-bezier(.5,0,.3,1) ${delay + 0.15 + Math.abs(i-(SWAGS-1)/2)*0.09}s both`}}>
+          <div style={{position:"absolute",inset:0,background:"repeating-radial-gradient(ellipse 60% 120% at 50% -10%, rgba(0,0,0,0) 0 10px, rgba(0,0,0,0.28) 14px, rgba(0,0,0,0) 18px)"}}/>
+          <div style={{position:"absolute",left:"6%",right:"6%",bottom:0,height:7,background:"repeating-linear-gradient(90deg, #F6A507 0 2px, transparent 2px 5px)",opacity:0.9}}/>
+        </div>
+      ))}
+      <div style={{position:"absolute",top:0,left:0,right:0,height:16,zIndex:3,background:`linear-gradient(${c0},${c1})`,borderBottom:"3px solid #F6A507",animation:`curtainValance 0.9s ease-in ${delay+0.75}s both`}}/>
       {line && (
         <div style={{position:"absolute",left:24,right:24,top:"42%",textAlign:"center",...YELLOW_STICKER_TEXT,fontSize:"clamp(16px, 5vw, 22px)",lineHeight:1.3,textTransform:"uppercase",animation:"trailerLine 2.8s ease both"}}>
           {line}
@@ -4387,8 +4430,9 @@ const CINEMA_KEYFRAMES = `
   @keyframes clapSnap { 0%{transform:rotate(-30deg)} 55%{transform:rotate(0deg)} 70%{transform:rotate(-5deg)} 100%{transform:rotate(0deg)} }
   @keyframes kernelPop { 0%{opacity:1; transform:translate(0,0) scale(0.4)} 70%{opacity:1} 100%{opacity:0; transform:translate(var(--dx),var(--dy)) scale(1)} }
   @keyframes leaderSweep { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-  @keyframes curtainLeft { from{transform:translateX(0)} to{transform:translateX(-102%)} }
-  @keyframes curtainRight { from{transform:translateX(0)} to{transform:translateX(102%)} }
+  @keyframes curtainLeft { 0%{transform:translateX(0) scaleX(1) skewX(0deg)} 30%{transform:translateX(0) scaleX(0.72) skewX(7deg)} 62%{transform:translateX(0) scaleX(0.2) skewX(3deg)} 78%{transform:translateX(0) scaleX(0.17) skewX(-1.5deg)} 100%{transform:translateX(-102%) scaleX(0.17) skewX(0deg)} }
+  @keyframes curtainRight { 0%{transform:translateX(0) scaleX(1) skewX(0deg)} 30%{transform:translateX(0) scaleX(0.72) skewX(-7deg)} 62%{transform:translateX(0) scaleX(0.2) skewX(-3deg)} 78%{transform:translateX(0) scaleX(0.17) skewX(1.5deg)} 100%{transform:translateX(102%) scaleX(0.17) skewX(0deg)} }
+  @keyframes curtainSwag { 0%{transform:translateY(0) scaleY(1)} 35%{transform:translateY(-6%) scaleY(0.82)} 100%{transform:translateY(-130%) scaleY(0.45)} }
   @keyframes curtainValance { from{transform:translateY(0)} to{transform:translateY(-110%)} }
   @keyframes trailerLine { 0%{opacity:0; transform:scale(0.96)} 25%{opacity:1; transform:scale(1)} 80%{opacity:1} 100%{opacity:0; transform:scale(1.04)} }
   @keyframes filmBurn { 0%{opacity:0; transform:scale(0.2)} 30%{opacity:1} 100%{opacity:0; transform:scale(3.2)} }
