@@ -30,7 +30,7 @@ for (const [modeId, mode] of Object.entries(MODES)) {
     await openMenu(page)
     await startMode(page, modeId)
 
-    await expect(pointsCounter(page)).toHaveText('$10M')
+    await expect(pointsCounter(page)).toHaveText('$100M')
 
     const session = await waitForSave(page, modeId)
     expect(session.cardIdx).toBe(0)

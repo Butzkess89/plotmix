@@ -101,14 +101,14 @@ export function readDeck() {
 
 // Start a Standard run on chosen cards by saving a game and using the normal
 // "Resume Game" button. The chosen cards come first; the rest fill up the deck.
-export async function resumeStandardWithCards(page, cardIds) {
+export async function resumeStandardWithCards(page, cardIds, { budget = 10 } = {}) {
   const all = readDeck()
   const chosen = cardIds.map((id) => all.find((c) => c.id === id))
   const deck = [...chosen, ...all.filter((c) => !cardIds.includes(c.id))].slice(0, MODES.standard.roundCount)
   const save = {
     standard: {
       modeName: MODES.standard.label, modeId: 'standard', cardIdx: 0, guesses: [], hintsRevealed: [],
-      results: [], totalScore: 0, budget: 10, timeLeft: 0, deckLen: deck.length, deck,
+      results: [], totalScore: 0, budget, timeLeft: 0, deckLen: deck.length, deck,
       dailyKey: null, schemaVersion: 2, savedAt: Date.now(),
     },
   }

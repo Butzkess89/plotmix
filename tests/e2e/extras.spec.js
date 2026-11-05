@@ -127,7 +127,7 @@ test.describe('7. Which came first? bonus', () => {
     const bg = await bonus.getByRole('button', { name: `${older()} came first` }).evaluate((b) => getComputedStyle(b).backgroundColor)
     expect(bg).not.toMatch(/rgba\(0, 0, 0, 0\)|rgb\(2[0-9]{2}, 2[0-9]{2}, 2[0-9]{2}\)/)
     await bonus.getByRole('button', { name: `${older()} came first` }).click()
-    await expect(page.getByRole('status', { name: 'Bonus result' })).toHaveText('✓ Film buff! +$1M to the budget')
+    await expect(page.getByRole('status', { name: 'Bonus result' })).toHaveText('✓ Film buff! +$10M to the budget')
     await expect(bonus.getByRole('button', { name: `${newer()} came first` })).toBeDisabled() // one answer only
     await page.getByRole('button', { name: 'Next' }).click()
     const s = await waitForSave(page, 'standard', (x) => x.cardIdx === 1)

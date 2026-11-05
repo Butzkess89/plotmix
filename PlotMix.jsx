@@ -1263,12 +1263,15 @@ function LottieOverlay({src, loop=false, autoplay=true, speed=1, style={}, onCom
 // Formula: currentReward = max(0, baseReward - hintPenalty - wrongGuessPenalty)
 // 
 
-const BASE_REWARD = 10;   // the run's starting budget, in $M (owner decision 2026-11-04)
-// One studio budget for the whole run: wrong words and hints spend it, a solve earns
-// BOX_OFFICE back, and when it hits $0 the studio cancels the picture: GAME OVER.
+const BASE_REWARD = 10;   // the run's starting budget, in budget units (owner decision 2026-11-04)
+// One studio budget for the whole run: wrong words and hints spend it, and when it hits $0 the
+// studio cancels the picture: GAME OVER. Owner decision 2026-11-05: one unit is shown as $10M,
+// so the budget starts at (and can never rise above) $100M. Only a clean solve (no paid hints,
+// no wrong words) earns BOX_OFFICE back, and never past the $100M cap.
 const STARTING_BUDGET = BASE_REWARD;
 const BOX_OFFICE = 2;
-const money = (n) => `$${n}M`;
+const BUDGET_UNIT_M = 10;
+const money = (n) => `$${n * BUDGET_UNIT_M}M`;
 
 const HINT_TIERS = [
   {
@@ -3264,12 +3267,12 @@ function getResultMessage(both, hintsUsed, guessCount, maxGuesses, skipped=false
 // frame, a serial number on the stub and serrated tear edges (owner request 2026-11-05).
 const TICKET_EDGES = "conic-gradient(from 45deg at left, #0000, #000 1deg 89deg, #0000 90deg) left / 51% 7px repeat-y, conic-gradient(from -135deg at right, #0000, #000 1deg 89deg, #0000 90deg) right / 51% 7px repeat-y";
 const TICKET_PAPER = (tone) => `radial-gradient(rgba(92,70,38,0.16) 0.8px, transparent 1.3px) 0 0 / 6px 6px, radial-gradient(rgba(255,250,235,0.28) 0.8px, transparent 1.3px) 3px 2px / 9px 9px, linear-gradient(180deg, ${tone[0]}, ${tone[1]})`;
-function FilmTicket({chip, serial, tone = ["#DFCDA9", "#CDB68D"], tilt = 0, style}) {
+function FilmTicket({chip, serial, tone = ["#DFCDA9", "#CDB68D"], tilt = 0, style, frame = 1.5}) {
   return (
-    <div style={{width:`min(${chip.width + 34}px, calc(100% - 20px))`,height:chip.height + 4,filter:"drop-shadow(0 3px 0 rgba(28,29,33,0.85))",...style}}>
+    <div style={{width:chip.w ? `min(${chip.w}px, calc(100vw - 20px))` : `min(${chip.width + 34}px, calc(100% - 20px))`,height:chip.h ?? chip.height + 4,filter:"drop-shadow(0 3px 0 rgba(28,29,33,0.85))",...style}}>
       <div style={{position:"relative",width:"100%",height:"100%",boxSizing:"border-box",background:TICKET_PAPER(tone),
         WebkitMask:TICKET_EDGES,mask:TICKET_EDGES,transform:`rotate(${tilt}deg)`,display:"flex",alignItems:"center",padding:"0 8px"}}>
-        <div style={{position:"absolute",inset:"5px 9px",border:"1.5px solid #B0463E",borderRadius:3,pointerEvents:"none"}}/>
+        <div style={{position:"absolute",inset:"5px 9px",border:`${frame}px solid #B0463E`,borderRadius:3,pointerEvents:"none"}}/>
         <div style={{flex:1,minWidth:0,padding:"0 8px 0 12px",textAlign:"center",fontFamily:FONT_FIGMA_STICKER,fontSize:chip.fontSize,lineHeight:1.08,color:"#2A2420",textTransform:"uppercase",letterSpacing:"0.02em"}}>{chip.lines.join(" ")}</div>
         <div aria-hidden="true" style={{alignSelf:"stretch",width:26,flex:"none",margin:"5px 0",borderLeft:"1.5px solid #B0463E",display:"flex",alignItems:"center",justifyContent:"center"}}>
           <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:7.5,color:"#2A2420",writingMode:"vertical-rl",whiteSpace:"nowrap",letterSpacing:"0.06em"}}>{serial}</span>
@@ -3303,36 +3306,6 @@ function FameStar({size = 62, name = "YOU"}) {
 const WIN_FLASH_TIMES = [550, 700, 850, 1350, 1500];
 const WIN_FLASH_SPOTS = [[7, 6], [93, 30], [6, 62], [92, 8], [50, 1]];
 const WIN_FLASH_MONO_MS = 70;
-
-// Box office payout: one sticker hand passes a money bag down to another, with a sparkle
-// (composition from the owner's reference, redrawn in the game's sticker style).
-function BoxOfficeHandoff({reducedMotion=false}) {
-  const ink = "#1C1D21", skin = "#F2C29B";
-  return (
-    <svg aria-hidden="true" width="104" height="66" viewBox="0 0 100 64" style={{display:"block",overflow:"visible",filter:"drop-shadow(0 3px 0 #1C1D21)"}}>
-      <g stroke={ink} strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round">
-        <path d="M-2 3 L21 3 L25 19 L-2 19 Z" fill="#342698"/>
-        <path d="M21 2 L28 2 L32 20 L25 20 Z" fill="#FFF8D6"/>
-        <g style={reducedMotion?undefined:{animation:"bagDrop 0.6s cubic-bezier(.3,1.5,.5,1) 0.5s both"}}>
-          <path d="M44 18 C38 23 29 29 29 41 C29 51 38 55 50 55 C62 55 71 51 71 41 C71 29 62 23 56 18 Z" fill="#E9C46A"/>
-          <path d="M44 18 L39 9 L46 12 L50 6 L54 12 L61 9 L56 18 Z" fill="#E9C46A"/>
-          <rect x="42" y="15.5" width="16" height="4.5" rx="2.2" fill="#B0463E"/>
-          <text x="50" y="47" textAnchor="middle" fontFamily={FONT_FIGMA_STICKER} fontSize="17" fill={ink} stroke="none">$</text>
-          <path d="M36 30 C34 34 33 38 34 42" fill="none" stroke="#FFF8D6" strokeWidth="2.4"/>
-        </g>
-        <path d="M30 5 C38 2 49 5 53 11 C55 15 52 18 48 17 L45 17 C46 20 42 22 38 21 L31 21 Z" fill={skin}/>
-        <path d="M44 9 C47 10 49 12 50 14" fill="none" strokeWidth="1.6"/>
-        <path d="M45 17 C42 16 39 16 37 17" fill="none" strokeWidth="1.6"/>
-        <path d="M102 46 L82 46 L80 62 L102 62 Z" fill="#F6A507"/>
-        <path d="M82 45 L75 45 L73 63 L80 63 Z" fill="#FFF8D6"/>
-        <path d="M74 48 C67 47 60 51 57 55 C55 59 58 62 63 61 L74 62 Z" fill={skin}/>
-        <path d="M67 48 C66 43 62 41 59 43 C58 45 61 48 64 49" fill={skin}/>
-        <path d="M84 4 L87 12 L95 15 L87 18 L84 26 L81 18 L73 15 L81 12 Z" fill="#FFD84D" style={reducedMotion?undefined:{transformOrigin:"84px 15px",animation:"sparkleTwinkle 1.4s ease-in-out 0.9s infinite"}}/>
-        <path d="M94 30 L95.5 33.5 L99 35 L95.5 36.5 L94 40 L92.5 36.5 L89 35 L92.5 33.5 Z" fill="#FFF8D6" strokeWidth="1.6"/>
-      </g>
-    </svg>
-  );
-}
 
 // Dressing-room lamps around the answer card on the win popup. Points run counter-clockwise
 // from the top middle, so staggering their animation by index makes the light chase counter-clockwise.
@@ -3457,12 +3430,12 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
   );
 
   // Title smash: the two films slide in from opposite sides and the mashed title slams down.
-  const smashIn = (delayMs, dx) => (
+  const smashIn = (delayMs, dx, base = "translateX(-50%)") => (
     reducedMotion
       ? undefined
       : {
           opacity: entered ? 1 : 0,
-          transform: entered ? "translateX(-50%)" : `translateX(-50%) translateX(${dx}px)`,
+          transform: entered ? (base || "none") : `${base} translateX(${dx}px)`,
           transition: `opacity 240ms ease ${delayMs}ms, transform 460ms cubic-bezier(.2,1.35,.4,1) ${delayMs}ms`,
         }
   );
@@ -3545,21 +3518,19 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
 
 
   if (won) {
-    const topChip = movieChipLayout(card.movies[0]);
-    const bottomChip = movieChipLayout(card.movies[1]);
-    const movieStackCenterX = 201;
-    const chipGap = 5.5;
-    const titleGap = 30;
-    const plusHeight = 26;
-    const plusWidth = 30;
-    const preferredTitleY = 296;
-    const minTopChipY = 118;
-    const chipStackHeight = topChip.height + chipGap + plusHeight + chipGap + bottomChip.height;
-    const topChipY = Math.max(minTopChipY, preferredTitleY - titleGap - chipStackHeight);
-    const plusY = topChipY + topChip.height + chipGap;
-    const bottomChipY = plusY + plusHeight + chipGap;
-    const idealTitleY = bottomChipY + bottomChip.height + titleGap;
-    const titleY = Math.min(Math.max(248, idealTitleY), 296);
+    // Owner layout 2026-11-05 (402px screen). x,y are piece centres; y is measured from the top of
+    // the popup's main area (0..445), so negative y sits above the sheet. Tickets size to the title.
+    const MAIN_H = 445;
+    const my = (px) => `${(px / MAIN_H) * 100}%`;
+    const ticketFor = (movieTitle) => {
+      const len = String(movieTitle || "").trim().length;
+      const oneLine = Math.round(240 + (len - 13) * 25.3);
+      if (oneLine <= 360) return { w: Math.max(200, oneLine), h: 59, lines: [String(movieTitle)], fontSize: 15 };
+      const lines = buildChipLines(movieTitle, 20, 3);
+      return { w: 350, h: 59 + (lines.length - 1) * 17, lines, fontSize: lines.length >= 3 ? 13 : 14 };
+    };
+    const topTicket = ticketFor(card.movies[0]);
+    const bottomTicket = ticketFor(card.movies[1]);
     return (
       <div style={{position:"fixed",inset:0,zIndex:300,display:"flex",justifyContent:"center",alignItems:"flex-end",overflowY:"auto",overflowX:"hidden",background:"rgba(0,0,0,0.35)",backdropFilter:reducedMotion?"none":"blur(5px)",animation:reducedMotion?"none":transitionFamily.popupBackdropIn}}
         onClick={e => e.target === e.currentTarget && !showConnection && onNext()}>
@@ -3615,29 +3586,30 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
               />
             </div>
           )}
-          <div style={{aspectRatio:"402 / 484",textAlign:"center",position:"relative"}}>
-            <div style={{...POPUP_YELLOW_TEXT,fontSize:"clamp(13px, 4vw, 16px)",textTransform:"uppercase",lineHeight:1.06,letterSpacing:"0",position:"absolute",left:rx(26),right:rx(26),top:ry(29),...stagedRise(20, 8)}}>{msg.headline}</div>
-            <div style={{...POPUP_PLAIN_WHITE_TEXT,fontSize:"clamp(10.5px, 3.2vw, 12.8px)",lineHeight:1.23,textTransform:"none",letterSpacing:"0.01em",position:"absolute",left:rx(30),right:rx(30),top:ry(72),...stagedRise(70, 8)}}>{msg.sub}</div>
+          <div style={{aspectRatio:`402 / ${MAIN_H}`,textAlign:"center",position:"relative"}}>
+            <div style={{...POPUP_YELLOW_TEXT,color:"#F6A507",fontSize:"clamp(13px, 4vw, 16px)",textTransform:"uppercase",lineHeight:1.06,letterSpacing:"0",position:"absolute",left:rx(197.5),top:my(-102.5),width:rx(350),transform:"translate(-50%,-50%)",...stagedRise(20, 8, "translate(-50%,-50%)")}}>{msg.headline}</div>
+            <div style={{...POPUP_PLAIN_WHITE_TEXT,fontSize:"clamp(10.5px, 3.2vw, 12.8px)",lineHeight:1.23,textTransform:"none",letterSpacing:"0.01em",position:"absolute",left:rx(199.5),top:my(-52),width:rx(342),transform:"translate(-50%,-50%)",...stagedRise(70, 8, "translate(-50%,-50%)")}}>{msg.sub}</div>
 
-            <FilmTicket chip={topChip} serial={String(312200 + (card.id||0) * 2).slice(-6)} tilt={-2.5} style={{position:"absolute",left:rx(movieStackCenterX),top:ry(topChipY),transform:"translateX(-50%)",...smashIn(120, -280)}}/>
-            <div style={{position:"absolute",left:rx(movieStackCenterX),top:ry(plusY),transform:"translateX(-50%)",width:rx(plusWidth),height:ry(plusHeight),borderRadius:9,background:"#F6A507",border:"2px solid #1C1D21",boxShadow:"0 1px 0 #1C1D21",boxSizing:"border-box",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:FONT_FIGMA_STICKER,fontSize:"clamp(12px, 3.7vw, 16px)",lineHeight:1,color:"#1C1D21",...stagedRise(170, 10, "translateX(-50%)")}}>+</div>
-            <FilmTicket chip={bottomChip} serial={String(312201 + (card.id||0) * 2).slice(-6)} tone={["#E3D2B0", "#D2BC94"]} tilt={2} style={{position:"absolute",left:rx(movieStackCenterX),top:ry(bottomChipY),transform:"translateX(-50%)",...smashIn(240, 280)}}/>
-
-            <div style={{position:"absolute",left:rx(25),top:ry(titleY),width:rx(352),height:ry(78),background:"#342698",border:"2px solid #F6A507",borderRadius:11,boxShadow:"0 4px 0 #1C1D21",padding:"10px 12px",boxSizing:"border-box",display:"flex",alignItems:"center",justifyContent:"center",...titleSlam}}>
+            <div style={{position:"absolute",left:rx(201.5),top:my(56),width:rx(352),height:78,transform:"translate(-50%,-50%)"}}>
+            <div style={{position:"absolute",inset:0,background:"#342698",border:"2px solid #F6A507",borderRadius:11,boxShadow:"0 4px 0 #1C1D21",padding:"10px 12px",boxSizing:"border-box",display:"flex",alignItems:"center",justifyContent:"center",...titleSlam}}>
               {MARQUEE_BULBS.map((b,i)=>(
                 <span key={i} aria-hidden="true" style={{position:"absolute",left:`${b.x/352*100}%`,top:`${b.y/78*100}%`,width:10,height:10,margin:"-5px 0 0 -5px",borderRadius:"50%",border:"1px solid #1C1D21",boxSizing:"border-box",
                   ...(reducedMotion ? {background:"#FFF8D6",boxShadow:"0 0 6px 2px rgba(255,216,77,0.75)"} : {background:"#9A7424",animation:`bulbChase 2.4s linear ${(i/MARQUEE_BULBS.length-1)*2.4}s infinite`})}}/>
               ))}
               <div style={popupTitleStyle}>{title}</div>
             </div>
-
-            <div style={{position:"absolute",left:rx(18),top:ry(392),display:"flex",flexDirection:"column",alignItems:"center",gap:2,...stagedRise(320, 8)}}>
-              <BoxOfficeHandoff reducedMotion={reducedMotion}/>
-              <span aria-label="Box office" style={{...POPUP_SCORE_TEXT,color:"#FFD84D",fontSize:14,display:"inline-block",animation:reducedMotion?"none":"scorePulse 0.28s ease"}}>+{money(scoreDisplay)}</span>
             </div>
-            {flawless && <div aria-label="Walk of Fame star" role="img" style={{position:"absolute",left:rx(164),top:ry(408),transform:"translate(-50%,-50%) rotate(-12deg)",zIndex:2,
-              animation:reducedMotion?"none":"fameStamp 0.38s cubic-bezier(.3,1.6,.5,1) 1.75s both"}}>
-              <FameStar/>
+
+            <div style={{position:"absolute",left:rx(201),top:my(147.5),width:`min(${topTicket.w}px, calc(100% - 20px))`,height:topTicket.h,transform:"translate(-50%,-50%)"}}>
+              <FilmTicket chip={topTicket} frame={2} serial={String(312200 + (card.id||0) * 2).slice(-6)} tone={["#D6C29C", "#CDB68D"]} tilt={-4} style={{width:"100%",height:"100%",...smashIn(120, -280, "")}}/>
+            </div>
+            <div style={{position:"absolute",left:rx(200),top:my(242),width:`min(${bottomTicket.w}px, calc(100% - 20px))`,height:bottomTicket.h,transform:"translate(-50%,-50%)"}}>
+              <FilmTicket chip={bottomTicket} frame={2} serial={String(312201 + (card.id||0) * 2).slice(-6)} tone={["#DAC7A2", "#D2BC94"]} tilt={5} style={{width:"100%",height:"100%",...smashIn(240, 280, "")}}/>
+            </div>
+
+            {roundScore > 0 && <div style={{position:"absolute",left:rx(105),top:my(356.5),width:76,transform:"translate(-50%,-50%)",...stagedRise(320, 8, "translate(-50%,-50%)")}}>
+              <img src="/stickers/money-bag.webp" alt="" aria-hidden="true" width="76" height="93" style={{display:"block",width:76,height:"auto"}}/>
+              <span aria-label="Box office" style={{position:"absolute",left:"49.4%",top:"56.3%",transform:"translate(-50%,-50%)",fontFamily:"'Outfit',sans-serif",fontWeight:800,fontSize:14,lineHeight:1,letterSpacing:"-0.02em",color:"#2A0E33",whiteSpace:"nowrap",animation:reducedMotion?"none":"scorePulse 0.28s ease"}}>+{money(scoreDisplay)}</span>
             </div>}
             {!reducedMotion && WIN_FLASH_SPOTS.map(([x,y],i)=>(
               <div key={`f${i}`} aria-hidden="true" style={{position:"absolute",left:`${x}%`,top:`${y}%`,width:96,height:96,opacity:0,pointerEvents:"none",zIndex:4,
@@ -3645,12 +3617,12 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
                 animation:`flashPop 0.55s ease-out ${WIN_FLASH_TIMES[i]/1000 - 0.04}s 1 both`}}/>
             ))}
 
-            <div style={{position:"absolute",left:rx(212),top:ry(388),display:"grid",gridTemplateColumns:"repeat(5, 26px)",gridTemplateRows:"repeat(2, 26px)",gap:"14px 9px",justifyContent:"center",...stagedRise(360, 8)}}>
+            <div style={{position:"absolute",left:rx(290),top:my(356.5),transform:"translate(-50%,-50%)",display:"grid",gridTemplateColumns:"repeat(5, 26px)",gridTemplateRows:"repeat(2, 26px)",gap:"14px 9px",justifyContent:"center",...stagedRise(360, 8, "translate(-50%,-50%)")}}>
               {Array.from({length:dotCount}).map((_,i)=>{
                 const bg = dotFor(i);
                 const glyph = glyphFor(i);
                 return (
-                  <div key={i} style={{width:26,height:26,borderRadius:"50%",background:bg,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 0 #1C1D21",opacity:i<dotRevealCount?1:0.2,transform:i<dotRevealCount?"scale(1)":"scale(0.8)",transition:"opacity 0.22s ease, transform 0.22s ease"}}>
+                  <div key={i} style={{width:26,height:26,borderRadius:"50%",background:bg,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 0 #1C1D21",opacity:i<dotRevealCount?1:0.2,transform:i<dotRevealCount?"scale(1)":"scale(0.8)",transition:"opacity 0.22s ease, transform 0.22s ease",...(i===cardIdx && i<dotRevealCount && !reducedMotion ? {animation:"dotBeat 1.6s ease-in-out 0.3s infinite"} : {})}}>
                     {i<dotRevealCount && (glyph==="x" ? <IconXMark size={10} color="#F08D87"/> : glyph==="check" ? <IconCheck size={10} color="#6AE89D"/> : null)}
                   </div>
                 );
@@ -3658,28 +3630,28 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
             </div>
           </div>
 
-          {bonus && (
-            <div role="group" aria-label="Which came first?" style={{padding:"10px 16px 12px",borderTop:`1px solid ${T.border}`,background:"rgba(14,10,44,0.6)",textAlign:"center",position:"relative",zIndex:3}}>
-              <div style={{...POPUP_YELLOW_TEXT,fontSize:12,textTransform:"uppercase",marginBottom:8}}>🎞️ Bonus +1: which came out first?</div>
-              <div style={{display:"flex",gap:8}}>
-                {bonus.films.map((f,i)=>{
-                  const a=bonus.answer, picked=a?.pick===i, older=bonus.years[i]<bonus.years[1-i];
-                  return (
-                    <button key={i} onClick={(e)=>{ e.stopPropagation(); onBonus?.(i); }} disabled={!!a} aria-label={`${f} came first`}
-                      style={{flex:1,...BTN.cyan,padding:"8px 6px",cursor:a?"default":"pointer",
-                        ...(a ? {background: older ? "#16A34A" : picked ? "#DC2626" : "#4B4F78"} : {})}}>
-                      <span style={{...WHITE_STICKER_TEXT,fontSize:10.5,textTransform:"uppercase",lineHeight:1.25}}>{f}{a ? ` · ${bonus.years[i]}` : ""}</span>
-                    </button>
-                  );
-                })}
-              </div>
+          {bonus && (<>
+            <div role="group" aria-label="Which came first?" style={{height:106,background:"rgba(14,10,44,0.6)",textAlign:"center",position:"relative",zIndex:3,
+              ...(reducedMotion ? {} : {animation:`bonusFadeIn 0.8s ease ${(WIN_FLASH_TIMES[WIN_FLASH_TIMES.length-1] + 3000)/1000}s both`})}}>
+              <div style={{...POPUP_YELLOW_TEXT,color:"#F6A507",fontSize:12,textTransform:"uppercase",position:"absolute",left:"50%",top:11,width:rx(370),transform:"translate(-50%,-50%)",lineHeight:1}}>Bonus: which came out first?</div>
+              {bonus.films.map((f,i)=>{
+                const a=bonus.answer, picked=a?.pick===i, older=bonus.years[i]<bonus.years[1-i];
+                return (
+                  <button key={i} onClick={(e)=>{ e.stopPropagation(); onBonus?.(i); }} disabled={!!a} aria-label={`${f} came first`}
+                    style={{...BTN.cyan,position:"absolute",left:rx(i ? 297 : 108.5),top:50,width:rx(181),height:40,transform:"translate(-50%,-50%)",background:"#F28628",border:"2px solid #1C1D21",borderRadius:9,boxShadow:"0 4px 0 #1C1D21",padding:"0 6px",boxSizing:"border-box",display:"flex",alignItems:"center",justifyContent:"center",cursor:a?"default":"pointer",
+                      ...(a ? {background: older ? "#16A34A" : picked ? "#DC2626" : "#4B4F78"} : {})}}>
+                    <span style={{...WHITE_STICKER_TEXT,fontSize:10.5,textTransform:"uppercase",lineHeight:1.15}}>{f}{a ? ` · ${bonus.years[i]}` : ""}</span>
+                  </button>
+                );
+              })}
               {bonus.answer && (
-                <div role="status" aria-label="Bonus result" style={{...WHITE_STICKER_TEXT,fontSize:11.5,marginTop:8}}>
-                  {bonus.answer.correct ? "✓ Film buff! +$1M to the budget" : "✗ Nope, the other one. No bonus."}
+                <div role="status" aria-label="Bonus result" style={{...POPUP_YELLOW_TEXT,color:"#F6A507",fontSize:11.5,textTransform:"uppercase",position:"absolute",left:rx(204),top:92,width:rx(370),transform:"translate(-50%,-50%)",lineHeight:1}}>
+                  {bonus.answer.correct ? `✓ Film buff! +${money(1)} to the budget` : "✗ Nope, the other one. No bonus."}
                 </div>
               )}
             </div>
-          )}
+            <div aria-hidden="true" style={{height:45}}/>
+          </>)}
 
           <div style={{aspectRatio:"402 / 94",marginTop:0,...RESULT_FOOTER_BG,borderTop:`1px solid ${T.border}`,position:"relative"}}>
             <button onClick={()=>setShowConnection(true)} aria-label="The Connection"
@@ -3728,7 +3700,7 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
                   const bg = dotFor(i);
                   const glyph = glyphFor(i);
                   return (
-                    <div key={i} style={{width:26,height:26,borderRadius:"50%",background:bg,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 0 #1C1D21",opacity:i<dotRevealCount?1:0.2,transform:i<dotRevealCount?"scale(1)":"scale(0.8)",transition:"opacity 0.22s ease, transform 0.22s ease"}}>
+                    <div key={i} style={{width:26,height:26,borderRadius:"50%",background:bg,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 0 #1C1D21",opacity:i<dotRevealCount?1:0.2,transform:i<dotRevealCount?"scale(1)":"scale(0.8)",transition:"opacity 0.22s ease, transform 0.22s ease",...(i===cardIdx && i<dotRevealCount && !reducedMotion ? {animation:"dotBeat 1.6s ease-in-out 0.3s infinite"} : {})}}>
                       {i<dotRevealCount && (glyph==="x" ? <IconXMark size={10} color="#F08D87"/> : glyph==="check" ? <IconCheck size={10} color="#6AE89D"/> : null)}
                     </div>
                   );
@@ -3815,7 +3787,7 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
                   const bg = dotFor(i);
                   const glyph = glyphFor(i);
                   return (
-                    <div key={i} style={{width:26,height:26,borderRadius:"50%",background:bg,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 0 #1C1D21",opacity:i<dotRevealCount?1:0.2,transform:i<dotRevealCount?"scale(1)":"scale(0.8)",transition:"opacity 0.22s ease, transform 0.22s ease"}}>
+                    <div key={i} style={{width:26,height:26,borderRadius:"50%",background:bg,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 0 #1C1D21",opacity:i<dotRevealCount?1:0.2,transform:i<dotRevealCount?"scale(1)":"scale(0.8)",transition:"opacity 0.22s ease, transform 0.22s ease",...(i===cardIdx && i<dotRevealCount && !reducedMotion ? {animation:"dotBeat 1.6s ease-in-out 0.3s infinite"} : {})}}>
                       {i<dotRevealCount && (glyph==="x" ? <IconXMark size={10} color="#F08D87"/> : glyph==="check" ? <IconCheck size={10} color="#6AE89D"/> : null)}
                     </div>
                   );
@@ -3891,7 +3863,7 @@ function getCriticReview(ratio) {
 const LS_BADGES = "plotmix_badges";
 const BADGES = [
   { id:"directorsCut",    name:"Director's Cut",    emoji:"🎬", desc:"Solved a card with no hints" },
-  { id:"plotTwist",       name:"Plot Twist",        emoji:"🌀", desc:"Released a film with $1M left in the budget" },
+  { id:"plotTwist",       name:"Plot Twist",        emoji:"🌀", desc:`Released a film with ${money(1)} left in the budget` },
   { id:"boxOfficeSmash",  name:"Box Office Smash",  emoji:"💥", desc:"Solved 5 cards in a row" },
   { id:"goldenPopcorn",   name:"Golden Popcorn",    emoji:"🍿", desc:"Solved every card in a full run" },
   { id:"straightToVideo", name:"Straight to Video", emoji:"📼", desc:"Finished a run without releasing a single film" },
@@ -4324,9 +4296,9 @@ function NextDailyCountdown() {
 
 function BadgeToast({badges, onDone}) {
   return (
-    <div role="status" style={{position:"fixed",top:74,left:"50%",transform:"translateX(-50%)",zIndex:520,pointerEvents:"none",display:"flex",flexDirection:"column",gap:6,alignItems:"center",animation:"badgeDrop 6.1s cubic-bezier(.3,1,.4,1) both"}} onAnimationEnd={e=>{ if (e.target===e.currentTarget && onDone) onDone(); }}>
+    <div role="status" style={{position:"fixed",top:"max(6px, calc(100dvh - 868px))",left:"calc(50% - 1.5px)",transform:"translateX(-50%)",zIndex:520,pointerEvents:"none",display:"flex",flexDirection:"column",gap:6,alignItems:"center",animation:"badgeDrop 6.1s cubic-bezier(.3,1,.4,1) both"}} onAnimationEnd={e=>{ if (e.target===e.currentTarget && onDone) onDone(); }}>
       {badges.map(b=>(
-        <div key={b.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 14px",background:"#FFD84D",border:"2px solid #1C1D21",borderRadius:12,boxShadow:"0 3px 0 #1C1D21",whiteSpace:"nowrap"}}>
+        <div key={b.id} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,width:"min(330px, calc(100vw - 24px))",minHeight:38,boxSizing:"border-box",padding:"6px 14px",background:"#FFD84D",border:"2px solid #1C1D21",borderRadius:12,boxShadow:"0 3px 0 #1C1D21",whiteSpace:"nowrap"}}>
           <span style={{fontSize:18,lineHeight:1}}>{b.emoji}</span>
           <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:11,color:"#1C1D21",textTransform:"uppercase"}}>{b.title || `Badge unlocked: ${b.name}`}</span>
         </div>
@@ -4336,6 +4308,8 @@ function BadgeToast({badges, onDone}) {
 }
 
 const CINEMA_KEYFRAMES = `
+  @keyframes dotBeat { 0%,52%,100%{transform:scale(1)} 12%{transform:scale(1.13)} 24%{transform:scale(1)} 36%{transform:scale(1.07)} }
+  @keyframes bonusFadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
   @keyframes bagDrop { 0%{transform:translate(-8px,-7px) rotate(-8deg)} 100%{transform:translate(0,0) rotate(0)} }
   @keyframes sparkleTwinkle { 0%,100%{transform:scale(1) rotate(0)} 50%{transform:scale(0.6) rotate(25deg)} }
   @keyframes badgeDrop { 0%{opacity:0;transform:translateX(-50%) translateY(-160px)} 5%{opacity:1;transform:translateX(-50%) translateY(6px)} 7.5%,89.5%{opacity:1;transform:translateX(-50%) translateY(0)} 100%{opacity:0;transform:translateX(-50%) translateY(-160px)} }
@@ -5638,21 +5612,21 @@ function HintsModal({card, hintsRevealed, onReveal, onClose, hintAnimationSrc, r
           <button onClick={()=>revealWithFx(HINT_TIERS[0].id)} disabled={yearGenreOff}
             style={{...BTN.cyan,opacity:yearGenreOff?0.4:1,cursor:yearGenreOff?"not-allowed":"pointer",padding:"13px 0"}}>
             <span style={{...WHITE_STICKER_TEXT,fontSize:13,letterSpacing:"0.03em",textTransform:"uppercase"}}>
-              Year & Genre  -$1M{yearGenreRevealed?" ✓":""}{noPts(yearGenreRevealed,HINT_TIERS[0].rewardPenalty)}
+              Year & Genre  -{money(1)}{yearGenreRevealed?" ✓":""}{noPts(yearGenreRevealed,HINT_TIERS[0].rewardPenalty)}
             </span>
           </button>
           {whisperText && (
             <button onClick={()=>revealWithFx("whisper")} disabled={whisperOff}
               style={{...BTN.cyan,background:"#8F7BFD",opacity:whisperOff?0.4:1,cursor:whisperOff?"not-allowed":"pointer",padding:"13px 0"}}>
               <span style={{...WHITE_STICKER_TEXT,fontSize:13,letterSpacing:"0.03em",textTransform:"uppercase"}}>
-                Director's Whisper  -$2M{whisperRevealed?" ✓":""}{noPts(whisperRevealed,HINT_TIERS[2].rewardPenalty)}
+                Director's Whisper  -{money(2)}{whisperRevealed?" ✓":""}{noPts(whisperRevealed,HINT_TIERS[2].rewardPenalty)}
               </span>
             </button>
           )}
           <button onClick={()=>revealWithFx(HINT_TIERS[1].id)} disabled={actorsOff}
             style={{...BTN.primary,opacity:actorsOff?0.4:1,cursor:actorsOff?"not-allowed":"pointer",padding:"13px 0"}}>
             <span style={{...WHITE_STICKER_TEXT,fontSize:13,letterSpacing:"0.03em",textTransform:"uppercase"}}>
-              Lead Actors  -$3M{actorsRevealed?" ✓":""}{noPts(actorsRevealed,HINT_TIERS[1].rewardPenalty)}
+              Lead Actors  -{money(3)}{actorsRevealed?" ✓":""}{noPts(actorsRevealed,HINT_TIERS[1].rewardPenalty)}
             </span>
           </button>
           {powerups && (powerups.hint>0 || powerups.peek>0 || freeHints.length>0 || peekUsed) && (
@@ -6102,8 +6076,8 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       return;
     }
     const pts=calcScore(both);
-    // A solve earns box office back (plus $1M for the bonus question); a loss means $0 left.
-    setBudget(both ? currentReward + BOX_OFFICE + bonusPts : 0);
+    // A clean solve earns box office back (plus the bonus question), capped at the $100M max; a loss means $0 left.
+    setBudget(both ? Math.min(STARTING_BUDGET, Math.max(currentReward, currentReward + roundScore + bonusPts)) : 0);
 
     const newStreak=updateStreak(both);
     setStreak(newStreak);
@@ -6231,8 +6205,11 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     return ()=>clearTimeout(id);
   },[usher]);
 
-  // What the result popup counts up to: the box office a solve earns back.
-  const roundScore=both ? BOX_OFFICE : 0;
+  // What the result popup counts up to: the box office a solve earns back. Only a clean solve
+  // (no paid hints, no wrong words) earns it, and the budget never rises above its $100M start.
+  const cleanSolve = both && wrongWordPenalty===0 && hintsRevealed.every(id=>freeHints.includes(id));
+  const budgetRoom = Math.max(0, STARTING_BUDGET - currentReward);
+  const roundScore = cleanSolve ? Math.min(BOX_OFFICE, budgetRoom) : 0;
   const showFooterBar = !showingResult && (!both || canReturnToCurrent);
   useEffect(()=>{
     const check=()=>{
@@ -6451,7 +6428,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
           guessCount={guesses.length}
           hintCount={hintCount}
           maxGuesses={mode.maxGuesses}
-          roundScore={roundScore+bonusPts}
+          roundScore={Math.min(roundScore+bonusPts, budgetRoom)}
           budgetLeft={Math.max(0,currentReward)}
           bonus={bonusEligible ? {films:card.movies, years:filmYears, answer:whichFirst} : null}
           onBonus={handleBonus}

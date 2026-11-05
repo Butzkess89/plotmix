@@ -96,13 +96,18 @@ test.describe('3A-3 how a run ends, Play Again, Speed Run countdown', () => {
     await expect(page.getByText('10', { exact: true }).first()).toBeVisible() // 10 films released
   })
 
-  test('each solve earns $2M of box office back', async ({ page }) => {
+  test('only a clean solve earns $20M back, and never past the $100M max (owner decision 2026-11-05)', async ({ page }) => {
     await openMenu(page)
     await startMode(page, 'standard')
+    await solvePerfectly(page) // already at the $100M max: nothing extra
+    expect((await waitForSave(page, 'standard', (s) => s.cardIdx === 1)).budget).toBe(10)
+    await submitGuess(page, 'zzqxwrong') // -$10M, so this solve is not clean and earns nothing
     await solvePerfectly(page)
-    expect((await waitForSave(page, 'standard', (s) => s.cardIdx === 1)).budget).toBe(12)
+    expect((await waitForSave(page, 'standard', (s) => s.cardIdx === 2)).budget).toBe(9)
+    await solvePerfectly(page) // clean: +$20M, capped back at $100M
+    expect((await waitForSave(page, 'standard', (s) => s.cardIdx === 3)).budget).toBe(10)
     await skipCard(page)
-    expect((await waitForSave(page, 'standard', (s) => s.cardIdx === 2)).budget).toBe(12)
+    expect((await waitForSave(page, 'standard', (s) => s.cardIdx === 4)).budget).toBe(10)
   })
 
   test('the Speed Run clock counts down from 1:00 and runs out', async ({ page }) => {
