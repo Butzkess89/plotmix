@@ -3683,8 +3683,8 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
             <div style={{position:"absolute",left:rx(201.5),top:my(56),width:rx(352),height:78,transform:"translate(-50%,-50%)"}}>
             <div style={{position:"absolute",inset:0,background:"#342698",border:"2px solid #F6A507",borderRadius:11,boxShadow:"0 4px 0 #1C1D21",padding:"10px 12px",boxSizing:"border-box",display:"flex",alignItems:"center",justifyContent:"center",...titleSlam}}>
               {MARQUEE_BULBS.map((b,i)=>(
-                <span key={i} aria-hidden="true" style={{position:"absolute",left:`${b.x/352*100}%`,top:`${b.y/78*100}%`,width:10,height:10,margin:"-5px 0 0 -5px",borderRadius:"50%",border:"1px solid #1C1D21",boxSizing:"border-box",
-                  ...(reducedMotion ? {background:"#FFF8D6",boxShadow:"0 0 6px 2px rgba(255,216,77,0.75)"} : {background:"#9A7424",animation:`bulbChase 2.4s linear ${(i/MARQUEE_BULBS.length-1)*2.4}s infinite`})}}/>
+                <span key={i} aria-hidden="true" style={{position:"absolute",left:`${b.x/352*100}%`,top:`${b.y/78*100}%`,width:13,height:13,margin:"-6.5px 0 0 -6.5px",borderRadius:"50%",border:"1px solid #1C1D21",boxSizing:"border-box",
+                  ...(reducedMotion ? {background:"#FFF8D6",boxShadow:"0 0 10px 4px rgba(255,226,110,0.85)"} : {background:"#B88A2A",animation:`bulbChase 2.4s linear ${(i/MARQUEE_BULBS.length-1)*2.4}s infinite`})}}/>
               ))}
               <div style={popupTitleStyle}>{title}</div>
             </div>
@@ -4469,7 +4469,7 @@ const CINEMA_KEYFRAMES = `
   @keyframes badgeDrop { 0%{opacity:0;transform:translateX(-50%) translateY(-160px)} 5%{opacity:1;transform:translateX(-50%) translateY(6px)} 7.5%,89.5%{opacity:1;transform:translateX(-50%) translateY(0)} 100%{opacity:0;transform:translateX(-50%) translateY(-160px)} }
   @keyframes fameStamp { 0%{opacity:0; transform:translate(-50%,-50%) scale(2.6) rotate(-40deg)} 70%{opacity:1; transform:translate(-50%,-50%) scale(0.9) rotate(-8deg)} 100%{opacity:1; transform:translate(-50%,-50%) scale(1) rotate(-12deg)} }
   @keyframes raysSpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-  @keyframes bulbChase { 0%{background:#FFF8D6; box-shadow:0 0 8px 3px rgba(255,216,77,0.9)} 30%,100%{background:#9A7424; box-shadow:0 0 0 0 rgba(255,216,77,0)} }
+  @keyframes bulbChase { 0%{background:#FFFDF0; box-shadow:0 0 12px 5px rgba(255,226,110,0.95), 0 0 24px 8px rgba(255,200,60,0.45)} 35%,100%{background:#B88A2A; box-shadow:0 0 4px 1px rgba(255,216,77,0.35)} }
   @keyframes decorSway { 0%,100%{transform:translateX(-50%) rotate(-6deg)} 50%{transform:translateX(-50%) rotate(6deg)} }
   @keyframes vhsPress { 0%,49%{transform:translateY(0); box-shadow:0 7px 0 #0B0C10} 50%,100%{transform:translateY(6px); box-shadow:0 1px 0 #0B0C10} }
   @keyframes laserReady { 0%,100%{filter:drop-shadow(0 0 1px #FF2E63)} 50%{filter:drop-shadow(0 0 6px #FF2E63)} }
@@ -5697,38 +5697,62 @@ function HintsModal({card, hintsRevealed, onReveal, onClose, hintAnimationSrc, r
     return () => clearTimeout(id);
   }, [recentlyUnlocked]);
 
+  // Owner 2026-11-05: the hint sheet was "lame and tame". It is now a studio's secret script
+  // notes: each film is a kraft-paper reel card, locked clues are blacked-out REDACTED bars,
+  // and the Director's Whisper is a speech bubble from the director's megaphone.
+  const Redacted = ({w = 190}) => (
+    <span aria-hidden="true" style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:w,height:20,background:"#141418",borderRadius:2,transform:"rotate(-0.6deg)",
+      boxShadow:"inset 0 0 0 1px rgba(255,255,255,0.06)"}}>
+      <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:8.5,letterSpacing:"0.22em",color:"#E8344E"}}>REDACTED</span>
+    </span>
+  );
   const FilmBoxes = ({i}) => {
     const f = hd?.films?.[i];
+    const pulse = (id) => !reducedMotion && recentlyUnlocked===id ? "vaultUnlockPulse 0.48s ease" : "none";
+    const line = {fontFamily:FONT_FIGMA_STICKER,fontSize:13,color:"#2B1E14",lineHeight:1.2,textAlign:"center"};
     return (
-      <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,marginBottom:14}}>
-        <div style={{fontFamily:FONT_FIGMA_STICKER,fontSize:11,color:"#fff",opacity:0.85,marginBottom:2,textTransform:"uppercase"}}>Film {i+1}</div>
-        <div style={{background:"#fff",border:`1px solid ${T.border}`,padding:"6px 14px",minWidth:170,textAlign:"center",animation:!reducedMotion && recentlyUnlocked===HINT_TIERS[0].id ? "vaultUnlockPulse 0.48s ease" : "none",transformOrigin:"50% 50%"}}>
-          <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:14,color:T.textPrimary}}>
-            {yearGenreRevealed&&f ? `${f.year} ${f.genre.toUpperCase()}` : "?????"}
-          </span>
-        </div>
-        <div style={{background:"#fff",border:`1px solid ${T.border}`,padding:"6px 14px",minWidth:170,textAlign:"center",position:"relative",overflow:"hidden",animation:!reducedMotion && recentlyUnlocked===HINT_TIERS[1].id ? "vaultUnlockPulse 0.48s ease" : "none",transformOrigin:"50% 50%"}}>
-          {!actorsRevealed && (
-            <div style={{position:"absolute",inset:0,background:"repeating-linear-gradient(130deg,#0b0a16 0 9px,#201d38 9px 18px)",opacity:0.9,pointerEvents:"none"}}/>
-          )}
-          {/* Owner request 2026-10-26: "SPOILER" tape rips off the Lead Actors as they're revealed. */}
-          {actorsRevealed && recentlyUnlocked===HINT_TIERS[1].id && !reducedMotion && (
-            <div data-spoiler-tape="" aria-hidden="true" style={{position:"absolute",inset:0,zIndex:2,pointerEvents:"none"}}>
-              {[["8%","spoilerTear"],["46%","spoilerTearL"]].map(([top,anim])=>(
-                <div key={anim} style={{position:"absolute",left:-16,right:-16,top,height:15,display:"flex",alignItems:"center",justifyContent:"center",gap:10,
-                  background:"#FFD84D",borderTop:"2px solid #1C1D21",borderBottom:"2px solid #1C1D21",animation:`${anim} 0.55s ease-in both`}}>
-                  {[0,1,2].map(k=><span key={k} style={{fontFamily:FONT_FIGMA_STICKER,fontSize:8.5,color:"#1C1D21",letterSpacing:"0.08em"}}>SPOILER</span>)}
-                </div>
-              ))}
-            </div>
-          )}
-          <span style={{position:"relative",zIndex:1,fontFamily:FONT_FIGMA_STICKER,fontSize:14,color:T.textPrimary,textDecoration:actorsRevealed&&f?"underline":"none",animation:!reducedMotion && actorsRevealed && recentlyUnlocked===HINT_TIERS[1].id ? "tapePeelReveal 0.45s ease" : "none",display:"inline-block"}}>
-            {actorsRevealed&&f ? f.actors[0].toUpperCase() : "?????"}
-          </span>
+      <div style={{position:"relative",margin:"0 auto 14px",width:"94%",transform:`rotate(${i ? 1.6 : -1.6}deg)`,filter:"drop-shadow(0 4px 0 #1C1D21)"}}>
+        <div style={{position:"relative",background:"linear-gradient(180deg,#E4D3AE,#D3BD93)",padding:"10px 26px 12px",WebkitMask:TICKET_EDGES,mask:TICKET_EDGES,display:"flex",flexDirection:"column",alignItems:"center",gap:7}}>
+          <div style={{position:"absolute",inset:"5px 11px",border:"2px solid #B0463E",borderRadius:3,pointerEvents:"none"}}/>
+          <div style={{fontFamily:FONT_FIGMA_STICKER,fontSize:10,color:"#B0463E",letterSpacing:"0.12em"}}>REEL {i+1}</div>
+          <div style={{...line,animation:pulse(HINT_TIERS[0].id)}}>
+            {yearGenreRevealed&&f ? `${f.year} ${f.genre.toUpperCase()}` : <Redacted/>}
+          </div>
+          <div style={{position:"relative",width:"100%",display:"flex",justifyContent:"center",overflow:"hidden",animation:pulse(HINT_TIERS[1].id)}}>
+            {/* Owner request 2026-10-26: "SPOILER" tape rips off the Lead Actors as they're revealed. */}
+            {actorsRevealed && recentlyUnlocked===HINT_TIERS[1].id && !reducedMotion && (
+              <div data-spoiler-tape="" aria-hidden="true" style={{position:"absolute",inset:0,zIndex:2,pointerEvents:"none"}}>
+                {[["8%","spoilerTear"],["46%","spoilerTearL"]].map(([top,anim])=>(
+                  <div key={anim} style={{position:"absolute",left:-16,right:-16,top,height:15,display:"flex",alignItems:"center",justifyContent:"center",gap:10,
+                    background:"#FFD84D",borderTop:"2px solid #1C1D21",borderBottom:"2px solid #1C1D21",animation:`${anim} 0.55s ease-in both`}}>
+                    {[0,1,2].map(k=><span key={k} style={{fontFamily:FONT_FIGMA_STICKER,fontSize:8.5,color:"#1C1D21",letterSpacing:"0.08em"}}>SPOILER</span>)}
+                  </div>
+                ))}
+              </div>
+            )}
+            {actorsRevealed&&f
+              ? <span style={{...line,position:"relative",zIndex:1,display:"inline-block",animation:!reducedMotion && recentlyUnlocked===HINT_TIERS[1].id ? "tapePeelReveal 0.45s ease" : "none"}}>★ {f.actors[0].toUpperCase()} ★</span>
+              : <Redacted w={150}/>}
+          </div>
         </div>
       </div>
     );
   };
+
+  // A clue button: icon chip on the left, a tilted price-tag sticker on the right.
+  const ClueButton = ({onClick, off, done, bg, icon, label, cost, warn}) => (
+    <button onClick={onClick} disabled={off}
+      style={{...BTN.cyan,background:bg,opacity:off&&!done?0.45:1,cursor:off?"not-allowed":"pointer",padding:"9px 10px 9px 8px",display:"flex",alignItems:"center",gap:10,textAlign:"left",
+        ...(done ? {filter:"saturate(0.55)"} : {})}}>
+      <span aria-hidden="true" style={{flex:"none",width:34,height:34,borderRadius:"50%",background:"#FFF8E6",border:"2px solid #1C1D21",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,lineHeight:1}}>{icon}</span>
+      <span style={{...WHITE_STICKER_TEXT,flex:1,fontSize:12.5,letterSpacing:"0.03em",textTransform:"uppercase",lineHeight:1.15}}>{label}{done?" ✓":""}{warn}</span>
+      <span style={{flex:"none",fontFamily:FONT_FIGMA_STICKER,fontSize:12,color:"#1C1D21",background:done?"#B9B4D6":"#FFD84D",border:"2px solid #1C1D21",borderRadius:"4px 12px 12px 4px",padding:"5px 8px 5px 12px",transform:"rotate(4deg)",position:"relative",
+        boxShadow:"0 2px 0 #1C1D21"}}>
+        <span aria-hidden="true" style={{position:"absolute",left:4,top:"50%",width:5,height:5,marginTop:-2.5,borderRadius:"50%",background:"#1C1D21"}}/>
+        -{cost}
+      </span>
+    </button>
+  );
 
   return (
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:390,display:"flex",alignItems:"flex-end",justifyContent:"center",padding:"150px 16px 16px"}}
@@ -5747,44 +5771,43 @@ function HintsModal({card, hintsRevealed, onReveal, onClose, hintAnimationSrc, r
             />
           </div>
         )}
-        <div style={{width:"100%",maxHeight:"85vh",overflowY:"auto",overflowX:"visible",background:T.bgDeep,border:`2px solid ${T.border}`,borderRadius:T.rXl,boxShadow:T.shadowLg,padding:"66px 20px 24px",animation:reducedMotion?"none":transitionFamily.hintIn,position:"relative",transformOrigin:"50% 100%"}}>
+        <div style={{width:"100%",maxHeight:"85vh",overflowY:"auto",overflowX:"hidden",...SUNBURST_BG,border:`2px solid ${T.border}`,borderRadius:T.rXl,boxShadow:"0 6px 0 #1C1D21, 0 18px 40px rgba(0,0,0,0.45)",padding:"58px 18px 22px",animation:reducedMotion?"none":transitionFamily.hintIn,position:"relative",transformOrigin:"50% 100%"}}>
         <button onClick={onClose} aria-label="Close hints" style={{position:"absolute",top:14,right:14,width:30,height:30,background:"#4845F3",border:`2px solid ${T.border}`,borderRadius:7,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
           <IconX size={11}/>
         </button>
-        <div style={{...YELLOW_STICKER_TEXT,textAlign:"center",fontSize:15,marginBottom:18,textTransform:"uppercase"}}>Hints</div>
+        <div style={{position:"relative",textAlign:"center",marginBottom:18}}>
+          <div style={{...YELLOW_STICKER_TEXT,fontSize:20,textTransform:"uppercase",lineHeight:1.05}}>Hints</div>
+          <div style={{...POPUP_PLAIN_WHITE_TEXT,fontSize:10,textTransform:"uppercase",letterSpacing:"0.06em",marginTop:6,opacity:0.9}}>Leaked script notes. Every peek costs the studio.</div>
+          <div aria-hidden="true" style={{position:"absolute",left:-2,top:-34,transform:"rotate(-10deg)",border:"2.5px solid #E8344E",borderRadius:5,padding:"3px 8px",fontFamily:FONT_FIGMA_STICKER,fontSize:10,letterSpacing:"0.1em",color:"#E8344E",background:"rgba(255,255,255,0.08)"}}>TOP SECRET</div>
+        </div>
 
         <FilmBoxes i={0}/>
         <FilmBoxes i={1}/>
         {whisperText && (
-          <div aria-label="Director's Whisper" style={{background:whisperRevealed?"#fff":"repeating-linear-gradient(130deg,#0b0a16 0 9px,#201d38 9px 18px)",border:`1px solid ${T.border}`,padding:"10px 12px",margin:"2px 0 4px",minHeight:20,
-            animation:!reducedMotion && recentlyUnlocked==="whisper" ? "vaultUnlockPulse 0.48s ease" : "none"}}>
-            <span style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:14,lineHeight:1.4,color:T.textPrimary,visibility:whisperRevealed?"visible":"hidden"}}>
-              🤫 {whisperText}
-            </span>
+          <div style={{display:"flex",alignItems:"flex-start",gap:8,margin:"4px 0 4px"}}>
+            <span aria-hidden="true" style={{flex:"none",fontSize:30,lineHeight:1,marginTop:8,transform:"scaleX(-1)",filter:"drop-shadow(0 2px 0 #1C1D21)"}}>📣</span>
+            <div aria-label="Director's Whisper" style={{position:"relative",flex:1,background:whisperRevealed?"#FFF8E6":"#2A2440",border:"2px solid #1C1D21",borderRadius:14,boxShadow:"0 3px 0 #1C1D21",padding:"10px 12px",minHeight:20,
+              animation:!reducedMotion && recentlyUnlocked==="whisper" ? "vaultUnlockPulse 0.48s ease" : "none"}}>
+              <span aria-hidden="true" style={{position:"absolute",left:-9,top:16,width:14,height:14,background:whisperRevealed?"#FFF8E6":"#2A2440",borderLeft:"2px solid #1C1D21",borderBottom:"2px solid #1C1D21",transform:"rotate(45deg)"}}/>
+              {!whisperRevealed && <div aria-hidden="true" style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",justifyContent:"center",gap:6,padding:"0 14px"}}>
+                {["92%","70%"].map(w=><span key={w} style={{display:"block",width:w,height:9,background:"#141418",borderRadius:2}}/>)}
+              </div>}
+              <span style={{position:"relative",fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:14,lineHeight:1.4,color:T.textPrimary,visibility:whisperRevealed?"visible":"hidden"}}>
+                {whisperText}
+              </span>
+            </div>
           </div>
         )}
 
         <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:16}}>
-          <button onClick={()=>revealWithFx(HINT_TIERS[0].id)} disabled={yearGenreOff}
-            style={{...BTN.cyan,opacity:yearGenreOff?0.4:1,cursor:yearGenreOff?"not-allowed":"pointer",padding:"13px 0"}}>
-            <span style={{...WHITE_STICKER_TEXT,fontSize:13,letterSpacing:"0.03em",textTransform:"uppercase"}}>
-              Year & Genre  -{money(1)}{yearGenreRevealed?" ✓":""}{noPts(yearGenreRevealed,HINT_TIERS[0].rewardPenalty)}
-            </span>
-          </button>
+          <ClueButton onClick={()=>revealWithFx(HINT_TIERS[0].id)} off={yearGenreOff} done={yearGenreRevealed} bg="#1FB5D8" icon="📅"
+            label="Year & Genre" cost={money(1)} warn={noPts(yearGenreRevealed,HINT_TIERS[0].rewardPenalty)}/>
           {whisperText && (
-            <button onClick={()=>revealWithFx("whisper")} disabled={whisperOff}
-              style={{...BTN.cyan,background:"#8F7BFD",opacity:whisperOff?0.4:1,cursor:whisperOff?"not-allowed":"pointer",padding:"13px 0"}}>
-              <span style={{...WHITE_STICKER_TEXT,fontSize:13,letterSpacing:"0.03em",textTransform:"uppercase"}}>
-                Director's Whisper  -{money(2)}{whisperRevealed?" ✓":""}{noPts(whisperRevealed,HINT_TIERS[2].rewardPenalty)}
-              </span>
-            </button>
+            <ClueButton onClick={()=>revealWithFx("whisper")} off={whisperOff} done={whisperRevealed} bg="#8F7BFD" icon="📣"
+              label="Director's Whisper" cost={money(2)} warn={noPts(whisperRevealed,HINT_TIERS[2].rewardPenalty)}/>
           )}
-          <button onClick={()=>revealWithFx(HINT_TIERS[1].id)} disabled={actorsOff}
-            style={{...BTN.primary,opacity:actorsOff?0.4:1,cursor:actorsOff?"not-allowed":"pointer",padding:"13px 0"}}>
-            <span style={{...WHITE_STICKER_TEXT,fontSize:13,letterSpacing:"0.03em",textTransform:"uppercase"}}>
-              Lead Actors  -{money(3)}{actorsRevealed?" ✓":""}{noPts(actorsRevealed,HINT_TIERS[1].rewardPenalty)}
-            </span>
-          </button>
+          <ClueButton onClick={()=>revealWithFx(HINT_TIERS[1].id)} off={actorsOff} done={actorsRevealed} bg="#F2569B" icon="⭐"
+            label="Lead Actors" cost={money(3)} warn={noPts(actorsRevealed,HINT_TIERS[1].rewardPenalty)}/>
           {powerups && (powerups.hint>0 || powerups.peek>0 || freeHints.length>0 || peekUsed) && (
             <div style={{marginTop:6,paddingTop:12,borderTop:"1px dashed rgba(255,255,255,0.35)",display:"flex",flexDirection:"column",gap:8}}>
               <div style={{...YELLOW_STICKER_TEXT,fontSize:11,textAlign:"center",textTransform:"uppercase"}}>Arcade power-ups</div>
