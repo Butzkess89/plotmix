@@ -479,7 +479,7 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
 
   // Level 1 odds put each fixed random value on one kind of piece.
   for (const [v, name, event] of [
-    [0.46, 'Movie ticket', /Golden seat! \+5/],
+    [0.46, 'Golden ticket', /Golden ticket! \+5/],
     [0.5, 'Film reel', /Film reel! \+3/],
     [0.88, 'Ringing phone', /Phones off in the theatre! −1 life/],
     [0.975, '3D glasses', /slow motion/],

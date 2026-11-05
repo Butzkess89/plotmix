@@ -4254,7 +4254,8 @@ function BadgeToast({badges}) {
 const CINEMA_KEYFRAMES = `
   @keyframes decorSway { 0%,100%{transform:translateX(-50%) rotate(-6deg)} 50%{transform:translateX(-50%) rotate(6deg)} }
   @keyframes vhsPress { 0%,49%{transform:translateY(0); box-shadow:0 7px 0 #0B0C10} 50%,100%{transform:translateY(6px); box-shadow:0 1px 0 #0B0C10} }
-  @keyframes laserReady { 0%,100%{filter:drop-shadow(0 0 1px #FF2E63)} 50%{filter:drop-shadow(0 0 6px #FF2E63)} }
+  @keyframes laserReady { 0%,100%{filter:brightness(0.6) saturate(0.8)} 50%{filter:brightness(1.6) saturate(1.2)} }
+  @keyframes laserHalo { 0%,100%{opacity:0.1; transform:scale(0.55)} 50%{opacity:1; transform:scale(1)} }
   @keyframes zapCoach { 0%,100%{transform:translate(-50%,-50%) scale(1)} 50%{transform:translate(-50%,-50%) scale(1.15)} }
   @keyframes speedLines { 0%{opacity:0; transform:scale(1.3) rotate(0deg)} 12%{opacity:0.95} 65%{opacity:0.95} 100%{opacity:0; transform:scale(1) rotate(5deg)} }
   @keyframes speedSymbol { 0%{opacity:0; transform:scale(0.2) rotate(-20deg)} 25%{opacity:1; transform:scale(1.15) rotate(0deg)} 40%{transform:scale(1)} 80%{opacity:1; transform:scale(1)} 100%{opacity:0; transform:scale(1.4)} }
@@ -4575,7 +4576,7 @@ const BOOST_MS = 5000;
 // Cinema extras are generic objects (no film's characters, logos or designs).
 const ARCADE_ITEMS = [
   { kind: "popcorn",  weight: 44, label: "Popcorn",         good: 1 },
-  { kind: "ticket",   weight: 4,  label: "Movie ticket",    good: 5 },
+  { kind: "ticket",   weight: 4,  label: "Golden ticket",    good: 5 },
   { kind: "reel",     weight: 6,  label: "Film reel",       good: 3 },
   { kind: "burnt",    weight: 18, label: "Burnt popcorn",   bad: true },
   { kind: "unpopped", weight: 14, label: "Unpopped kernel", bad: true },
@@ -4717,12 +4718,15 @@ function ArcadeItemArt({kind, color, variant=0}) {
   if (kind === "ticket") {
     return (
       <svg viewBox="0 0 48 48" width="100%" height="100%" aria-hidden="true">
-        <path d="M4 14 H44 V20 A4 4 0 0 0 44 28 V34 H4 V28 A4 4 0 0 0 4 20 Z" fill="#E4444F" stroke="#1C1D21" strokeWidth="1.6" strokeLinejoin="round"/>
-        <path d="M33 15 V33" stroke="#FFF3D6" strokeWidth="1.2" strokeDasharray="2 2"/>
+        <defs><linearGradient id="golden-ticket" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#FFE58A"/><stop offset="0.45" stopColor="#F4B92A"/><stop offset="1" stopColor="#C8860D"/>
+        </linearGradient></defs>
+        <path d="M4 14 H44 V20 A4 4 0 0 0 44 28 V34 H4 V28 A4 4 0 0 0 4 20 Z" fill="url(#golden-ticket)" stroke="#1C1D21" strokeWidth="1.6" strokeLinejoin="round"/>
+        <path d="M33 15 V33" stroke="#8A5A00" strokeWidth="1.2" strokeDasharray="2 2"/>
         <rect x="8" y="18" width="21" height="12" rx="1.5" fill="#FFF3D6"/>
         <text x="18.5" y="23.3" textAnchor="middle" fontSize="4.6" fontWeight="800" fill="#8E0F1F" fontFamily="Arial, sans-serif">ADMIT</text>
         <text x="18.5" y="28.3" textAnchor="middle" fontSize="4.6" fontWeight="800" fill="#8E0F1F" fontFamily="Arial, sans-serif">ONE</text>
-        <path d="M38.5 21 l1.2 2.4 2.6 .4 -1.9 1.8 .5 2.6 -2.4 -1.2 -2.4 1.2 .5 -2.6 -1.9 -1.8 2.6 -.4 Z" fill="#FFD84D"/>
+        <path d="M38.5 21 l1.2 2.4 2.6 .4 -1.9 1.8 .5 2.6 -2.4 -1.2 -2.4 1.2 .5 -2.6 -1.9 -1.8 2.6 -.4 Z" fill="#FFFFFF" stroke="#8A5A00" strokeWidth="0.6"/>
       </svg>
     );
   }
@@ -4815,9 +4819,12 @@ function PopcornBox({x = null, charged = false, score = 0}) {
       style={{position:"absolute",left,bottom:2,width:w,height:BUCKET_H,transform:`translateX(${-BUCKET_ART_MID * k}px)`,pointerEvents:"none"}}>
       <img src={POPCORN_STAGES[bucketStage(score)]} alt="" aria-hidden="true" draggable="false"
         style={{position:"absolute",left:0,bottom:0,width:w,height:"auto",userSelect:"none",filter:"drop-shadow(0 3px 0 rgba(0,0,0,0.35))"}}/>
-      <span aria-hidden="true" style={{position:"absolute",left:BUCKET_ART_MID * k - 8,bottom:BUCKET_H * 0.34,width:16,height:16,borderRadius:"50%",
-        background:charged ? "radial-gradient(circle at 35% 35%, #FFD1DC 0 18%, #FF2E63 40%, #B0103A 100%)" : "radial-gradient(circle at 35% 35%, #BFC3CC 0 18%, #5B5F6A 45%, #2A2D35 100%)",
-        border:"2px solid #1C1D21",boxSizing:"border-box",animation:charged ? "laserReady 1.1s ease-in-out infinite" : "none"}}/>
+      {charged && <span aria-hidden="true" style={{position:"absolute",left:BUCKET_ART_MID * k - 62,bottom:BUCKET_H * 0.32 + 13 - 62,width:124,height:124,borderRadius:"50%",
+        background:"radial-gradient(circle, #FFFFFF 0 14%, rgba(255,250,170,1) 24%, rgba(255,226,80,0.85) 38%, rgba(255,190,60,0.45) 54%, rgba(255,170,60,0) 70%)",
+        animation:"laserHalo 1.4s ease-in-out infinite"}}/>}
+      <span aria-hidden="true" data-laser-light={charged ? "on" : "off"} style={{position:"absolute",left:BUCKET_ART_MID * k - 13,bottom:BUCKET_H * 0.32,width:26,height:26,borderRadius:"50%",
+        background:charged ? "radial-gradient(circle at 40% 40%, #FFFFFF 0 22%, #FF6F93 42%, #FF2E63 70%, #D3104A 100%)" : "radial-gradient(circle at 35% 35%, #BFC3CC 0 18%, #5B5F6A 45%, #2A2D35 100%)",
+        border:"2px solid #1C1D21",boxSizing:"border-box",animation:charged ? "laserReady 1.4s ease-in-out infinite" : "none"}}/>
     </div>
   );
 }
@@ -4988,7 +4995,7 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
   const moveBucket = (clientX) => {
     const arena = arenaRef.current; if (!arena) return;
     const r = arena.getBoundingClientRect();
-    const x = Math.max(BUCKET_W / 2, Math.min(r.width - BUCKET_W / 2, clientX - r.left));
+    const x = Math.max(BUCKET_W / 2 + 6, Math.min(r.width - BUCKET_W / 2 - 6, clientX - r.left));
     bucketXRef.current = x; setBucketX(x);
     if (showSlideHint) setShowSlideHint(false);
   };
@@ -5058,7 +5065,7 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
       scoreRef.current += info.good * mult;
       setScore(scoreRef.current);
       SFX.comboNote(Math.min(c - 1, 14)); buzz(12);
-      if (it.kind === "ticket") showFlash(`🎟️ Golden seat! +${info.good * mult}`);
+      if (it.kind === "ticket") showFlash(`🎟️ Golden ticket! +${info.good * mult}`);
       if (it.kind === "reel") showFlash(`🎞️ Film reel! +${info.good * mult}`);
       if (!it.frenzy && now >= frenzyUntilRef.current) frenzyRunRef.current += 1;
       if (frenzyRunRef.current >= FRENZY_AT) {
