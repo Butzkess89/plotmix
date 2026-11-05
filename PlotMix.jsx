@@ -3259,13 +3259,41 @@ function getResultMessage(both, hintsUsed, guessCount, maxGuesses, skipped=false
 // 
 // ROUND RESULT POPUP — auto-shown the moment a round ends
 // 
-// Walk of Fame star stamped next to the box office on a win (owner request 2026-11-05).
-function FameStar({size = 36}) {
-  const pts = Array.from({length:10}, (_,i) => { const r = i % 2 ? 8.2 : 19, a = -Math.PI/2 + i*Math.PI/5; return `${20 + r*Math.cos(a)},${21 + r*Math.sin(a)}`; }).join(" ");
+// The two films on the win popup are old-fashioned roll tickets: kraft paper, a red printed
+// frame, a serial number on the stub and serrated tear edges (owner request 2026-11-05).
+const TICKET_EDGES = "conic-gradient(from 45deg at left, #0000, #000 1deg 89deg, #0000 90deg) left / 51% 7px repeat-y, conic-gradient(from -135deg at right, #0000, #000 1deg 89deg, #0000 90deg) right / 51% 7px repeat-y";
+const TICKET_PAPER = (tone) => `radial-gradient(rgba(92,70,38,0.16) 0.8px, transparent 1.3px) 0 0 / 6px 6px, radial-gradient(rgba(255,250,235,0.28) 0.8px, transparent 1.3px) 3px 2px / 9px 9px, linear-gradient(180deg, ${tone[0]}, ${tone[1]})`;
+function FilmTicket({chip, serial, tone = ["#DFCDA9", "#CDB68D"], tilt = 0, style}) {
   return (
-    <svg width={size} height={size} viewBox="0 0 40 40" aria-hidden="true" style={{display:"block",overflow:"visible",filter:"drop-shadow(0 2px 0 #1C1D21)"}}>
-      <polygon points={pts} fill="#F4889A" stroke="#1C1D21" strokeWidth="3" strokeLinejoin="round"/>
-      <polygon points={pts} fill="none" stroke="#F6A507" strokeWidth="1.4" strokeLinejoin="round" transform="translate(20 21) scale(0.78) translate(-20 -21)"/>
+    <div style={{width:`min(${chip.width + 34}px, calc(100% - 20px))`,height:chip.height + 4,filter:"drop-shadow(0 3px 0 rgba(28,29,33,0.85))",...style}}>
+      <div style={{position:"relative",width:"100%",height:"100%",boxSizing:"border-box",background:TICKET_PAPER(tone),
+        WebkitMask:TICKET_EDGES,mask:TICKET_EDGES,transform:`rotate(${tilt}deg)`,display:"flex",alignItems:"center",padding:"0 8px"}}>
+        <div style={{position:"absolute",inset:"5px 9px",border:"1.5px solid #B0463E",borderRadius:3,pointerEvents:"none"}}/>
+        <div style={{flex:1,minWidth:0,padding:"0 8px 0 12px",textAlign:"center",fontFamily:FONT_FIGMA_STICKER,fontSize:chip.fontSize,lineHeight:1.08,color:"#2A2420",textTransform:"uppercase",letterSpacing:"0.02em"}}>{chip.lines.join(" ")}</div>
+        <div aria-hidden="true" style={{alignSelf:"stretch",width:26,flex:"none",margin:"5px 0",borderLeft:"1.5px solid #B0463E",display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:7.5,color:"#2A2420",writingMode:"vertical-rl",whiteSpace:"nowrap",letterSpacing:"0.06em"}}>{serial}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Walk of Fame star, stamped next to the box office on a flawless solve (first guess, no hints).
+// Drawn like the real pavement star: a coral terrazzo star edged in brass on a charcoal
+// terrazzo square, a brass name across the top and a round brass film-camera emblem below.
+const FAME_SPECKS = [[12,14,"#8C7F86"],[24,82,"#B98E97"],[82,18,"#8C7F86"],[88,74,"#B98E97"],[10,56,"#6E6468"],[60,90,"#8C7F86"],[92,46,"#6E6468"],[40,8,"#B98E97"],[70,60,"#6E6468"],[30,40,"#6E6468"]];
+function FameStar({size = 62, name = "YOU"}) {
+  const pts = Array.from({length:10}, (_,i) => { const r = i % 2 ? 17.5 : 44, a = -Math.PI/2 + i*Math.PI/5; return `${50 + r*Math.cos(a)},${53 + r*Math.sin(a)}`; }).join(" ");
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden="true" style={{display:"block",overflow:"visible",filter:"drop-shadow(0 3px 0 #1C1D21)"}}>
+      <rect x="1.5" y="1.5" width="97" height="97" rx="5" fill="#3B3337" stroke="#1C1D21" strokeWidth="3"/>
+      {FAME_SPECKS.map(([x,y,c],i)=><circle key={i} cx={x} cy={y} r={i%3?1.4:2} fill={c}/>)}
+      <polygon points={pts} fill="#E7A1AC" stroke="#C99A3E" strokeWidth="3.2" strokeLinejoin="miter"/>
+      <polygon points={pts} fill="none" stroke="#F4D27A" strokeWidth="0.9" strokeLinejoin="miter" transform="translate(50 53) scale(0.9) translate(-50 -53)"/>
+      <circle cx="44" cy="44" r="1.2" fill="#F6C9D0"/><circle cx="58" cy="60" r="1.1" fill="#C77F8B"/><circle cx="38" cy="64" r="1" fill="#F6C9D0"/>
+      <text x="50" y="50" textAnchor="middle" fontFamily="'Rubik Mono One',sans-serif" fontSize="10.5" fill="#E2B85A" stroke="#7A5A1C" strokeWidth="0.5" letterSpacing="0.5">{name}</text>
+      <circle cx="50" cy="64" r="8.5" fill="#E2B85A" stroke="#7A5A1C" strokeWidth="1"/>
+      <g fill="#5A4214"><rect x="44.5" y="62" width="8.5" height="6" rx="1"/><polygon points="53,63.6 56.2,61.8 56.2,68.2 53,66.4"/><circle cx="46.7" cy="60" r="1.9"/><circle cx="51" cy="60" r="1.9"/></g>
     </svg>
   );
 }
@@ -3303,13 +3331,15 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
     const id = setTimeout(() => SFX.stamp(), reducedMotion ? 0 : 900);
     return () => clearTimeout(id);
   }, [cancelled, reducedMotion]);
+  // A Walk of Fame star is only for a flawless solve: first guess, no hints.
+  const flawless = won && hintCount === 0 && guessCount === 1;
   // Paparazzi shutters as the title lands, then the Walk of Fame star thwacks down.
   useEffect(() => {
     if (!won || reducedMotion) return;
     const a = setTimeout(() => SFX.shutter(5), 380);
-    const b = setTimeout(() => SFX.stamp(), 1150);
-    return () => { clearTimeout(a); clearTimeout(b); };
-  }, [won, reducedMotion]);
+    const b = flawless ? setTimeout(() => SFX.stamp(), 1150) : null;
+    return () => { clearTimeout(a); if (b) clearTimeout(b); };
+  }, [won, reducedMotion, flawless]);
   const msg = msgRef.current;
   const title = card.mashedTitle || card.movies.join(" + ");
   const [showConnection,setShowConnection]=useState(false);
@@ -3474,32 +3504,6 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
     return { width, lines, lineCount, fontSize, height };
   };
 
-  const movieChipStyle = (chip) => ({
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: `min(${chip.width}px, calc(100% - 20px))`,
-    minWidth: 176,
-    maxWidth: `min(${chip.width}px, calc(100% - 20px))`,
-    minHeight: chip.height,
-    height: chip.height,
-    background: "#fff",
-    border: "1px solid #000000",
-    padding: "8px 10px 6px",
-    boxSizing: "border-box",
-    fontFamily: FONT_FIGMA_STICKER,
-    fontSize: chip.fontSize,
-    fontWeight: 700,
-    color: T.textPrimary,
-    textTransform: "uppercase",
-    letterSpacing: "0",
-    lineHeight: 1.05,
-    textAlign: "center",
-    overflow: "hidden",
-    whiteSpace: "normal",
-    wordBreak: "normal",
-    overflowWrap: "normal",
-  });
 
   if (won) {
     const topChip = movieChipLayout(card.movies[0]);
@@ -3576,9 +3580,9 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
             <div style={{...POPUP_YELLOW_TEXT,fontSize:"clamp(13px, 4vw, 16px)",textTransform:"uppercase",lineHeight:1.06,letterSpacing:"0",position:"absolute",left:rx(26),right:rx(26),top:ry(29),...stagedRise(20, 8)}}>{msg.headline}</div>
             <div style={{...POPUP_PLAIN_WHITE_TEXT,fontSize:"clamp(10.5px, 3.2vw, 12.8px)",lineHeight:1.23,textTransform:"none",letterSpacing:"0.01em",position:"absolute",left:rx(30),right:rx(30),top:ry(72),...stagedRise(70, 8)}}>{msg.sub}</div>
 
-            <div style={{...movieChipStyle(topChip),position:"absolute",left:rx(movieStackCenterX),top:ry(topChipY),transform:"translateX(-50%)",...smashIn(120, -280)}}>{topChip.lines.join(" ")}</div>
+            <FilmTicket chip={topChip} serial={String(312200 + (card.id||0) * 2).slice(-6)} tilt={-2.5} style={{position:"absolute",left:rx(movieStackCenterX),top:ry(topChipY),transform:"translateX(-50%)",...smashIn(120, -280)}}/>
             <div style={{position:"absolute",left:rx(movieStackCenterX),top:ry(plusY),transform:"translateX(-50%)",width:rx(plusWidth),height:ry(plusHeight),borderRadius:9,background:"#F6A507",border:"2px solid #1C1D21",boxShadow:"0 1px 0 #1C1D21",boxSizing:"border-box",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:FONT_FIGMA_STICKER,fontSize:"clamp(12px, 3.7vw, 16px)",lineHeight:1,color:"#1C1D21",...stagedRise(170, 10, "translateX(-50%)")}}>+</div>
-            <div style={{...movieChipStyle(bottomChip),position:"absolute",left:rx(movieStackCenterX),top:ry(bottomChipY),transform:"translateX(-50%)",...smashIn(240, 280)}}>{bottomChip.lines.join(" ")}</div>
+            <FilmTicket chip={bottomChip} serial={String(312201 + (card.id||0) * 2).slice(-6)} tone={["#E3D2B0", "#D2BC94"]} tilt={2} style={{position:"absolute",left:rx(movieStackCenterX),top:ry(bottomChipY),transform:"translateX(-50%)",...smashIn(240, 280)}}/>
 
             <div style={{position:"absolute",left:rx(25),top:ry(titleY),width:rx(352),height:ry(78),background:"#342698",border:"2px solid #F6A507",borderRadius:11,boxShadow:"0 4px 0 #1C1D21",padding:"10px 12px",boxSizing:"border-box",display:"flex",alignItems:"center",justifyContent:"center",...titleSlam}}>
               {MARQUEE_BULBS.map((b,i)=>(
@@ -3592,10 +3596,10 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
               <span aria-hidden="true" style={{fontSize:16,lineHeight:1}}>💰</span>
               <span aria-label="Box office" style={{...POPUP_SCORE_TEXT,display:"inline-block",animation:reducedMotion?"none":"scorePulse 0.28s ease"}}>+{money(scoreDisplay)}</span>
             </div>
-            <div aria-label="Walk of Fame star" role="img" style={{position:"absolute",left:rx(154),top:ry(401),transform:"translate(-50%,-50%) rotate(-12deg)",zIndex:2,
+            {flawless && <div aria-label="Walk of Fame star" role="img" style={{position:"absolute",left:rx(164),top:ry(408),transform:"translate(-50%,-50%) rotate(-12deg)",zIndex:2,
               animation:reducedMotion?"none":"fameStamp 0.38s cubic-bezier(.3,1.6,.5,1) 0.95s both"}}>
               <FameStar/>
-            </div>
+            </div>}
             {!reducedMotion && WIN_FLASH_SPOTS.map(([x,y],i)=>(
               <div key={`f${i}`} aria-hidden="true" style={{position:"absolute",left:`${x}%`,top:`${y}%`,width:96,height:96,opacity:0,pointerEvents:"none",zIndex:4,
                 background:"radial-gradient(circle, #FFFFFF 0%, rgba(255,255,255,0.85) 12%, rgba(255,250,220,0.35) 32%, rgba(255,255,255,0) 62%), linear-gradient(90deg, rgba(255,255,255,0) 44%, rgba(255,255,255,0.9) 50%, rgba(255,255,255,0) 56%) center/100% 4px no-repeat, linear-gradient(0deg, rgba(255,255,255,0) 44%, rgba(255,255,255,0.9) 50%, rgba(255,255,255,0) 56%) center/4px 100% no-repeat",
