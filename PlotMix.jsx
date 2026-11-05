@@ -2093,7 +2093,14 @@ const SFX = {
   // human "sh" (energy around 2-3.5 kHz) rather than a whoosh, so it can't be mistaken for the curtain.
   psst: () => { playShush(0.22, 0.09, 0); playShush(1.15, 0.12, 0.42); },
   rip: () => playNoise(0.35, 0.12, 0, { type: "bandpass", from: 1200, to: 4000, q: 0.9 }, 0.01), // spoiler tape
-  snap: () => { playNoise(0.03, 0.14, 0, { type: "highpass", from: 2500, to: 2500, q: 1 }, 0.002); playNoise(0.05, 0.07, 0.05, { type: "bandpass", from: 1200, to: 1200, q: 1 }, 0.002); },
+  // A camera flash (owner feedback 2026-11-05): the shutter's "ka-chik", the flash tube's bright
+  // "fwip", and on the last flash of a burst the rising whine of the flash recharging.
+  snap: (recharge = false) => {
+    playNoise(0.014, 0.22, 0, { type: "bandpass", from: 3600, to: 3200, q: 2.5 }, 0.001);
+    playNoise(0.03, 0.16, 0.05, { type: "bandpass", from: 1700, to: 1400, q: 2 }, 0.001);
+    playNoise(0.1, 0.1, 0.004, { type: "bandpass", from: 7000, to: 1600, q: 0.9 }, 0.002);
+    if (recharge) playSynth({ type: "sine", freq: 1600, slideTo: 7200, dur: 1.1, gain: 0.025, delay: 0.25, attack: 0.08 });
+  },
   shutter: (n = 6) => { for (let i = 0; i < n; i++) { const d = 0.2 + i * 0.37 + Math.random() * 0.15; playNoise(0.03, 0.12, d, { type: "highpass", from: 2500, to: 2500, q: 1 }, 0.002); playNoise(0.05, 0.06, d + 0.05, { type: "bandpass", from: 1200, to: 1200, q: 1 }, 0.002); } },
   iris: () => { playNoise(0.5, 0.06, 0, { type: "lowpass", from: 1400, to: 300, q: 0.7 }, 0.1); playNoise(0.5, 0.06, 0.6, { type: "lowpass", from: 300, to: 1400, q: 0.7 }, 0.1); },
   slate: () => {
@@ -3351,6 +3358,21 @@ const WIN_FLASH_TIMES = [550, 700, 850, 1350, 1500];
 const WIN_FLASH_SPOTS = [[7, 6], [93, 30], [6, 62], [92, 8], [50, 1]];
 const WIN_FLASH_MONO_MS = 70;
 
+// The money bag with an amount printed on it (owner's art, 2026-11-05) and a caption under it.
+function MoneyBag({text, ariaLabel, label, width = 76}) {
+  return (
+    <div style={{position:"relative",width,display:"inline-flex",flexDirection:"column",alignItems:"center",gap:3,flex:"none"}}>
+      <div style={{position:"relative",width}}>
+        <img src="/stickers/money-bag.webp" alt="" aria-hidden="true" width={width} height={Math.round(width*1.23)} style={{display:"block",width,height:"auto"}}/>
+        <div style={{position:"absolute",left:"49%",top:"57%",transform:"translate(-50%,-50%) scaleX(0.82)",lineHeight:1}}>
+          <span aria-label={ariaLabel} style={{display:"inline-block",fontFamily:"'Outfit',sans-serif",fontWeight:900,fontSize:Math.round(width*0.21),lineHeight:1,letterSpacing:"-0.03em",color:"#2A0E33",whiteSpace:"nowrap"}}>{text}</span>
+        </div>
+      </div>
+      {label && <div style={{...POPUP_YELLOW_TEXT,fontSize:9.5,lineHeight:1,textTransform:"uppercase",whiteSpace:"nowrap"}}>{label}</div>}
+    </div>
+  );
+}
+
 // Dressing-room lamps around the answer card on the win popup. Points run counter-clockwise
 // from the top middle, so staggering their animation by index makes the light chase counter-clockwise.
 function marqueeBulbs(w, h, gap = 22) {
@@ -3390,7 +3412,7 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
     if (!won || reducedMotion) return;
     const ids = [];
     WIN_FLASH_TIMES.forEach(t => {
-      ids.push(setTimeout(() => { SFX.snap(); setMono(true); }, t));
+      ids.push(setTimeout(() => { SFX.snap(t === WIN_FLASH_TIMES[WIN_FLASH_TIMES.length-1]); setMono(true); }, t));
       ids.push(setTimeout(() => setMono(false), t + WIN_FLASH_MONO_MS));
     });
     if (flawless) ids.push(setTimeout(() => SFX.stamp(), 1900));
@@ -3494,12 +3516,20 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
   // After the first count-up, a later rise (the bonus question) pops the money bag instead.
   const scoreShownRef = useRef(null);
   const [bagPop, setBagPop] = useState(0);
+  const [trexLeaving, setTrexLeaving] = useState(false);
   useEffect(() => {
     const prev = scoreShownRef.current;
     scoreShownRef.current = roundScore;
     if (reducedMotion) {
       setScoreDisplay(roundScore);
       return;
+    }
+    if (prev === 0 && roundScore > 0) {
+      setTrexLeaving(true);
+      setScoreDisplay(roundScore);
+      setBagPop(k => k + 1);
+      const id = setTimeout(() => setTrexLeaving(false), 420);
+      return () => clearTimeout(id);
     }
     if (prev !== null && roundScore > prev) {
       setBagPop(k => k + 1);
@@ -3610,7 +3640,7 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
           </div>
         )}
 
-        <div style={{position:"relative",width:"min(402px, 100vw)",margin:"0 auto",borderRadius:"12px 12px 0 0",overflow:"visible",boxShadow:T.shadowLg,...resultSheetBg,backgroundColor:T.bgDeep,animation:reducedMotion?"none":transitionFamily.popupSheetIn,transformOrigin:"50% 100%",filter:mono?"grayscale(1) contrast(1.3) brightness(1.15)":"none"}}>
+        <div style={{position:"relative",width:"min(402px, 100vw)",margin:"0 auto",borderRadius:"12px 12px 0 0",overflow:"visible",boxShadow:T.shadowLg,...resultSheetBg,backgroundColor:T.bgDeep,animation:reducedMotion?"none":transitionFamily.popupSheetIn,transformOrigin:"50% 100%",filter:mono?"grayscale(1) brightness(2.4) contrast(0.85)":"none"}}>
           <div aria-hidden="true" style={{position:"absolute",inset:0,overflow:"hidden",borderRadius:"12px 12px 0 0",pointerEvents:"none"}}>
             <div style={{position:"absolute",left:"50%",top:"104%",width:1800,height:1800,margin:"-900px 0 0 -900px",background:WIN_RAYS_LAYER,animation:reducedMotion?"none":"raysSpin 40s linear infinite"}}/>
           </div>
@@ -3667,17 +3697,19 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
               <FilmTicket chip={bottomTicket} frame={2} serial={String(312201 + (card.id||0) * 2).slice(-6)} tone={["#DAC7A2", "#D2BC94"]} tilt={TILT2} style={{width:"100%",height:"100%",...smashIn(240, 280, "")}}/>
             </div>
 
-            {roundScore > 0 && <div style={{position:"absolute",left:rx(105),top:my(356.5),width:76,transform:"translate(-50%,-50%)",...stagedRise(320, 8, "translate(-50%,-50%)")}}>
+            {roundScore > 0 && !trexLeaving && <div style={{position:"absolute",left:rx(105),top:my(356.5),width:76,transform:"translate(-50%,-50%)",...stagedRise(320, 8, "translate(-50%,-50%)")}}>
               {bagPop > 0 && !reducedMotion && <div key={`flare${bagPop}`} aria-hidden="true" style={{position:"absolute",left:"50%",top:"55%",width:170,height:170,margin:"-85px 0 0 -85px",borderRadius:"50%",pointerEvents:"none",zIndex:-1,
                 background:"repeating-conic-gradient(from 0deg, rgba(255,216,77,0.95) 0deg 9deg, rgba(255,216,77,0) 9deg 24deg)",
                 WebkitMask:"radial-gradient(circle, #000 18%, rgba(0,0,0,0.7) 40%, transparent 70%)",mask:"radial-gradient(circle, #000 18%, rgba(0,0,0,0.7) 40%, transparent 70%)",
                 animation:"bagFlare 1.1s ease-out both"}}/>}
               <div key={`bag${bagPop}`} style={{position:"relative",animation:bagPop > 0 && !reducedMotion ? "bagPop 0.55s cubic-bezier(.3,1.4,.5,1) both" : "none"}}>
               <img src="/stickers/money-bag.webp" alt="" aria-hidden="true" width="76" height="93" style={{display:"block",width:76,height:"auto"}}/>
-              <div style={{position:"absolute",left:"49%",top:"57%",transform:"translate(-50%,-50%) scaleX(0.82)",lineHeight:1}}><span aria-label="Box office" style={{display:"inline-block",fontFamily:"'Outfit',sans-serif",fontWeight:900,fontSize:16,lineHeight:1,letterSpacing:"-0.03em",color:"#2A0E33",whiteSpace:"nowrap",textShadow:"0 1px 0 rgba(255,236,214,0.6)",animation:reducedMotion?"none":"scorePulse 0.28s ease"}}>+{money(scoreDisplay)}</span></div>
+              <div style={{position:"absolute",left:"49%",top:"57%",transform:"translate(-50%,-50%) scaleX(0.82)",lineHeight:1}}><span aria-label="Box office" style={{display:"inline-block",fontFamily:"'Outfit',sans-serif",fontWeight:900,fontSize:16,lineHeight:1,letterSpacing:"-0.03em",color:"#2A0E33",whiteSpace:"nowrap",animation:reducedMotion?"none":"scorePulse 0.28s ease"}}>+{money(scoreDisplay)}</span></div>
               </div>
+              <div style={{...POPUP_YELLOW_TEXT,position:"absolute",left:"50%",top:"100%",marginTop:2,transform:"translateX(-50%)",fontSize:9.5,lineHeight:1,textTransform:"uppercase",whiteSpace:"nowrap"}}>Bonus budget</div>
             </div>}
-            {roundScore === 0 && <img src="/stickers/Very-happy.webp" alt="" aria-hidden="true" width="136" height="136" style={{position:"absolute",left:rx(105),top:my(358),width:136,height:136,transform:"translate(-50%,-50%)",filter:"drop-shadow(0 3px 0 rgba(28,29,33,0.6))",...stagedRise(320, 8, "translate(-50%,-50%)")}}/>}
+            {(roundScore === 0 || trexLeaving) && <img src="/stickers/Very-happy.webp" alt="" aria-hidden="true" width="136" height="136" style={{position:"absolute",left:rx(105),top:my(358),width:136,height:136,transform:"translate(-50%,-50%)",filter:"drop-shadow(0 3px 0 rgba(28,29,33,0.6))",
+              ...(trexLeaving && !reducedMotion ? {animation:"trexPop 0.42s cubic-bezier(.4,0,.8,.4) both"} : stagedRise(320, 8, "translate(-50%,-50%)"))}}/>}
             {!reducedMotion && WIN_FLASH_SPOTS.map(([x,y],i)=>(
               <div key={`f${i}`} aria-hidden="true" style={{position:"absolute",left:`${x}%`,top:`${y}%`,width:96,height:96,opacity:0,pointerEvents:"none",zIndex:4,
                 background:"radial-gradient(circle, #FFFFFF 0%, rgba(255,255,255,0.85) 12%, rgba(255,250,220,0.35) 32%, rgba(255,255,255,0) 62%), linear-gradient(90deg, rgba(255,255,255,0) 44%, rgba(255,255,255,0.9) 50%, rgba(255,255,255,0) 56%) center/100% 4px no-repeat, linear-gradient(0deg, rgba(255,255,255,0) 44%, rgba(255,255,255,0.9) 50%, rgba(255,255,255,0) 56%) center/4px 100% no-repeat",
@@ -3705,15 +3737,15 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
                 const a=bonus.answer, picked=a?.pick===i, older=bonus.years[i]<bonus.years[1-i];
                 return (
                   <button key={i} onClick={(e)=>{ e.stopPropagation(); onBonus?.(i); }} disabled={!!a} aria-label={`${f} came first`}
-                    style={{...BTN.cyan,position:"absolute",left:rx(i ? 297 : 108.5),top:50,width:rx(181),height:40,transform:"translate(-50%,-50%)",background:"#F28628",border:"2px solid #1C1D21",borderRadius:9,boxShadow:"0 4px 0 #1C1D21",padding:"0 6px",boxSizing:"border-box",display:"flex",alignItems:"center",justifyContent:"center",cursor:a?"default":"pointer",
+                    style={{...BTN.cyan,position:"absolute",left:rx(i ? 297 : 108.5),top:50,width:rx(181),minHeight:40,height:"auto",transform:"translate(-50%,-50%)",background:"#F28628",border:"2px solid #1C1D21",borderRadius:9,boxShadow:"0 4px 0 #1C1D21",padding:"4px 6px",boxSizing:"border-box",display:"flex",alignItems:"center",justifyContent:"center",cursor:a?"default":"pointer",
                       ...(a ? {background: older ? "#16A34A" : picked ? "#DC2626" : "#4B4F78"} : {})}}>
-                    <span style={{...WHITE_STICKER_TEXT,fontSize:10.5,textTransform:"uppercase",lineHeight:1.15}}>{f}{a ? ` · ${bonus.years[i]}` : ""}</span>
+                    <span style={{...WHITE_STICKER_TEXT,fontSize:f.length > 30 ? 8 : f.length > 18 ? 9 : 10.5,textTransform:"uppercase",lineHeight:1.12}}>{f}{a ? ` · ${bonus.years[i]}` : ""}</span>
                   </button>
                 );
               })}
               {bonus.answer && (
                 <div role="status" aria-label="Bonus result" style={{...POPUP_YELLOW_TEXT,color:"#F6A507",fontSize:11.5,textTransform:"uppercase",position:"absolute",left:rx(204),top:92,width:rx(370),transform:"translate(-50%,-50%)",lineHeight:1}}>
-                  {bonus.answer.correct ? `✓ Film buff! +${money(1)} to the budget` : "✗ Nope, the other one. No bonus."}
+                  {bonus.answer.correct ? (bonus.capped ? `✓ Film buff! Budget's already maxed at ${money(STARTING_BUDGET)}` : `✓ Film buff! +${money(1)} to the budget`) : "✗ Nope, the other one. No bonus."}
                 </div>
               )}
             </div>
@@ -3757,10 +3789,7 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
             </div>
 
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"nowrap"}}>
-              <div style={{background:"#D3CAFE",border:"2px solid #1C1D21",borderRadius:9,boxShadow:"0 4px 0 #1C1D21",width:131,height:40,padding:"0 10px",display:"inline-flex",alignItems:"center",gap:8,justifyContent:"center"}}>
-                <span aria-hidden="true" style={{fontSize:16,lineHeight:1}}>💰</span>
-                <span aria-label="Budget left" style={{...POPUP_SCORE_TEXT,fontSize:14,display:"inline-block"}}>{money(budgetLeft)}</span>
-              </div>
+              <MoneyBag text={money(budgetLeft)} ariaLabel="Budget left" label="Budget left"/>
 
               <div style={{display:"grid",gridTemplateColumns:"repeat(5, 26px)",gridTemplateRows:"repeat(2, 26px)",gap:"12px 9px",justifyContent:"center",marginRight:2}}>
                 {Array.from({length:dotCount}).map((_,i)=>{
@@ -3807,7 +3836,7 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
                 height:"min(88vw, 280px)",
                 transform:"translateX(-50%)",
                 pointerEvents:"none",
-                opacity:0.44,
+                opacity:cancelled ? 0.28 : 0.44,
                 zIndex:1,
               }}
             />
@@ -3815,13 +3844,13 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
           <div style={{padding:"52px 22px 28px",minHeight:390,display:"flex",flexDirection:"column",justifyContent:"space-between",position:"relative"}}>
             {cancelled && (
               <div aria-label="Cancelled" role="img"
-                style={{position:"absolute",left:"50%",top:"46%",zIndex:5,transform:"translate(-50%,-50%) rotate(-12deg)",border:"3px solid #E8344E",borderRadius:6,padding:"4px 14px",color:"#E8344E",background:"rgba(28,29,33,0.35)",fontFamily:FONT_FIGMA_STICKER,fontSize:"clamp(26px, 9vw, 38px)",letterSpacing:"0.08em",lineHeight:1,whiteSpace:"nowrap",pointerEvents:"none",textShadow:"0 0 1px #E8344E",animation:reducedMotion?"none":"cancelStamp 380ms cubic-bezier(.3,1.6,.5,1) 900ms both"}}>
+                style={{position:"absolute",left:"50%",top:"56%",zIndex:5,transform:"translate(-50%,-50%) rotate(-12deg)",border:"3px solid #E8344E",borderRadius:6,padding:"4px 14px",color:"#E8344E",background:"rgba(28,29,33,0.35)",fontFamily:FONT_FIGMA_STICKER,fontSize:"clamp(26px, 9vw, 38px)",letterSpacing:"0.08em",lineHeight:1,whiteSpace:"nowrap",pointerEvents:"none",textShadow:"0 0 1px #E8344E",animation:reducedMotion?"none":"cancelStamp 380ms cubic-bezier(.3,1.6,.5,1) 900ms both"}}>
                 CANCELLED
               </div>
             )}
             <div>
-              <div style={{...POPUP_YELLOW_TEXT,textAlign:"center",fontSize:16.5,textTransform:"uppercase",lineHeight:1.14,letterSpacing:"0.02em",marginBottom:12}}>{msg.headline}</div>
-              <div style={{...POPUP_PLAIN_WHITE_TEXT,textAlign:"center",fontSize:9.8,textTransform:"uppercase",lineHeight:1.26,letterSpacing:"0.01em",margin:"0 auto",maxWidth:330}}>{msg.sub}</div>
+              <div style={{...POPUP_YELLOW_TEXT,textAlign:"center",fontSize:16.5,textTransform:"uppercase",lineHeight:1.14,letterSpacing:"0.02em",marginBottom:12,position:"relative",zIndex:6}}>{msg.headline}</div>
+              <div style={{...POPUP_PLAIN_WHITE_TEXT,textAlign:"center",fontSize:11.5,textTransform:"uppercase",lineHeight:1.32,letterSpacing:"0.01em",margin:"0 auto",maxWidth:340,position:"relative",zIndex:6,textShadow:"0 2px 0 #1C1D21, 0 0 8px rgba(28,29,33,0.85)"}}>{msg.sub}</div>
             </div>
 
             {skipped && (
@@ -3844,10 +3873,7 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
             )}
 
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"nowrap"}}>
-              <div style={{background:"#D3CAFE",border:"2px solid #1C1D21",borderRadius:9,boxShadow:"0 4px 0 #1C1D21",width:131,height:40,padding:"0 10px",display:"inline-flex",alignItems:"center",gap:8,justifyContent:"center"}}>
-                <span aria-hidden="true" style={{fontSize:16,lineHeight:1}}>💰</span>
-                <span aria-label="Budget left" style={{...POPUP_SCORE_TEXT,fontSize:14,display:"inline-block"}}>{money(budgetLeft)}</span>
-              </div>
+              <MoneyBag text={money(budgetLeft)} ariaLabel="Budget left" label="Budget left"/>
 
               <div style={{display:"grid",gridTemplateColumns:"repeat(5, 26px)",gridTemplateRows:"repeat(2, 26px)",gap:"12px 9px",justifyContent:"center",marginRight:2}}>
                 {Array.from({length:dotCount}).map((_,i)=>{
@@ -4231,32 +4257,75 @@ function CameraFlashes() {
   );
 }
 
-// Between cards (alternative): the old silent-film iris closes to a dot and opens again.
+// Between cards (alternative): a camera iris. Six overlapping steel blades swirl shut to a point
+// and open again, like a real lens aperture (owner request 2026-11-05: not a cartoon circle).
 const IRIS_MS = 1100;
+// One blade, drawn closed (its tip at the centre). Every blade is this one turned by 60 degrees,
+// and it opens by sliding out along its own radius, so the aperture stays a sharp hexagon.
+const IRIS_BLADE = (() => {
+  const L = 420, d = (i) => { const a = (k) => (k / 6) * Math.PI * 2 - Math.PI / 2; return [Math.cos(a(i + 1)) - Math.cos(a(i)), Math.sin(a(i + 1)) - Math.sin(a(i))]; };
+  const d0 = d(0), dp = d(-1);
+  return [[0, 0], d0, [d0[0] * L, d0[1] * L], [dp[0] * L, dp[1] * L]].map(p => p.map(n => +n.toFixed(3)).join(",")).join(" ");
+})();
 function IrisWipe() {
   return (
     <div role="status" aria-label="Iris change" style={{position:"fixed",inset:0,zIndex:305,pointerEvents:"none",overflow:"hidden"}}>
-      <div style={{position:"absolute",left:"50%",top:"45%",borderRadius:"50%",boxShadow:"0 0 0 300vmax #0B0812",
-        transform:"translate(-50%,-50%)",animation:`irisWipe ${IRIS_MS}ms ease-in-out both`}}/>
+      <svg width="100%" height="100%" viewBox="-100 -90 200 200" preserveAspectRatio="xMidYMid slice" style={{position:"absolute",inset:0,display:"block"}}>
+        <defs>
+          <linearGradient id="irisBlade" x1="0" y1="0" x2="1" y2="0.6"><stop offset="0" stopColor="#4A4A56"/><stop offset="0.35" stopColor="#24242C"/><stop offset="1" stopColor="#0E0E13"/></linearGradient>
+        </defs>
+        <g style={{transformBox:"view-box",transformOrigin:"0px 0px",animation:`irisTurn ${IRIS_MS}ms cubic-bezier(.6,0,.4,1) both`}}>
+          {[0,1,2,3,4,5].map(i => (
+            <g key={i} transform={`rotate(${i * 60})`}>
+              <polygon points={IRIS_BLADE} fill="url(#irisBlade)" stroke="#9A9AA8" strokeWidth="1.2" strokeLinejoin="round" vectorEffect="non-scaling-stroke"
+                style={{animation:`irisSlide ${IRIS_MS}ms cubic-bezier(.6,0,.4,1) both`}}/>
+            </g>
+          ))}
+        </g>
+      </svg>
     </div>
   );
 }
-// Between cards (alternative): a big clapperboard drops in ("SCENE n · TAKE 1"), snaps shut, lifts away.
+// Between cards (alternative): a classic black-and-white clapperboard drops in, its striped
+// arm snaps shut on the hinge, and it lifts away (owner reference 2026-11-05).
 const CLAPPER_SLAM_MS = 1250;
+const CLAPPER_STRIPES = "repeating-linear-gradient(115deg,#F7F4EE 0 22px,#141418 22px 44px)";
 function ClapperSlam({scene}) {
+  const ink = "#F7F4EE";
+  const label = {fontFamily:"'Outfit',sans-serif",fontWeight:800,fontSize:13,letterSpacing:"0.06em",color:ink,textTransform:"uppercase",lineHeight:1};
+  const chalk = {fontFamily:FONT_FIGMA_STICKER,fontSize:13,color:ink,lineHeight:1,whiteSpace:"nowrap"};
+  const today = new Date();
+  const date = `${String(today.getMonth()+1).padStart(2,"0")}/${String(today.getDate()).padStart(2,"0")}`;
+  const row = (name, value) => (
+    <div style={{display:"flex",alignItems:"flex-end",gap:8}}>
+      <span style={label}>{name}</span>
+      <span style={{flex:1,borderBottom:`2px solid ${ink}`,paddingBottom:2,textAlign:"left",...chalk}}>{value}</span>
+    </div>
+  );
+  const cell = (name, value, last) => (
+    <div style={{flex:1,borderRight:last ? "none" : `2px solid ${ink}`,padding:"6px 4px 8px",display:"flex",flexDirection:"column",alignItems:"center",gap:7}}>
+      <span style={{...label,fontSize:11}}>{name}</span>
+      <span style={{...chalk,fontSize:20}}>{value}</span>
+    </div>
+  );
   return (
     <div role="status" aria-label="Clapper change" style={{position:"fixed",inset:0,zIndex:305,pointerEvents:"none",display:"flex",alignItems:"center",justifyContent:"center",
       background:"rgba(11,8,18,0.55)",animation:`leaderFade ${CLAPPER_SLAM_MS}ms linear both`}}>
-      <div style={{position:"relative",width:250,animation:`slamDrop ${CLAPPER_SLAM_MS}ms cubic-bezier(.2,.9,.3,1) both`}}>
-        <div style={{position:"absolute",left:0,right:0,top:0,height:36,transformOrigin:"6px 34px",animation:`slamArm ${CLAPPER_SLAM_MS}ms ease-in both`,
-          background:"repeating-linear-gradient(135deg,#F7F4EE 0 18px,#1C1D21 18px 36px)",border:"3px solid #1C1D21",borderRadius:4}}/>
-        <div style={{marginTop:38,height:28,background:"repeating-linear-gradient(135deg,#1C1D21 0 18px,#F7F4EE 18px 36px)",border:"3px solid #1C1D21",borderRadius:"4px 4px 0 0"}}/>
-        <div style={{background:"#1C1D21",border:"3px solid #1C1D21",borderTop:"none",borderRadius:"0 0 6px 6px",padding:"12px 14px 14px",display:"flex",flexDirection:"column",gap:8}}>
-          <div style={{display:"flex",justifyContent:"space-between",borderBottom:"2px solid #F7F4EE",paddingBottom:6}}>
-            <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:13,color:"#F7F4EE"}}>SCENE {scene}</span>
-            <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:13,color:"#F7F4EE"}}>TAKE 1</span>
+      <div style={{position:"relative",width:264,filter:"drop-shadow(0 10px 18px rgba(0,0,0,0.55))",animation:`slamDrop ${CLAPPER_SLAM_MS}ms cubic-bezier(.2,.9,.3,1) both`}}>
+        <div style={{position:"absolute",left:0,right:0,top:0,height:32,transformOrigin:"12px 30px",animation:`slamArm ${CLAPPER_SLAM_MS}ms ease-in both`,
+          background:CLAPPER_STRIPES,border:"3px solid #141418",borderRadius:"3px 3px 2px 2px",boxSizing:"border-box"}}/>
+        <div style={{marginTop:34,height:32,background:CLAPPER_STRIPES,backgroundPosition:"22px 0",border:"3px solid #141418",borderBottomWidth:2,boxSizing:"border-box"}}/>
+        <div aria-hidden="true" style={{position:"absolute",left:5,top:26,width:15,height:15,borderRadius:"50%",background:"radial-gradient(circle at 35% 35%,#F2F2F2,#8C8C94 60%,#4A4A52)",border:"2px solid #141418",boxSizing:"border-box",zIndex:2}}/>
+        <div style={{background:"#141418",borderRadius:"0 0 10px 10px",padding:"14px 16px 0",display:"flex",flexDirection:"column",gap:12}}>
+          <div style={{...label,fontFamily:FONT_FIGMA_STICKER,fontWeight:400,fontSize:22,letterSpacing:"0.04em",textAlign:"center",paddingBottom:2}}>Hollywood</div>
+          {row("Production", "PlotMix")}
+          {row("Director", "You")}
+          {row("Camera", "T. Rex")}
+          <div style={{display:"flex",margin:"2px -16px 0",borderTop:`2px solid ${ink}`}}>
+            {cell("DATE", date)}
+            {cell("SCENE ", scene)}
+            {cell("TAKE", 1, true)}
           </div>
-          <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:11,color:"#F7F4EE",opacity:0.85}}>PROD: PLOTMIX</span>
         </div>
       </div>
     </div>
@@ -4389,6 +4458,7 @@ function BadgeToast({badges, onDone}) {
 }
 
 const CINEMA_KEYFRAMES = `
+  @keyframes trexPop { 0%{transform:translate(-50%,-50%) scale(1);opacity:1} 70%{transform:translate(-50%,-50%) scale(1.35);opacity:1} 100%{transform:translate(-50%,-50%) scale(1.6);opacity:0} }
   @keyframes bagPop { 0%{transform:scale(1)} 35%{transform:scale(1.28)} 100%{transform:scale(1)} }
   @keyframes bagFlare { 0%{opacity:0; transform:scale(0.4) rotate(0deg)} 25%{opacity:1; transform:scale(1.05) rotate(20deg)} 100%{opacity:0; transform:scale(1.3) rotate(60deg)} }
   @keyframes introSkipHint { from{opacity:0} to{opacity:1} }
@@ -4437,7 +4507,8 @@ const CINEMA_KEYFRAMES = `
   @keyframes trailerLine { 0%{opacity:0; transform:scale(0.96)} 25%{opacity:1; transform:scale(1)} 80%{opacity:1} 100%{opacity:0; transform:scale(1.04)} }
   @keyframes filmBurn { 0%{opacity:0; transform:scale(0.2)} 30%{opacity:1} 100%{opacity:0; transform:scale(3.2)} }
   @keyframes badgeToast { 0%{opacity:0; transform:translateX(-50%) translateY(-12px)} 10%{opacity:1; transform:translateX(-50%) translateY(0)} 85%{opacity:1} 100%{opacity:0; transform:translateX(-50%) translateY(-6px)} }
-  @keyframes irisWipe { 0%{width:300vmax; height:300vmax} 45%,55%{width:0; height:0} 100%{width:300vmax; height:300vmax} }
+  @keyframes irisSlide { 0%{transform:translateY(-130px)} 46%,54%{transform:translateY(0)} 100%{transform:translateY(-130px)} }
+  @keyframes irisTurn { 0%{transform:rotate(0deg)} 46%,54%{transform:rotate(-70deg)} 100%{transform:rotate(0deg)} }
   @keyframes slamDrop { 0%{transform:translateY(-120vh)} 22%{transform:translateY(0)} 26%{transform:translateY(-6px)} 30%,78%{transform:translateY(0)} 100%{transform:translateY(-120vh)} }
   @keyframes slamArm { 0%,30%{transform:rotate(-24deg)} 42%,100%{transform:rotate(0deg)} }
   @keyframes leaderFade { 0%{opacity:0} 6%{opacity:1} 72%{opacity:1} 100%{opacity:0} }
@@ -6515,7 +6586,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
           maxGuesses={mode.maxGuesses}
           roundScore={Math.min(roundScore+bonusPts, budgetRoom)}
           budgetLeft={Math.max(0,currentReward)}
-          bonus={bonusEligible ? {films:card.movies, years:filmYears, answer:whichFirst} : null}
+          bonus={bonusEligible ? {films:card.movies, years:filmYears, answer:whichFirst, capped:roundScore+bonusPts > budgetRoom} : null}
           onBonus={handleBonus}
           cardIdx={cardIdx}
           totalCards={deck.length}

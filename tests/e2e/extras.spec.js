@@ -118,8 +118,15 @@ test.describe('7. Which came first? bonus', () => {
   const older = () => { const c = card77(); const [a, b] = c.hintData.films; return a.year < b.year ? c.movies[0] : c.movies[1] }
   const newer = () => { const c = card77(); return c.movies.find((m) => m !== older()) }
 
-  test('naming the older film is worth +1', async ({ page }) => {
+  test('at the $100M max, a right answer says the budget is already maxed', async ({ page }) => {
     await resumeStandardWithCards(page, [77, 1])
+    await submitGuess(page, card77().mashedTitle)
+    await page.getByRole('group', { name: 'Which came first?' }).getByRole('button', { name: `${older()} came first` }).click()
+    await expect(page.getByRole('status', { name: 'Bonus result' })).toHaveText("✓ Film buff! Budget's already maxed at $100M")
+  })
+
+  test('naming the older film is worth +1', async ({ page }) => {
+    await resumeStandardWithCards(page, [77, 1], { budget: 7 })
     await submitGuess(page, card77().mashedTitle)
     const bonus = page.getByRole('group', { name: 'Which came first?' })
     await expect(bonus).toBeVisible()
