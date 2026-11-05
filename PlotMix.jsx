@@ -3259,6 +3259,19 @@ function getResultMessage(both, hintsUsed, guessCount, maxGuesses, skipped=false
 // 
 // ROUND RESULT POPUP — auto-shown the moment a round ends
 // 
+// Walk of Fame star stamped next to the box office on a win (owner request 2026-11-05).
+function FameStar({size = 36}) {
+  const pts = Array.from({length:10}, (_,i) => { const r = i % 2 ? 8.2 : 19, a = -Math.PI/2 + i*Math.PI/5; return `${20 + r*Math.cos(a)},${21 + r*Math.sin(a)}`; }).join(" ");
+  return (
+    <svg width={size} height={size} viewBox="0 0 40 40" aria-hidden="true" style={{display:"block",overflow:"visible",filter:"drop-shadow(0 2px 0 #1C1D21)"}}>
+      <polygon points={pts} fill="#F4889A" stroke="#1C1D21" strokeWidth="3" strokeLinejoin="round"/>
+      <polygon points={pts} fill="none" stroke="#F6A507" strokeWidth="1.4" strokeLinejoin="round" transform="translate(20 21) scale(0.78) translate(-20 -21)"/>
+    </svg>
+  );
+}
+// Paparazzi flashes around the win popup as the title lands (owner request 2026-11-05).
+const WIN_FLASH_SPOTS = [[7, 6], [93, 9], [4, 38], [96, 33], [9, 66], [91, 63], [50, 1]];
+
 // Dressing-room lamps around the answer card on the win popup. Points run counter-clockwise
 // from the top middle, so staggering their animation by index makes the light chase counter-clockwise.
 function marqueeBulbs(w, h, gap = 22) {
@@ -3290,6 +3303,13 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
     const id = setTimeout(() => SFX.stamp(), reducedMotion ? 0 : 900);
     return () => clearTimeout(id);
   }, [cancelled, reducedMotion]);
+  // Paparazzi shutters as the title lands, then the Walk of Fame star thwacks down.
+  useEffect(() => {
+    if (!won || reducedMotion) return;
+    const a = setTimeout(() => SFX.shutter(5), 380);
+    const b = setTimeout(() => SFX.stamp(), 1150);
+    return () => { clearTimeout(a); clearTimeout(b); };
+  }, [won, reducedMotion]);
   const msg = msgRef.current;
   const title = card.mashedTitle || card.movies.join(" + ");
   const [showConnection,setShowConnection]=useState(false);
@@ -3572,6 +3592,15 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
               <span aria-hidden="true" style={{fontSize:16,lineHeight:1}}>💰</span>
               <span aria-label="Box office" style={{...POPUP_SCORE_TEXT,display:"inline-block",animation:reducedMotion?"none":"scorePulse 0.28s ease"}}>+{money(scoreDisplay)}</span>
             </div>
+            <div aria-label="Walk of Fame star" role="img" style={{position:"absolute",left:rx(154),top:ry(401),transform:"translate(-50%,-50%) rotate(-12deg)",zIndex:2,
+              animation:reducedMotion?"none":"fameStamp 0.38s cubic-bezier(.3,1.6,.5,1) 0.95s both"}}>
+              <FameStar/>
+            </div>
+            {!reducedMotion && WIN_FLASH_SPOTS.map(([x,y],i)=>(
+              <div key={`f${i}`} aria-hidden="true" style={{position:"absolute",left:`${x}%`,top:`${y}%`,width:96,height:96,opacity:0,pointerEvents:"none",zIndex:4,
+                background:"radial-gradient(circle, #FFFFFF 0%, rgba(255,255,255,0.85) 12%, rgba(255,250,220,0.35) 32%, rgba(255,255,255,0) 62%), linear-gradient(90deg, rgba(255,255,255,0) 44%, rgba(255,255,255,0.9) 50%, rgba(255,255,255,0) 56%) center/100% 4px no-repeat, linear-gradient(0deg, rgba(255,255,255,0) 44%, rgba(255,255,255,0.9) 50%, rgba(255,255,255,0) 56%) center/4px 100% no-repeat",
+                animation:`flashPop 1.1s ease-out ${0.55 + i*0.19}s 1 both`}}/>
+            ))}
 
             <div style={{position:"absolute",left:rx(212),top:ry(388),display:"grid",gridTemplateColumns:"repeat(5, 26px)",gridTemplateRows:"repeat(2, 26px)",gap:"14px 9px",justifyContent:"center",...stagedRise(360, 8)}}>
               {Array.from({length:dotCount}).map((_,i)=>{
@@ -4264,6 +4293,7 @@ function BadgeToast({badges}) {
 }
 
 const CINEMA_KEYFRAMES = `
+  @keyframes fameStamp { 0%{opacity:0; transform:translate(-50%,-50%) scale(2.6) rotate(-40deg)} 70%{opacity:1; transform:translate(-50%,-50%) scale(0.9) rotate(-8deg)} 100%{opacity:1; transform:translate(-50%,-50%) scale(1) rotate(-12deg)} }
   @keyframes raysSpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
   @keyframes bulbChase { 0%{background:#FFF8D6; box-shadow:0 0 8px 3px rgba(255,216,77,0.9)} 30%,100%{background:#9A7424; box-shadow:0 0 0 0 rgba(255,216,77,0)} }
   @keyframes decorSway { 0%,100%{transform:translateX(-50%) rotate(-6deg)} 50%{transform:translateX(-50%) rotate(6deg)} }
