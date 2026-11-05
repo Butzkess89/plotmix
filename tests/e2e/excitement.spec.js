@@ -482,8 +482,9 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
     [0.46, 'Golden ticket', /Golden ticket! \+5/],
     [0.5, 'Film reel', /Film reel! \+3/],
     [0.88, 'Ringing phone', /Phones off in the theatre! −1 life/],
-    [0.975, '3D glasses', /slow motion/],
-    [0.99, 'Clapperboard', /Action! Laser fully charged/],
+    [0.96, '3D glasses', /slow motion/],
+    [0.98, 'Clapperboard', /Action! Laser fully charged/],
+    [0.995, 'Rocket', /Rocket loaded!/],
   ]) {
     test(`cinema extras: catching a ${name.toLowerCase()}`, async ({ page }) => {
       // Record every message shown: with only bad pieces falling, the game can end (and the
@@ -501,6 +502,32 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
       await expect.poll(() => page.evaluate(() => window.__events.join(' | ')), { timeout: 10_000 }).toMatch(event)
     })
   }
+
+  test('a caught rocket launches on the next tap and blows up several pieces at once', async ({ page }) => {
+    await fixRandomOnLoad(page, 0.995)
+    await startGame(page)
+    await holdBoxUnderFirst(page, 'Rocket')
+    await expect(page.getByLabel('Rockets: 1')).toBeVisible({ timeout: 10_000 })
+    // Now only burnt popcorn falls, all in one spot: the blast takes out the whole cluster.
+    await fixRandom(page, 0.6)
+    const bad = page.getByRole('img', { name: 'Burnt popcorn', exact: true })
+    await expect.poll(() => bad.count(), { timeout: 10_000 }).toBeGreaterThan(1)
+    const box = await bad.first().boundingBox()
+    await page.mouse.click(box.x + box.width / 2, 800)
+    await expect(page.getByLabel('Arcade event')).toHaveText(/KABOOM! \d+ blasted/)
+    await expect(page.getByLabel(/^Rockets: /)).toHaveCount(0)
+  })
+
+  test('the bucket fills one step with every popcorn caught', async ({ page }) => {
+    await fixRandomOnLoad(page, 0.1)
+    await startGame(page)
+    const art = page.getByRole('img', { name: 'Popcorn box' }).locator('img')
+    await expect(art).toHaveAttribute('src', /popcorn-0\.webp/)
+    await holdBoxUnderFirst(page, 'Popcorn')
+    await expect.poll(async () => Number((await art.getAttribute('src')).match(/popcorn-(\d)/)[1]), { timeout: 15_000 }).toBeGreaterThanOrEqual(3)
+    const s = await score(page)
+    expect(s).toBeGreaterThan(0)
+  })
 
   test('vampire bats swoop from side to side', async ({ page }) => {
     await fixRandomOnLoad(page, 0.92)
