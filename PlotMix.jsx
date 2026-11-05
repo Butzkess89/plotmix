@@ -3910,11 +3910,13 @@ function PopcornMeter({streak, popKey, reducedMotion=false, inline=false, width}
   );
   // Regular runs: just the bucket; the HUD places it and the streak text (owner layout 2026-11-04).
   if (inline) return <div aria-label={`Streak: ${streak}`} style={{pointerEvents:"none"}}>{bucket}</div>;
-  // Speed Run: the clock owns the card edge, so the bucket sits top-center between the X and sound buttons.
+  // Speed Run: bucket and pill at the spots the owner placed in the HUD layout lab
+  // (2026-11-05), in px on a 402px screen, spread as % of the width.
+  const at=(x,y)=>({position:"absolute",left:`${x/402*100}%`,top:y});
   return (
-    <div aria-label={`Streak: ${streak}`} style={{position:"absolute",top:6,left:"50%",transform:"translateX(-50%)",zIndex:250,width:120,pointerEvents:"none",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start"}}>
-      {bucket}
-      <span style={{marginTop:4,height:20,padding:"0 9px",borderRadius:10,background:"#FFD84D",border:"1.5px solid #1C1D21",fontFamily:FONT_FIGMA_STICKER,fontSize:10,color:"#1C1D21",display:"flex",alignItems:"center",whiteSpace:"nowrap",boxSizing:"border-box",animation:reducedMotion?"none":"titlePop 0.35s ease both"}}>{streak} in a row</span>
+    <div aria-label={`Streak: ${streak}`} style={{position:"absolute",top:0,left:0,right:0,height:0,zIndex:250,pointerEvents:"none"}}>
+      <div style={at(145,-2)}>{bucket}</div>
+      <span style={{...at(143,93),height:20,padding:"0 9px",borderRadius:10,background:"#FFD84D",border:"1.5px solid #1C1D21",fontFamily:FONT_FIGMA_STICKER,fontSize:10,color:"#1C1D21",display:"flex",alignItems:"center",whiteSpace:"nowrap",boxSizing:"border-box",animation:reducedMotion?"none":"titlePop 0.35s ease both"}}>{streak} in a row</span>
     </div>
   );
 }
@@ -6331,7 +6333,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
         </div>
       )}
 
-      {mode.timeLimit>0&&<PopcornMeter streak={runStreak} popKey={popKey} reducedMotion={reducedMotion}/>}
+      {mode.timeLimit>0&&<PopcornMeter width={98} streak={runStreak} popKey={popKey} reducedMotion={reducedMotion}/>}
       {clapper && <ClapperTake key={clapper.key} take={clapper.take} note={clapper.note} reducedMotion={reducedMotion}/>}
       {badgeToast && <BadgeToast badges={badgeToast}/>}
       {countingDown && <FilmLeaderCountdown reducedMotion={reducedMotion} onDone={()=>setCountingDown(false)}/>}
@@ -6384,7 +6386,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       {/* Persistent exit X — fixed above every popup/modal, matches every Figma reference screen */}
       {/* 44x44 tap area (recommended minimum) around the same 33x35 icon, at the same spot */}
       <button onClick={()=>{clearSession(mode.id);onQuit();}} aria-label="Exit to menu"
-        style={{position:"absolute",top:8,left:4,zIndex:400,width:44,height:44,background:"transparent",border:"none",padding:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+        style={{position:"absolute",...(mode.timeLimit>0?{top:7.5,left:3.5}:{top:1.5,left:7.5}),zIndex:400,width:44,height:44,background:"transparent",border:"none",padding:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
         <img src="/design-reference/Exit.svg" alt="" aria-hidden="true" draggable="false"
           style={{display:"block",width:33,height:35,pointerEvents:"none",userSelect:"none"}}/>
       </button>
@@ -6455,10 +6457,12 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
               <div style={{background:"#fff",borderRadius:22,padding:"26px 20px 22px",boxSizing:"border-box",position:"relative",border:`2px solid ${T.border}`,boxShadow:T.shadow,marginTop:0}}>
                 {/* Speed Run: a big countdown clock where the difficulty badge used to be (owner request 2026-11-04). */}
                 {mode.timeLimit>0&&(
-                  <div aria-label="Time left" style={{position:"absolute",top:-40,left:0,right:0,display:"flex",alignItems:"center",justifyContent:"center",gap:4,
+                  /* Stopwatch at (128,240) and countdown at (188,250) on the 402px screen, per the owner's
+                     layout (2026-11-05); the card starts at x=20, y=281 and is 362px wide. */
+                  <div aria-label="Time left" style={{position:"absolute",top:0,left:0,right:0,height:0,
                     animation:!reducedMotion&&timeLeft<=10&&timeLeft>0?"ptsShake 0.5s ease infinite":"none","--amp":"2px"}}>
-                    <IconStopwatch size={54}/>
-                    <span style={{...YELLOW_STICKER_TEXT,fontSize:30,lineHeight:1,position:"relative",top:-12,color:timeLeft<=10?"#FF5A5A":"#FFFFFF"}}>
+                    <div style={{position:"absolute",left:`${(128-20)/362*100}%`,top:240-281}}><IconStopwatch size={54}/></div>
+                    <span style={{position:"absolute",left:`${(188-20)/362*100}%`,top:250-281,...YELLOW_STICKER_TEXT,fontSize:30,lineHeight:1,whiteSpace:"nowrap",color:timeLeft<=10?"#FF5A5A":"#FFFFFF"}}>
                       {`${Math.floor(timeLeft/60)}:${String(timeLeft%60).padStart(2,"0")}`}
                     </span>
                   </div>
