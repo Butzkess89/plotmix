@@ -2727,9 +2727,19 @@ function IntroVideoScreen({onDone}) {
       if (endTimerRef.current) clearTimeout(endTimerRef.current);
     };
   }, []);
+  // Tap anywhere (or press a key) to skip the intro (owner request 2026-11-05).
+  useEffect(() => {
+    const onKey = (e) => { if (["Enter", " ", "Escape"].includes(e.key)) finish(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
 
   return (
-    <div style={{minHeight:"100dvh",background:"#000",display:"flex",alignItems:"center",justifyContent:"center"}}>
+    <div role="button" tabIndex={0} aria-label="Skip intro" onClick={finish}
+      style={{minHeight:"100dvh",background:"#000",display:"flex",alignItems:"center",justifyContent:"center",position:"relative",cursor:"pointer"}}>
+      <div aria-hidden="true" style={{position:"absolute",left:"50%",bottom:"max(22px, env(safe-area-inset-bottom))",transform:"translateX(-50%)",zIndex:1,pointerEvents:"none",
+        fontFamily:FONT_FIGMA_STICKER,fontSize:11,letterSpacing:"0.08em",color:"rgba(255,255,255,0.75)",textTransform:"uppercase",whiteSpace:"nowrap",
+        animation:"introSkipHint 0.6s ease 1.2s both"}}>Tap to skip</div>
       <video
         ref={videoRef}
         src="/design-reference/it_s_nearly_perfect_except_th.mp4"
@@ -4338,6 +4348,7 @@ function BadgeToast({badges, onDone}) {
 const CINEMA_KEYFRAMES = `
   @keyframes bagPop { 0%{transform:scale(1)} 35%{transform:scale(1.28)} 100%{transform:scale(1)} }
   @keyframes bagFlare { 0%{opacity:0; transform:scale(0.4) rotate(0deg)} 25%{opacity:1; transform:scale(1.05) rotate(20deg)} 100%{opacity:0; transform:scale(1.3) rotate(60deg)} }
+  @keyframes introSkipHint { from{opacity:0} to{opacity:1} }
   @keyframes dotBeat { 0%,100%{transform:scale(1)} 50%{transform:scale(1.12)} }
   @keyframes bonusFadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
   @keyframes bagDrop { 0%{transform:translate(-8px,-7px) rotate(-8deg)} 100%{transform:translate(0,0) rotate(0)} }

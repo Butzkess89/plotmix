@@ -22,6 +22,16 @@ test('first visit goes intro -> onboarding -> menu without errors', async ({ pag
   expect(errors).toEqual([])
 })
 
+test('tapping the intro video skips it (owner request 2026-11-05)', async ({ page }) => {
+  await blockExternalFonts(page)
+  await page.addInitScript(() => { try { localStorage.setItem('plotmix_onboarded', '1') } catch {} })
+  await page.goto('/')
+  const intro = page.getByRole('button', { name: 'Skip intro' })
+  await expect(intro).toBeVisible()
+  await intro.click()
+  await expect(page.getByRole('button', { name: MODES.standard.label })).toBeVisible({ timeout: 3_000 })
+})
+
 for (const [modeId, mode] of Object.entries(MODES)) {
   test(`${mode.label} starts a game with a full-value first card`, async ({ page }) => {
     const errors = []
