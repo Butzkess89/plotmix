@@ -4497,6 +4497,7 @@ const CINEMA_KEYFRAMES = `
   @keyframes clapperIn { 0%{opacity:0; transform:translateX(-50%) translateY(10px) scale(0.9)} 12%{opacity:1; transform:translateX(-50%) translateY(0) scale(1)} 82%{opacity:1; transform:translateX(-50%) translateY(0) scale(1)} 100%{opacity:0; transform:translateX(-50%) translateY(-8px) scale(0.98)} }
   @keyframes clapSnap { 0%{transform:rotate(-30deg)} 55%{transform:rotate(0deg)} 70%{transform:rotate(-5deg)} 100%{transform:rotate(0deg)} }
   @keyframes popcornSpill { 0%{opacity:1; transform:translate(0,0) rotate(0) scale(0.6)} 55%{opacity:1; transform:translate(var(--dx),var(--dy)) rotate(var(--rot)) scale(1)} 100%{opacity:0; transform:translate(calc(var(--dx) * 1.5),calc(var(--dy) * -0.6)) rotate(var(--rot)) scale(0.9)} }
+  @keyframes twinPop { 0%{transform:scale(0.55,0.75); transform-origin:50% 100%} 100%{transform:scale(1); transform-origin:50% 100%} }
   @keyframes armReach { 0%{opacity:0; transform:scaleX(0.05) scaleY(0.6)} 20%{opacity:1} 100%{opacity:1; transform:none} }
   @keyframes armHide { to{opacity:0} }
   @keyframes armShow { from{opacity:0} to{opacity:1} }
@@ -5133,28 +5134,38 @@ const SPILL_KERNELS = [[-44,-30,-120],[-24,-52,-60],[0,-62,40],[22,-50,90],[42,-
 function PopcornBox({x = null, charged = false, catches = 0, reducedMotion = false, wide = false, launch = null, jaw = false}) {
   const k = (BUCKET_W + 6) / BUCKET_ART_BODY_W;   // scale so the bucket body is the catch width
   const w = BUCKET_ART_W * k;
+  const mid = BUCKET_ART_MID * k;
   const left = x === null ? "50%" : x;
+  // Sour gummy worm (owner 2026-11-05): two real buckets side by side, not one stretched bucket.
+  // Together they cover the doubled catch width, centred where the single bucket was.
+  const half = (BUCKET_W + 6) / 2;
+  const twins = wide ? [-half, half] : [0];
+  const stage = POPCORN_STAGES[bucketStage(catches)];
   return (
     <div role="img" aria-label="Popcorn box"
-      style={{position:"absolute",left,bottom:2,width:w,height:BUCKET_H,transform:`translateX(${-BUCKET_ART_MID * k}px)`,pointerEvents:"none"}}>
-      {launch && <RocketArm key={launch.key} side={launch.side} cx={BUCKET_ART_MID * k} reducedMotion={reducedMotion}/>}
-      <img src={POPCORN_STAGES[bucketStage(catches)]} alt="" aria-hidden="true" draggable="false"
-        style={{position:"absolute",left:0,bottom:0,width:w,height:"auto",userSelect:"none",filter:"drop-shadow(0 3px 0 rgba(0,0,0,0.35))",
-          transformOrigin:`${BUCKET_ART_MID * k}px 100%`,transform:wide ? "scaleX(2)" : "none",transition:"transform 0.25s cubic-bezier(.3,1.6,.5,1)"}}/>
-      {jaw && <span aria-label="Jawbreaker ready" style={{position:"absolute",left:BUCKET_ART_MID * k - 13,bottom:BUCKET_H - 10,width:26,height:26,
-        animation:reducedMotion ? "none" : "pulse 1s ease-in-out infinite"}}><ArcadeItemArt kind="jaw"/></span>}
-      {charged && <span aria-hidden="true" style={{position:"absolute",left:BUCKET_ART_MID * k - 62,bottom:BUCKET_H * 0.32 + 13 - 62,width:124,height:124,borderRadius:"50%",
-        background:"radial-gradient(circle, #FFFFFF 0 14%, rgba(255,250,170,1) 24%, rgba(255,226,80,0.85) 38%, rgba(255,190,60,0.45) 54%, rgba(255,170,60,0) 70%)",
-        animation:"laserHalo 1.4s ease-in-out infinite"}}/>}
-      <span aria-hidden="true" data-laser-light={charged ? "on" : "off"} style={{position:"absolute",left:BUCKET_ART_MID * k - 13,bottom:BUCKET_H * 0.32,width:26,height:26,borderRadius:"50%",
-        background:charged ? "radial-gradient(circle at 40% 40%, #FFFFFF 0 22%, #FF6F93 42%, #FF2E63 70%, #D3104A 100%)" : "radial-gradient(circle at 35% 35%, #BFC3CC 0 18%, #5B5F6A 45%, #2A2D35 100%)",
-        border:"2px solid #1C1D21",boxSizing:"border-box",animation:charged ? "laserReady 1.4s ease-in-out infinite" : "none"}}/>
-      {catches >= POPCORN_STAGES.length - 2 && !reducedMotion && SPILL_KERNELS.map(([dx, dy, rot], i) => (
-        <span key={`${catches}-${i}`} data-spill="" aria-hidden="true" style={{position:"absolute",left:BUCKET_ART_MID * k - 9,bottom:BUCKET_H - 14,width:18,height:16,
-          "--dx":`${dx}px`,"--dy":`${dy}px`,"--rot":`${rot}deg`,animation:`popcornSpill 0.8s cubic-bezier(.2,.8,.3,1) ${i * 35}ms both`}}>
-          <ArcadeItemArt kind="popcorn" variant={i}/>
-        </span>
+      style={{position:"absolute",left,bottom:2,width:w,height:BUCKET_H,transform:`translateX(${-mid}px)`,pointerEvents:"none"}}>
+      {launch && <RocketArm key={launch.key} side={launch.side} cx={mid + twins[0]} reducedMotion={reducedMotion}/>}
+      {twins.map((dx, b) => (
+        <div key={`${wide ? "twin" : "solo"}-${b}`} data-bucket="" style={{position:"absolute",left:dx,bottom:0,width:w,height:BUCKET_H,
+          animation:wide && !reducedMotion ? `twinPop 0.3s cubic-bezier(.3,1.6,.5,1) both` : "none"}}>
+          <img src={stage} alt="" aria-hidden="true" draggable="false"
+            style={{position:"absolute",left:0,bottom:0,width:w,height:"auto",userSelect:"none",filter:"drop-shadow(0 3px 0 rgba(0,0,0,0.35))"}}/>
+          {charged && <span aria-hidden="true" style={{position:"absolute",left:mid - 62,bottom:BUCKET_H * 0.32 + 13 - 62,width:124,height:124,borderRadius:"50%",
+            background:"radial-gradient(circle, #FFFFFF 0 14%, rgba(255,250,170,1) 24%, rgba(255,226,80,0.85) 38%, rgba(255,190,60,0.45) 54%, rgba(255,170,60,0) 70%)",
+            animation:"laserHalo 1.4s ease-in-out infinite"}}/>}
+          <span aria-hidden="true" data-laser-light={charged ? "on" : "off"} style={{position:"absolute",left:mid - 13,bottom:BUCKET_H * 0.32,width:26,height:26,borderRadius:"50%",
+            background:charged ? "radial-gradient(circle at 40% 40%, #FFFFFF 0 22%, #FF6F93 42%, #FF2E63 70%, #D3104A 100%)" : "radial-gradient(circle at 35% 35%, #BFC3CC 0 18%, #5B5F6A 45%, #2A2D35 100%)",
+            border:"2px solid #1C1D21",boxSizing:"border-box",animation:charged ? "laserReady 1.4s ease-in-out infinite" : "none"}}/>
+          {catches >= POPCORN_STAGES.length - 2 && !reducedMotion && SPILL_KERNELS.map(([sx, sy, rot], i) => (
+            <span key={`${catches}-${i}`} data-spill="" aria-hidden="true" style={{position:"absolute",left:mid - 9,bottom:BUCKET_H - 14,width:18,height:16,
+              "--dx":`${sx}px`,"--dy":`${sy}px`,"--rot":`${rot}deg`,animation:`popcornSpill 0.8s cubic-bezier(.2,.8,.3,1) ${i * 35}ms both`}}>
+              <ArcadeItemArt kind="popcorn" variant={i}/>
+            </span>
+          ))}
+        </div>
       ))}
+      {jaw && <span aria-label="Jawbreaker ready" style={{position:"absolute",left:mid - 13,bottom:BUCKET_H - 10,width:26,height:26,
+        animation:reducedMotion ? "none" : "pulse 1s ease-in-out infinite"}}><ArcadeItemArt kind="jaw"/></span>}
     </div>
   );
 }
@@ -5196,6 +5207,13 @@ function ResultTile({label, ariaLabel, children}) {
 // embedded: opened straight from a round (5 in a row); starts at once and returns to the game.
 function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
   const [phase, setPhase] = useState("lobby"); // lobby | playing | done
+  // Fetch every bucket stage and the rocket art while the lobby is up, so the bucket is
+  // on screen the moment play starts and never blinks out when it fills (owner 2026-11-05).
+  useEffect(() => {
+    const urls = [...POPCORN_STAGES, ...["arm-hold", "arm-empty", "rocket", "exhaust", "explosion"].map((n) => `/stickers/rocket/${n}.webp`)];
+    const imgs = urls.map((u) => { const im = new Image(); im.decoding = "async"; im.src = u; return im; });
+    return () => { imgs.length = 0; };
+  }, []);
   const [passes, setPasses] = useState(arcadePasses);
   const [score, setScore] = useState(0);
   const [lives, setLives] = useState(ARCADE_LIVES);
@@ -5346,11 +5364,14 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
       }
       // Move, catch, or drop.
       const catchY = H - BUCKET_H + 18;
-      const bx = bucketXRef.current;
+      const catchHalf = (now < gummyUntilRef.current ? 2 : 1) * BUCKET_W / 2;
+      // The twin buckets need twice the room: nudge them in from the wall so neither is cut off.
+      const bxRaw = bucketXRef.current ?? W / 2;
+      const bx = Math.max(catchHalf + 6, Math.min(W - catchHalf - 6, bxRaw));
+      if (bx !== bxRaw) { bucketXRef.current = bx; setBucketX(bx); }
       const keep = [];
       const half = ARCADE_ITEM / 2;
       const freezing = now < freezeUntilRef.current;
-      const catchHalf = (now < gummyUntilRef.current ? 2 : 1) * BUCKET_W / 2;
       for (const it of itemsRef.current) {
         const prevY = it.y;
         // A jawbreaker bounce: the piece flies back up and away under gravity, harmless.

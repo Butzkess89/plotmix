@@ -535,7 +535,7 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
   test('the bucket fills one step with every popcorn caught', async ({ page }) => {
     await fixRandomOnLoad(page, 0.1)
     await startGame(page)
-    const art = page.getByRole('img', { name: 'Popcorn box' }).locator('img')
+    const art = page.getByRole('img', { name: 'Popcorn box' }).locator('img').first()
     await expect(art).toHaveAttribute('src', /popcorn-0\.webp/)
     await holdBoxUnderFirst(page, 'Popcorn')
     await expect.poll(async () => Number((await art.getAttribute('src')).match(/popcorn-(\d)/)[1]), { timeout: 15_000 }).toBeGreaterThanOrEqual(3)
