@@ -3635,7 +3635,7 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
                 animation:"bagFlare 1.1s ease-out both"}}/>}
               <div key={`bag${bagPop}`} style={{position:"relative",animation:bagPop > 0 && !reducedMotion ? "bagPop 0.55s cubic-bezier(.3,1.4,.5,1) both" : "none"}}>
               <img src="/stickers/money-bag.webp" alt="" aria-hidden="true" width="76" height="93" style={{display:"block",width:76,height:"auto"}}/>
-              <span aria-label="Box office" style={{position:"absolute",left:"49.4%",top:"56.3%",transform:"translate(-50%,-50%)",fontFamily:"'Outfit',sans-serif",fontWeight:800,fontSize:14,lineHeight:1,letterSpacing:"-0.02em",color:"#2A0E33",whiteSpace:"nowrap",animation:reducedMotion?"none":"scorePulse 0.28s ease"}}>+{money(scoreDisplay)}</span>
+              <div style={{position:"absolute",left:"49%",top:"57%",transform:"translate(-50%,-50%) scaleX(0.84)",lineHeight:1}}><span aria-label="Box office" style={{display:"inline-block",fontFamily:"'Outfit',sans-serif",fontWeight:900,fontSize:19,lineHeight:1,letterSpacing:"-0.03em",color:"#2A0E33",whiteSpace:"nowrap",textShadow:"0 1px 0 rgba(255,236,214,0.6)",animation:reducedMotion?"none":"scorePulse 0.28s ease"}}>+{money(scoreDisplay)}</span></div>
               </div>
             </div>}
             {roundScore === 0 && <img src="/stickers/Very-happy.webp" alt="" aria-hidden="true" width="92" height="92" style={{position:"absolute",left:rx(105),top:my(356.5),width:92,height:92,transform:"translate(-50%,-50%)",filter:"drop-shadow(0 3px 0 rgba(28,29,33,0.6))",...stagedRise(320, 8, "translate(-50%,-50%)")}}/>}
