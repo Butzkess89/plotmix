@@ -504,19 +504,28 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
   }
 
   test('a caught rocket launches on the next tap and blows up several pieces at once', async ({ page }) => {
+    await page.addInitScript(() => {
+      window.__events = []
+      new MutationObserver(() => {
+        const el = document.querySelector('[aria-label="Arcade event"]')
+        if (el && window.__events[window.__events.length - 1] !== el.textContent) window.__events.push(el.textContent)
+      }).observe(document, { subtree: true, childList: true, characterData: true })
+    })
     await fixRandomOnLoad(page, 0.936)
     await startGame(page)
     await holdBoxUnderFirst(page, 'Rocket')
-    await expect(page.getByLabel('Rockets: 1')).toBeVisible({ timeout: 10_000 })
+    // Every piece is a rocket, so a slow browser may catch more than one before this check.
+    await expect(page.getByLabel(/^Rockets: \d$/)).toBeVisible({ timeout: 10_000 })
     // Now only burnt popcorn falls, all in one spot: the blast takes out the whole cluster.
     await fixRandom(page, 0.6)
     const bad = page.getByRole('img', { name: 'Burnt popcorn', exact: true })
     await expect.poll(() => bad.count(), { timeout: 10_000 }).toBeGreaterThan(1)
     const box = await bad.first().boundingBox()
     await page.mouse.click(box.x + box.width / 2, 800)
-    await expect(page.getByLabel('Arcade event')).toHaveText(/KABOOM! \d+ blasted/)
-    await expect(page.getByLabel(/^Rockets: /)).toHaveCount(0)
+    await expect(page.locator('[data-rocket-arm]')).toBeAttached()
+    await expect.poll(() => page.evaluate(() => window.__events.join(' | ')), { timeout: 10_000 }).toMatch(/KABOOM! \d+ blasted/)
   })
+
 
   test('the bucket fills one step with every popcorn caught', async ({ page }) => {
     await fixRandomOnLoad(page, 0.1)
