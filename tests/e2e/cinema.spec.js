@@ -80,9 +80,9 @@ test.describe('Badges', () => {
     expect(await readBadges(page)).toEqual(['directorsCut'])
   })
 
-  test('solving on the last guess unlocks Plot Twist', async ({ page }) => {
+  test('solving with the last point left unlocks Plot Twist', async ({ page }) => {
     await resumeStandardWithCards(page, [77])
-    for (let i = 0; i < 5; i++) await submitGuess(page, `zzqxwrong${'abcde'[i]}`)
+    for (let i = 0; i < 9; i++) await submitGuess(page, `zzqxwrong${'abcdefghi'[i]}`)
     await submitGuess(page, 'The Nightmare Before Christmas Story')
     await expect(page.getByText('Badge unlocked: Plot Twist')).toBeVisible()
     expect(await readBadges(page)).toContain('plotTwist')
@@ -106,7 +106,7 @@ test.describe('End screen extras', () => {
     await pinDailyDate(page)
     await openMenu(page)
     await startMode(page, 'daily')
-    for (let i = 0; i < 6; i++) await submitGuess(page, `zzqxwrong${'abcdef'[i]}`)
+    for (let i = 0; i < 10; i++) await submitGuess(page, `zzqxwrong${'abcdefghij'[i]}`)
     await page.getByRole('button', { name: 'Finish' }).click()
     await expect(page.getByText('The End')).toBeVisible()
     await expect(page.getByLabel('Rated R: Rough Night')).toBeVisible()

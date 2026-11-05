@@ -41,7 +41,7 @@ test.describe('2. The audience', () => {
   })
   test('groans when a card is lost', async ({ page }) => {
     await resumeStandardWithCards(page, [77])
-    for (let i = 0; i < 6; i++) await submitGuess(page, `zzqxwrong${'abcdef'[i]}`)
+    for (let i = 0; i < 10; i++) await submitGuess(page, `zzqxwrong${'abcdefghij'[i]}`)
     await expect(page.getByRole('status', { name: 'Audience groans' })).toBeAttached()
   })
   test('stays home when the phone asks for less motion', async ({ page }) => {
@@ -83,9 +83,9 @@ test.describe('Curtains (owner request 2026-10-26)', () => {
   })
   test('reveal the final score at the end, long enough to read', async ({ page }) => {
     await finishDaily(page)
-    await expect(page.getByText(/^Final score: \d+ points?$/)).toBeVisible()
+    await expect(page.getByText(/^Films released: \d+$/)).toBeVisible()
     await page.waitForTimeout(1_800)
-    await expect(page.getByText(/^Final score: \d+ points?$/)).toBeVisible() // still there ~2 s later
+    await expect(page.getByText(/^Films released: \d+$/)).toBeVisible() // still there ~2 s later
   })
   test('the curtain picker shows drawn curtains, not colour squares', async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem('plotmix_prizes', JSON.stringify({ won: ['bronze'], best: 50, curtain: 'red' })))
@@ -127,11 +127,11 @@ test.describe('7. Which came first? bonus', () => {
     const bg = await bonus.getByRole('button', { name: `${older()} came first` }).evaluate((b) => getComputedStyle(b).backgroundColor)
     expect(bg).not.toMatch(/rgba\(0, 0, 0, 0\)|rgb\(2[0-9]{2}, 2[0-9]{2}, 2[0-9]{2}\)/)
     await bonus.getByRole('button', { name: `${older()} came first` }).click()
-    await expect(page.getByRole('status', { name: 'Bonus result' })).toHaveText('✓ Film buff! +1 point')
+    await expect(page.getByRole('status', { name: 'Bonus result' })).toHaveText('✓ Film buff! +$1M to the budget')
     await expect(bonus.getByRole('button', { name: `${newer()} came first` })).toBeDisabled() // one answer only
     await page.getByRole('button', { name: 'Next' }).click()
     const s = await waitForSave(page, 'standard', (x) => x.cardIdx === 1)
-    expect(s.results[0]).toMatchObject({ pts: 11, bonus: 1 })
+    expect(s.results[0]).toMatchObject({ pts: 1, bonus: 1 })
   })
 
   test('a wrong answer scores nothing extra', async ({ page }) => {
@@ -141,7 +141,7 @@ test.describe('7. Which came first? bonus', () => {
     await expect(page.getByRole('status', { name: 'Bonus result' })).toHaveText('✗ Nope, the other one. No bonus.')
     await page.getByRole('button', { name: 'Next' }).click()
     const s = await waitForSave(page, 'standard', (x) => x.cardIdx === 1)
-    expect(s.results[0]).toMatchObject({ pts: 10, bonus: 0 })
+    expect(s.results[0]).toMatchObject({ pts: 1, bonus: 0 })
   })
 
   test('using any hint rules the bonus out', async ({ page }) => {

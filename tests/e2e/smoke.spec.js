@@ -30,12 +30,12 @@ for (const [modeId, mode] of Object.entries(MODES)) {
     await openMenu(page)
     await startMode(page, modeId)
 
-    await expect(pointsCounter(page)).toHaveText('PTS: 10')
+    await expect(pointsCounter(page)).toHaveText('$10M')
 
     const session = await waitForSave(page, modeId)
     expect(session.cardIdx).toBe(0)
     expect(session.deck).toHaveLength(mode.roundCount)
-    expect(session.lives).toBe(6)
+    expect(session.budget).toBe(10)
     expect(session.totalScore).toBe(0)
     // Every card in a run is a different movie pair.
     const pairs = session.deck.map((c) => [...c.movies].sort().join('|'))

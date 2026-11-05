@@ -10,7 +10,7 @@ import {
 const WRONG_GUESS = 'zzqxwrong'
 
 async function loseCardWithWrongGuesses(page) {
-  for (let i = 0; i < 6; i++) await submitGuess(page, `${WRONG_GUESS}${i}`)
+  for (let i = 0; i < 10; i++) await submitGuess(page, `${WRONG_GUESS}${i}`)
 }
 
 test.describe('G1: repeated taps on Next apply the round once', () => {
@@ -28,24 +28,23 @@ test.describe('G1: repeated taps on Next apply the round once', () => {
     await page.waitForTimeout(500) // let any second, delayed card swap land
     const after = (await readSaves(page)).standard
     expect(after.cardIdx).toBe(1)
-    expect(after.totalScore).toBe(10)
+    expect(after.totalScore).toBe(1)
     const streak = await page.evaluate(() => JSON.parse(localStorage.getItem('plotmix_streak')))
     expect(streak.current).toBe(1)
     expect(session.results.filter(Boolean)).toHaveLength(1)
   })
 
-  test('double-clicking Next after a lost card costs one heart', async ({ page }) => {
+  test('double-clicking Finish after the budget runs out ends the run once', async ({ page }) => {
     await openMenu(page)
     await startMode(page, 'standard')
     await loseCardWithWrongGuesses(page)
 
-    const next = page.getByRole('button', { name: 'Next' })
-    await expect(next).toBeVisible()
-    await next.dblclick()
+    const finish = page.getByRole('button', { name: 'Finish' })
+    await expect(finish).toBeVisible()
+    await finish.dblclick()
 
-    await waitForSave(page, 'standard', (s) => s.cardIdx === 1)
-    await page.waitForTimeout(500)
-    expect((await readSaves(page)).standard.lives).toBe(5)
+    await expect(page.getByText('The End')).toBeVisible()
+    expect((await readSaves(page)).standard).toBeUndefined()
   })
 })
 
@@ -73,17 +72,17 @@ test.describe('G3: Speed Run clock keeps running while rewound', () => {
   })
 })
 
-test.describe('G4: a card lost to wrong guesses is view-only when rewound', () => {
-  test('rewinding to it shows 0 points and no hints', async ({ page }) => {
+test.describe('G4: a skipped card is view-only when rewound', () => {
+  test('rewinding to it shows no hints', async ({ page }) => {
     await openMenu(page)
     await startMode(page, 'standard')
-    await loseCardWithWrongGuesses(page)
+    await page.getByRole('button', { name: 'Skip card' }).click()
+    await page.getByRole('button', { name: 'Skip It' }).click()
     await page.getByRole('button', { name: 'Next' }).click()
     await waitForSave(page, 'standard', (s) => s.cardIdx === 1)
 
     await page.getByRole('button', { name: 'Rewind to previous card' }).click()
     await expect(page.getByRole('button', { name: 'Hints unavailable in view-only' })).toBeVisible()
-    await expect(pointsCounter(page)).toHaveText('PTS: 0')
   })
 })
 
@@ -132,9 +131,20 @@ test.describe('A2: the OS "reduce motion" setting is respected', () => {
     test(`between cards: ${label.toLowerCase()} (one of four, picked at random), under 2 seconds`, async ({ page }) => {
       await page.emulateMedia({ reducedMotion: 'no-preference' })
       await page.addInitScript((k) => localStorage.setItem('plotmix_force_card_change', JSON.stringify(k)), kind)
+      // Time the overlay in the page itself (as the leader test does), so slow test-runner
+      // polling on a busy CI machine is not counted as time the animation was on screen.
+      await page.addInitScript((name) => {
+        window.__overlay = {}
+        new MutationObserver(() => {
+          const on = !!document.querySelector(`[aria-label="${name}"]`)
+          if (on && window.__overlay.start == null) window.__overlay.start = performance.now()
+          if (!on && window.__overlay.start != null && window.__overlay.end == null) window.__overlay.end = performance.now()
+        }).observe(document, { subtree: true, childList: true })
+      }, label)
       expect(await playOneCardAndWatchTransition(page)).toBe(true)
-      await expect(page.getByRole('status', { name: label })).toBeAttached()
-      await expect(page.getByRole('status', { name: label })).toHaveCount(0, { timeout: 2_000 })
+      await expect(page.getByRole('status', { name: label })).toHaveCount(0, { timeout: 5_000 })
+      const { start, end } = await page.evaluate(() => window.__overlay)
+      expect(end - start).toBeLessThan(2_000)
     })
   }
   test('the clapperboard shows the next scene number', async ({ page }) => {
@@ -203,7 +213,7 @@ test.describe('G10: a title revealed word by word completes the card', () => {
     await page.getByRole('button', { name: 'Next' }).click()
     const session = await waitForSave(page, 'standard', (s) => s.cardIdx === 1)
     // Words that are in the title never count as wrong guesses, so the card keeps full points.
-    expect(session.results[0]).toMatchObject({ solved: true, pts: 10, guesses: 3 })
+    expect(session.results[0]).toMatchObject({ solved: true, pts: 1, guesses: 3 })
   })
 
   test('"day", "will", "there" and "being" are real words that must be found', async ({ page }) => {
@@ -225,16 +235,16 @@ test.describe('Hints never end the card by spending its last points', () => {
   test('a hint that would leave 0 points is blocked, and the card stays in play', async ({ page }) => {
     await resumeStandardWithCards(page, [11]) // a card with a Director's Whisper
     for (let i = 0; i < 4; i++) await submitGuess(page, `${WRONG_GUESS}${i}`)
-    await expect(page.getByText('PTS: 6')).toBeVisible()
+    await expect(page.getByText('$6M')).toBeVisible()
     await page.getByRole('button', { name: 'Open hints' }).click()
     await page.getByRole('button', { name: /Year & Genre/ }).click()
     await page.getByRole('button', { name: /Director's Whisper/ }).click()
     const actors = page.getByRole('button', { name: /Lead Actors/ })
     await expect(actors).toBeDisabled()
-    await expect(actors).toContainText('not enough pts')
+    await expect(actors).toContainText('over budget')
     await page.getByRole('button', { name: 'Close hints' }).click()
     await page.waitForTimeout(1500) // a lost card would show its result after ~1 s
     await expect(page.getByRole('button', { name: 'Next' })).toHaveCount(0)
-    await expect(page.getByText('PTS: 3')).toBeVisible()
+    await expect(page.getByText('$3M')).toBeVisible()
   })
 })

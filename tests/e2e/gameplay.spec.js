@@ -1,9 +1,9 @@
 // Regression tests for critical gameplay behaviour, written against the
 // current rules in PlotMix.jsx (they describe what the game does today):
-//   - each card starts at 10 points
-//   - each wrong word in a guess -1 (a one-word wrong guess costs 1), "Year & Genre" hint -1, "Lead Actors" hint -3
+//   - one studio budget for the whole run, starting at $10M; a solve earns $2M back and scores 1 film
+//   - each wrong word in a guess -$1M (a one-word wrong guess costs 1), "Year & Genre" hint -1, "Lead Actors" hint -3
 //   - guessing each film separately is not penalised
-//   - 6 wrong guesses lose the card; a lost or skipped card costs 1 heart
+//   - no guess limit: when the budget hits $0 the studio cancels the picture (GAME OVER); skips are free
 import { test, expect } from '@playwright/test'
 import {
   openMenu, startMode, submitGuess, guessInput, waitForSave, currentCard, pointsCounter, pinDailyDate, resumeStandardWithCards,
@@ -27,7 +27,7 @@ test.describe('guessing and scoring', () => {
     const card = await currentCard(page, 'daily')
 
     await submitGuess(page, card.movies[0])
-    await expect(pointsCounter(page)).toHaveText('PTS: 10')
+    await expect(pointsCounter(page)).toHaveText('$10M')
     await submitGuess(page, card.movies[1])
 
     await finishRound(page, 'Finish')
@@ -38,7 +38,7 @@ test.describe('guessing and scoring', () => {
       const key = Object.keys(localStorage).find((k) => k.startsWith('plotmix_daily_'))
       return key ? JSON.parse(localStorage.getItem(key)) : null
     })
-    expect(daily?.score).toBe(10)
+    expect(daily?.score).toBe(1)
   })
 
   test('typing the full mashed title solves the card in one guess', async ({ page }) => {
@@ -50,9 +50,9 @@ test.describe('guessing and scoring', () => {
     await finishRound(page, 'Next')
 
     const session = await waitForSave(page, 'standard', (s) => s.cardIdx === 1)
-    expect(session.results[0]).toMatchObject({ solved: true, pts: 10, guesses: 1, hints: 0 })
-    expect(session.totalScore).toBe(10)
-    expect(session.lives).toBe(6)
+    expect(session.results[0]).toMatchObject({ solved: true, pts: 1, guesses: 1, hints: 0 })
+    expect(session.totalScore).toBe(1)
+    expect(session.budget).toBe(12)
   })
 
   test('a wrong guess costs 1 point and is kept in the guess history', async ({ page }) => {
@@ -61,30 +61,30 @@ test.describe('guessing and scoring', () => {
     const card = await currentCard(page, 'standard')
 
     await submitGuess(page, WRONG_GUESS)
-    await expect(pointsCounter(page)).toHaveText('PTS: 9')
+    await expect(pointsCounter(page)).toHaveText('$9M')
 
     await submitGuess(page, card.mashedTitle)
     await finishRound(page, 'Next')
 
     const session = await waitForSave(page, 'standard', (s) => s.cardIdx === 1)
-    expect(session.results[0]).toMatchObject({ solved: true, pts: 9, guesses: 2 })
+    expect(session.results[0]).toMatchObject({ solved: true, pts: 1, guesses: 2 })
+    expect(session.budget).toBe(11)
     expect(session.results[0].guessList).toEqual([WRONG_GUESS, card.mashedTitle])
   })
 
-  test('six wrong guesses lose the card, score 0 and cost one heart', async ({ page }) => {
+  test('wrong guesses only end the game once the budget runs out', async ({ page }) => {
     await openMenu(page)
     await startMode(page, 'standard')
 
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 9; i++) {
       await submitGuess(page, `${WRONG_GUESS}${i}`)
     }
+    await expect(guessInput(page)).toBeEnabled() // no guess limit: $1M still left
+    await submitGuess(page, `${WRONG_GUESS}9`)
     await expect(guessInput(page)).toBeDisabled()
-    await finishRound(page, 'Next')
-
-    const session = await waitForSave(page, 'standard', (s) => s.cardIdx === 1)
-    expect(session.results[0]).toMatchObject({ solved: false, pts: 0, guesses: 6 })
-    expect(session.totalScore).toBe(0)
-    expect(session.lives).toBe(5)
+    await expect(page.getByRole('img', { name: 'Cancelled' })).toBeVisible()
+    await finishRound(page, 'Finish')
+    await expect(page.getByText('The End')).toBeVisible()
   })
 })
 
@@ -97,11 +97,11 @@ test.describe('hints', () => {
     await page.getByRole('button', { name: 'Open hints' }).click()
     await page.getByRole('button', { name: /Year & Genre/ }).click()
     await expect(page.getByText(String(card.hintData.films[0].year)).first()).toBeVisible()
-    await expect(pointsCounter(page)).toHaveText('PTS: 9')
+    await expect(pointsCounter(page)).toHaveText('$9M')
 
     await page.getByRole('button', { name: /Lead Actors/ }).click()
     await expect(page.getByText(card.hintData.films[0].actors[0]).first()).toBeVisible()
-    await expect(pointsCounter(page)).toHaveText('PTS: 6')
+    await expect(pointsCounter(page)).toHaveText('$6M')
 
     // A revealed hint cannot be bought twice.
     await expect(page.getByRole('button', { name: /Year & Genre/ })).toBeDisabled()
@@ -111,13 +111,13 @@ test.describe('hints', () => {
     await finishRound(page, 'Next')
 
     const session = await waitForSave(page, 'standard', (s) => s.cardIdx === 1)
-    expect(session.results[0]).toMatchObject({ solved: true, pts: 6, hints: 2 })
+    expect(session.results[0]).toMatchObject({ solved: true, pts: 1, hints: 2 })
     expect(session.results[0].hintList).toEqual(['metadata', 'actors'])
   })
 })
 
 test.describe('skipping', () => {
-  test('skipping a card scores 0, costs one heart and moves on', async ({ page }) => {
+  test('skipping a card scores 0, costs nothing and moves on', async ({ page }) => {
     await openMenu(page)
     await startMode(page, 'standard')
 
@@ -127,7 +127,7 @@ test.describe('skipping', () => {
 
     const session = await waitForSave(page, 'standard', (s) => s.cardIdx === 1)
     expect(session.results[0]).toMatchObject({ skipped: true, solved: false, pts: 0 })
-    expect(session.lives).toBe(5)
+    expect(session.budget).toBe(10)
     expect(session.totalScore).toBe(0)
   })
 })
@@ -146,7 +146,7 @@ test.describe('saving', () => {
     await expect(resume).toBeVisible({ timeout: 30_000 })
     await resume.click()
 
-    await expect(pointsCounter(page)).toHaveText('PTS: 9')
+    await expect(pointsCounter(page)).toHaveText('$9M')
     const resumed = await waitForSave(page, 'standard')
     expect(resumed.deck[resumed.cardIdx].id).toBe(card.id)
     expect(resumed.guesses).toEqual([WRONG_GUESS])
@@ -186,7 +186,7 @@ test.describe('sharing', () => {
     expect(lines[1]).toMatch(/^📅 /)
     expect(lines[2]).toBe('🟩') // one guess that found something
     // solved / failed / skipped / best streak / score
-    expect(lines[3]).toBe('1✅ 0❌ 0⏭️ 1🔥 10⭐')
+    expect(lines[3]).toBe('1✅ 0❌ 0⏭️ 1🔥 1🎬')
     expect(lines[4]).toBe('Play: https://plotmix-app.vercel.app')
     expect(lines).toHaveLength(5)
   })

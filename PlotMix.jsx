@@ -1263,7 +1263,12 @@ function LottieOverlay({src, loop=false, autoplay=true, speed=1, style={}, onCom
 // Formula: currentReward = max(0, baseReward - hintPenalty - wrongGuessPenalty)
 // 
 
-const BASE_REWARD = 10;   // max points per card (visible, feels precious)
+const BASE_REWARD = 10;   // the run's starting budget, in $M (owner decision 2026-11-04)
+// One studio budget for the whole run: wrong words and hints spend it, a solve earns
+// BOX_OFFICE back, and when it hits $0 the studio cancels the picture: GAME OVER.
+const STARTING_BUDGET = BASE_REWARD;
+const BOX_OFFICE = 2;
+const money = (n) => `$${n}M`;
 
 const HINT_TIERS = [
   {
@@ -1303,14 +1308,14 @@ const WRONG_GUESS_REWARD_PENALTY = 1;
 // hintsRevealed = array of tier IDs revealed so far
 // filmsGuessedIndividually = count of films found via individual guess (not mash title)
 // wrongWordPenalty = points lost to wrong guesses: one per wrong word in each guess
-function calcReward(hintsRevealed, filmsGuessedIndividually, wrongWordPenalty) {
+function calcReward(hintsRevealed, filmsGuessedIndividually, wrongWordPenalty, base = BASE_REWARD) {
   const tokensPenalty = hintsRevealed.reduce((acc, tierId) => {
     const tier = HINT_TIERS.find(t => t.id === tierId);
     return acc + (tier ? tier.rewardPenalty : 0);
   }, 0);
   return Math.max(
     0,
-    BASE_REWARD
+    base
       - tokensPenalty
       - (filmsGuessedIndividually * INDIVIDUAL_FILM_PENALTY)
       - (wrongWordPenalty * WRONG_GUESS_REWARD_PENALTY)
@@ -1318,9 +1323,9 @@ function calcReward(hintsRevealed, filmsGuessedIndividually, wrongWordPenalty) {
 }
 
 // Score = straight reward, no multiplier
-function calcScore(won, currentReward) {
-if (!won) return 0;
-return currentReward;
+// The run's score is films released: one per solved card.
+function calcScore(won) {
+  return won ? 1 : 0;
 }
 
 // 
@@ -1797,7 +1802,7 @@ function isValidSavedSession(session) {
   if (!Array.isArray(session.guesses)) return false;
   if (!Array.isArray(session.hintsRevealed)) return false;
   if (typeof session.totalScore !== "number") return false;
-  if (typeof session.lives !== "number") return false;
+  if (typeof session.budget !== "number") return false;
   if (typeof session.timeLeft !== "number") return false;
   return true;
 }
@@ -2080,6 +2085,11 @@ const SFX = {
     });
     playNoise(1.1, 0.04, 0, { type: "bandpass", from: 500, to: 380, q: 0.6 }, 0.2);
   },
+  // Rubber stamp: a short dry thwack
+  stamp: (delay = 0) => {
+    playNoise(0.09, 0.2, delay, { type: "lowpass", from: 900, to: 200, q: 0.8 }, 0.002);
+    playTone(80, "square", 0.08, 0.1, delay);
+  },
   splat: (delay = 0) => {
     playNoise(0.25, 0.22, delay, { type: "lowpass", from: 1800, to: 300, q: 0.7 }, 0.005);
     playTone(95, "sine", 0.18, 0.12, delay);
@@ -2153,7 +2163,7 @@ function buildShareText(mode, results, totalScore) {
   const failed=results.filter(r=>!r.skipped&&!isRoundSolved(r)&&!(r.found&&r.found[0]!==r.found[1])).length;
   const dateLine = mode.isDaily ? `📅 ${getTodayLabel()}\n` : "";
   const streakValue = getRunBestStreak(results);
-  const summaryLine = `${correct}✅ ${failed}❌ ${skipped}⏭️ ${streakValue}🔥 ${totalScore.toLocaleString()}⭐`;
+  const summaryLine = `${correct}✅ ${failed}❌ ${skipped}⏭️ ${streakValue}🔥 ${totalScore.toLocaleString()}🎬`;
   const title = mode.isDaily ? `🎬 PLOTMIX ${mode.label} #${getDailyNumber()}` : `🎬 PLOTMIX ${mode.label}`;
   const lines = [
     title,
@@ -2516,32 +2526,21 @@ function IconStar({size=21}) {
   );
 }
 
-function IconHeart({size=23}) {
-  return (
-    <svg width={size} height={size*(24/28)} viewBox="305 73 29 25" xmlns="http://www.w3.org/2000/svg">
-      <path d="M320.205 97.0425C318.613 97.0425 314.559 94.542 311.414 89.5104C306.107 81.0192 317.224 74.1987 320.205 81.6522C324.106 73.8506 333.719 82.0806 328.465 90.0411C325.877 93.9632 321.361 97.0425 320.205 97.0425Z" fill="#FD4F7E" stroke="black" strokeLinejoin="round"/>
-      <path d="M310.553 81.6419C310.736 82.5507 311.429 85.0226 312.744 87.64C314.387 90.9116 317.673 94.7288 320.411 94.7288C322.601 94.7286 325.704 92.5479 326.982 91.4573C326.982 91.7225 326.902 92.2701 326.671 93.0638C325.827 93.952 324.943 94.7453 324.107 95.4046C323.293 96.047 322.517 96.5703 321.863 96.9359C321.536 97.1183 321.232 97.2656 320.964 97.3685C320.707 97.4673 320.441 97.5423 320.204 97.5423C319.696 97.5422 319.064 97.3492 318.385 97.0237C317.694 96.6924 316.909 96.2017 316.084 95.5569C314.432 94.2667 312.593 92.3394 310.99 89.7747C310.575 89.1105 310.256 88.4535 310.021 87.8109C309.919 85.333 310.22 83.0521 310.553 81.6419Z" fill="#CE4168"/>
-      <path fill="none" d="M320.205 97.0425C318.613 97.0425 314.559 94.542 311.414 89.5104C306.107 81.0192 317.224 74.1987 320.205 81.6522C324.106 73.8506 333.719 82.0806 328.465 90.0411C325.877 93.9632 321.361 97.0425 320.205 97.0425Z" stroke="black" strokeLinejoin="round"/>
-      <path d="M326.982 82.4517C326.982 79.7046 322.47 80.2223 321.855 82.4517C320.525 87.2781 326.982 86.7807 326.982 82.4517Z" fill="#F2BAC4"/>
-    </svg>
-  );
-}
 
-const TARGET_ICON_SVG = `<svg viewBox="35 75 27 24" width="100%" height="100%" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block">
-<ellipse cx="45.768" cy="88.065" rx="8.00945" ry="9.08635" fill="#B12A2E" stroke="#000" stroke-width="0.45"/>
-<ellipse cx="47.058" cy="87.783" rx="7.2985" ry="9.08635" fill="#ED4444" stroke="#000" stroke-width="0.42"/>
-<ellipse cx="47.130" cy="87.702" rx="6.02486" ry="7.46314" fill="white" stroke="#000" stroke-width="0.38"/>
-<ellipse cx="47.535" cy="87.614" rx="4.54503" ry="5.5768" fill="#ED4444" stroke="#000" stroke-width="0.34"/>
-<ellipse cx="47.679" cy="87.582" rx="3.13588" ry="3.976" fill="white" stroke="#000" stroke-width="0.3"/>
-<ellipse cx="47.830" cy="87.549" rx="1.71205" ry="2.06867" fill="#ED4444" stroke="#000" stroke-width="0.26"/>
-<path d="M53.6268 83.8734L58.8403 82.7449L56.5232 86.1304L59.9989 87.8232L54.2061 88.9517L51.9303 86.8828L53.6268 83.8734Z" fill="#4076FE" stroke="#000" stroke-width="0.45" stroke-linejoin="round"/>
-<rect width="11.1719" height="0.959245" rx="0.479622" transform="matrix(0.980855 -0.194741 0.194732 0.980856 47.1719 87.4032)" fill="#4B4B4B" stroke="#000" stroke-width="0.2"/>
-</svg>`;
-
-function IconTarget({size=25}) {
+// Card counter: the clapperboard from the opening title video, with its "?" painted out so
+// the scene number can sit on the slate (owner request 2026-11-04).
+function SceneClapper({scene, total}) {
   return (
-    <span style={{display:"inline-block",width:size,height:size*(22/25),flexShrink:0,transform:"translateY(0.5px)"}}
-      dangerouslySetInnerHTML={{__html: TARGET_ICON_SVG}}/>
+    <div role="img" aria-label={`Scene ${scene} of ${total}`}
+      style={{position:"relative",width:96,height:103,flexShrink:0}}>
+      <img src="/stickers/scene-clapper.webp" alt="" aria-hidden="true" draggable="false"
+        style={{display:"block",width:"100%",height:"100%",userSelect:"none",pointerEvents:"none",filter:"drop-shadow(0 3px 0 #1C1D21)"}}/>
+      <div aria-hidden="true" style={{position:"absolute",left:"6%",right:"6%",top:"45%",bottom:"7%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
+        ...YELLOW_STICKER_TEXT,lineHeight:1,textAlign:"center"}}>
+        <span style={{fontSize:12,letterSpacing:"0.06em"}}>SCENE</span>
+        <span style={{fontSize:23,marginTop:2}}>{scene}/{total}</span>
+      </div>
+    </div>
   );
 }
 
@@ -2609,49 +2608,6 @@ function IconStopwatch({size=48}) {
 }
 
 
-function DiffBadge({level, reason}) {
-  const s={
-    Easy:   {bg:T.green},
-    Medium: {bg:T.gold},
-    Hard:   {bg:T.red},
-  }[level]||{bg:T.textMuted};
-  const minWidthByLevel = { Easy: 58, Medium: 86, Hard: 62 };
-  const [show,setShow]=useState(false);
-  return (
-    <div style={{position:"relative",display:"inline-block"}}>
-      <span onMouseEnter={()=>setShow(true)} onMouseLeave={()=>setShow(false)}
-        style={{
-          background:s.bg,
-          color:"#FFFFFF",
-          border:`2px solid ${T.border}`,
-          borderRadius:999,
-          minHeight:28,
-          minWidth:minWidthByLevel[level] || 62,
-          padding:"0 12px",
-          fontSize:11,
-          lineHeight:1,
-          fontFamily:FONT_FIGMA_STICKER,
-          fontWeight:700,
-          letterSpacing:"0.04em",
-          textShadow:"none",
-          textTransform:"uppercase",
-          cursor:reason?"help":"default",
-          display:"inline-flex",
-          alignItems:"center",
-          justifyContent:"center",
-          whiteSpace:"nowrap",
-          boxShadow:"0 2px 0 #1C1D21",
-        }}>
-        {level}
-      </span>
-      {reason&&show&&(
-        <div style={{position:"absolute",bottom:"calc(100% + 8px)",left:0,background:"#fff",border:`2px solid ${T.border}`,borderRadius:T.r,padding:"12px 16px",fontSize:13,fontFamily:"'Outfit',sans-serif",color:T.textSecondary,zIndex:100,fontStyle:"italic",boxShadow:T.shadow,maxWidth:280,lineHeight:1.65,whiteSpace:"normal"}}>
-          {reason}
-        </div>
-      )}
-    </div>
-  );
-}
 
 
 
@@ -3194,18 +3150,19 @@ const MSG_BANKS = {
     { headline:"Screened. Filed. Done." },
   ],
   timesUp: [
-    { headline:"Time's Up!", sub:"The clock ran out. No points for this round.", emoji:"⏱️" },
+    { headline:"Time's Up!", sub:"The clock ran out. No release for this one.", emoji:"⏱️" },
     { headline:"Missed The Screening.", sub:"Doors closed, lights down, and you were still in the lobby.", emoji:"🚪" },
-    { headline:"Overran The Slot.", sub:"The projectionist waited as long as he could. Zero points.", emoji:"📽️" },
+    { headline:"Overran The Slot.", sub:"The projectionist waited as long as he could. Show's over.", emoji:"📽️" },
     { headline:"Out Of Time, Out Of Luck.", sub:"That round expired before you cracked it.", emoji:"⌛" },
   ],
-  outOfLives: [
-    { headline:"Production Shut Down.", sub:"The insurers pulled out, the crew went home, and the lot has been sold. No lives left.", emoji:"🎬" },
-    { headline:"Final Cut.", sub:"You are out of lives. The negative has been incinerated for the tax write-off.", emoji:"🔥" },
-    { headline:"Box Office Poison.", sub:"Every last life spent. Even your own mother waited for streaming.", emoji:"🍿" },
-    { headline:"Recast And Reshot.", sub:"That was the last of your lives. The studio is going in a different direction.", emoji:"📼" },
-    { headline:"Wrapped. Not In A Good Way.", sub:"No lives remain. Somewhere a projectionist is quietly turning off the lamp.", emoji:"💡" },
-    { headline:"Lost To The Archive.", sub:"You have run out of lives. The only surviving print is in a vault nobody can open.", emoji:"🗄️" },
+  // The card's points hit 0 before it was solved: the studio cancels it.
+  // The run's budget hit $0: the studio cancels the whole picture. GAME OVER.
+  outOfPoints: [
+    { headline:"The Studio Has Pulled The Plug.", sub:"Love the energy. Hate the spending. The budget is gone and so is your picture.", emoji:"📋" },
+    { headline:"Cancelled. Effective Immediately.", sub:"The execs saw the burn rate, choked on their oat lattes and shut the whole thing down.", emoji:"☕" },
+    { headline:"Greenlight Revoked.", sub:"Budget: $0. The studio is \"going in a different direction\". The direction is away from you.", emoji:"🚦" },
+    { headline:"Shelved Indefinitely.", sub:"Every last dollar spent. The film is now a tax write-off and a cautionary tale for interns.", emoji:"🗃️" },
+    { headline:"Notes From The Top: No.", sub:"You ran out of money before you ran out of guesses. Please return your lanyard at the gate.", emoji:"🪪" },
   ],
   burnedOut: [
     { headline:"Over Budget, Over Schedule.", sub:"You found it, but the money ran out somewhere in act two. Nothing left to pay you with.", emoji:"💸" },
@@ -3250,7 +3207,7 @@ const MSG_BANKS = {
   ],
   hint2: [
     { headline:"Got There. Eventually.", sub:"Two hints. You are the person who asks who that guy is twice during the film. Still counts.", emoji:"😅" },
-    { headline:"The Hints Helped.", sub:"Two lifelines opened. Not a crime. The points took a hit but the win is real.", emoji:"🤝" },
+    { headline:"The Hints Helped.", sub:"Two lifelines opened. Not a crime. The budget took a hit but the film is in the can.", emoji:"🤝" },
     { headline:"Assisted Solve.", sub:"Two hints in. You needed a nudge and a shove. But you stuck with it.", emoji:"📌" },
     { headline:"Collaborative Effort.", sub:"You and the hint system figured it out together. Teamwork.", emoji:"🤝" },
   ],
@@ -3286,16 +3243,17 @@ const MSG_BANKS = {
     { headline:"One Down, One Mystery.", sub:"Found one, lost the other entirely. The sequel might explain it.", emoji:"🎬" },
   ],
   skipped: [
-    { headline:"Opted Out.", sub:"Skipped. No points, no spoilers, no judgment. Well — minimal judgment.", emoji:"🚶" },
+    { headline:"Opted Out.", sub:"Skipped. Free of charge, no spoilers, no judgment. Well — minimal judgment.", emoji:"🚶" },
     { headline:"Pass.", sub:"Sometimes you just do not know. Moving on.", emoji:"⏭️" },
     { headline:"Strategic Skip.", sub:"You chose not to guess. This is either wisdom or cowardice and only you know which.", emoji:"🤔" },
     { headline:"Next Card.", sub:"This one was not for you. The next one might be.", emoji:"➡️" },
   ],
 };
 
-function getResultMessage(both, hintsUsed, guessCount, maxGuesses, skipped=false, reward=null, timedOut=false) {
+function getResultMessage(both, hintsUsed, guessCount, maxGuesses, skipped=false, reward=null, timedOut=false, outOfPoints=false) {
   if (skipped) return pickRandom("skipped", MSG_BANKS.skipped);
   if (timedOut) return pickRandom("timesUp", MSG_BANKS.timesUp);
+  if (outOfPoints) return pickRandom("outOfPoints", MSG_BANKS.outOfPoints);
   if (both && reward === 0) return pickRandom("burnedOut", MSG_BANKS.burnedOut);
   if (both && hintsUsed === 0 && guessCount === 1) return pickRandom("perfect1", MSG_BANKS.perfect1);
   if (both && hintsUsed === 0 && guessCount === 2) return pickRandom("perfect2", MSG_BANKS.perfect2);
@@ -3313,13 +3271,20 @@ function getResultMessage(both, hintsUsed, guessCount, maxGuesses, skipped=false
 // 
 // ROUND RESULT POPUP — auto-shown the moment a round ends
 // 
-function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, roundScore, bonus=null, onBonus, cardIdx, totalCards, results=[], isLast, onNext, onMenu, skipped=false, timedOut=false, showSticker=false, stickerSrc=null, stickerDurationMs=2200, onStickerEnded, reducedMotion=false, transitionFamily=TRANSITION_FAMILIES.punchy}) {
+function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, roundScore, bonus=null, onBonus, cardIdx, totalCards, results=[], isLast, onNext, onMenu, skipped=false, timedOut=false, outOfPoints=false, budgetLeft=0, showSticker=false, stickerSrc=null, stickerDurationMs=2200, onStickerEnded, reducedMotion=false, transitionFamily=TRANSITION_FAMILIES.punchy}) {
   const both = found[0] && found[1];
   const won = both;
   const msgRef = useRef(null);
   if (!msgRef.current) {
-    msgRef.current = getResultMessage(both, hintCount, guessCount, maxGuesses, skipped, roundScore, timedOut);
+    msgRef.current = getResultMessage(both, hintCount, guessCount, maxGuesses, skipped, roundScore, timedOut, outOfPoints && !both && !skipped && !timedOut);
   }
+  const cancelled = outOfPoints && !both && !skipped && !timedOut;
+  // The CANCELLED stamp thwacks down just after the title lands.
+  useEffect(() => {
+    if (!cancelled) return;
+    const id = setTimeout(() => SFX.stamp(), reducedMotion ? 0 : 900);
+    return () => clearTimeout(id);
+  }, [cancelled, reducedMotion]);
   const msg = msgRef.current;
   const title = card.mashedTitle || card.movies.join(" + ");
   const [showConnection,setShowConnection]=useState(false);
@@ -3592,8 +3557,8 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
             </div>
 
             <div style={{position:"absolute",left:rx(24),top:ry(401),width:rx(131),height:ry(40),background:"#D3CAFE",border:"2px solid #1C1D21",borderRadius:9,boxShadow:"0 4px 0 #1C1D21",padding:"0 10px",display:"inline-flex",alignItems:"center",gap:8,justifyContent:"center",boxSizing:"border-box",...stagedRise(320, 8)}}>
-              <IconStar size={18} />
-              <span style={{...POPUP_SCORE_TEXT,display:"inline-block",animation:reducedMotion?"none":"scorePulse 0.28s ease"}}>+{scoreDisplay} PTS</span>
+              <span aria-hidden="true" style={{fontSize:16,lineHeight:1}}>💰</span>
+              <span aria-label="Box office" style={{...POPUP_SCORE_TEXT,display:"inline-block",animation:reducedMotion?"none":"scorePulse 0.28s ease"}}>+{money(scoreDisplay)}</span>
             </div>
 
             <div style={{position:"absolute",left:rx(212),top:ry(388),display:"grid",gridTemplateColumns:"repeat(5, 26px)",gridTemplateRows:"repeat(2, 26px)",gap:"14px 9px",justifyContent:"center",...stagedRise(360, 8)}}>
@@ -3626,7 +3591,7 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
               </div>
               {bonus.answer && (
                 <div role="status" aria-label="Bonus result" style={{...WHITE_STICKER_TEXT,fontSize:11.5,marginTop:8}}>
-                  {bonus.answer.correct ? "✓ Film buff! +1 point" : "✗ Nope, the other one. No bonus."}
+                  {bonus.answer.correct ? "✓ Film buff! +$1M to the budget" : "✗ Nope, the other one. No bonus."}
                 </div>
               )}
             </div>
@@ -3670,8 +3635,8 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
 
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"nowrap"}}>
               <div style={{background:"#D3CAFE",border:"2px solid #1C1D21",borderRadius:9,boxShadow:"0 4px 0 #1C1D21",width:131,height:40,padding:"0 10px",display:"inline-flex",alignItems:"center",gap:8,justifyContent:"center"}}>
-                <IconStar size={18}/>
-                <span style={{...POPUP_SCORE_TEXT,fontSize:14,display:"inline-block",animation:reducedMotion?"none":"scorePulse 0.28s ease"}}>{scoreDisplay} PTS</span>
+                <span aria-hidden="true" style={{fontSize:16,lineHeight:1}}>💰</span>
+                <span aria-label="Budget left" style={{...POPUP_SCORE_TEXT,fontSize:14,display:"inline-block"}}>{money(budgetLeft)}</span>
               </div>
 
               <div style={{display:"grid",gridTemplateColumns:"repeat(5, 26px)",gridTemplateRows:"repeat(2, 26px)",gap:"12px 9px",justifyContent:"center",marginRight:2}}>
@@ -3725,6 +3690,12 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
             />
           )}
           <div style={{padding:"52px 22px 28px",minHeight:390,display:"flex",flexDirection:"column",justifyContent:"space-between",position:"relative"}}>
+            {cancelled && (
+              <div aria-label="Cancelled" role="img"
+                style={{position:"absolute",left:"50%",top:"46%",zIndex:5,transform:"translate(-50%,-50%) rotate(-12deg)",border:"3px solid #E8344E",borderRadius:6,padding:"4px 14px",color:"#E8344E",background:"rgba(28,29,33,0.35)",fontFamily:FONT_FIGMA_STICKER,fontSize:"clamp(26px, 9vw, 38px)",letterSpacing:"0.08em",lineHeight:1,whiteSpace:"nowrap",pointerEvents:"none",textShadow:"0 0 1px #E8344E",animation:reducedMotion?"none":"cancelStamp 380ms cubic-bezier(.3,1.6,.5,1) 900ms both"}}>
+                CANCELLED
+              </div>
+            )}
             <div>
               <div style={{...POPUP_YELLOW_TEXT,textAlign:"center",fontSize:16.5,textTransform:"uppercase",lineHeight:1.14,letterSpacing:"0.02em",marginBottom:12}}>{msg.headline}</div>
               <div style={{...POPUP_PLAIN_WHITE_TEXT,textAlign:"center",fontSize:9.8,textTransform:"uppercase",lineHeight:1.26,letterSpacing:"0.01em",margin:"0 auto",maxWidth:330}}>{msg.sub}</div>
@@ -3751,8 +3722,8 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
 
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"nowrap"}}>
               <div style={{background:"#D3CAFE",border:"2px solid #1C1D21",borderRadius:9,boxShadow:"0 4px 0 #1C1D21",width:131,height:40,padding:"0 10px",display:"inline-flex",alignItems:"center",gap:8,justifyContent:"center"}}>
-                <IconStar size={18}/>
-                <span style={{...POPUP_SCORE_TEXT,fontSize:14,display:"inline-block",animation:reducedMotion?"none":"scorePulse 0.28s ease"}}>{scoreDisplay} PTS</span>
+                <span aria-hidden="true" style={{fontSize:16,lineHeight:1}}>💰</span>
+                <span aria-label="Budget left" style={{...POPUP_SCORE_TEXT,fontSize:14,display:"inline-block"}}>{money(budgetLeft)}</span>
               </div>
 
               <div style={{display:"grid",gridTemplateColumns:"repeat(5, 26px)",gridTemplateRows:"repeat(2, 26px)",gap:"12px 9px",justifyContent:"center",marginRight:2}}>
@@ -3770,9 +3741,9 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
           </div>
 
           <div style={{height:94,marginTop:0,background:"transparent",borderTop:"none",position:"relative"}}>
-            <button onClick={onNext} aria-label={isLast ? "Finish" : "Next"}
+            <button onClick={onNext} aria-label={isLast || cancelled ? "Finish" : "Next"}
               style={{position:"absolute",right:24,top:17,width:105,height:57,...BTN.primary,padding:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
-              <span style={POPUP_BUTTON_TEXT}>{isLast ? "Finish" : "Next"}</span>
+              <span style={POPUP_BUTTON_TEXT}>{isLast || cancelled ? "Finish" : "Next"}</span>
             </button>
           </div>
         </div>
@@ -3836,10 +3807,10 @@ function getCriticReview(ratio) {
 const LS_BADGES = "plotmix_badges";
 const BADGES = [
   { id:"directorsCut",    name:"Director's Cut",    emoji:"🎬", desc:"Solved a card with no hints" },
-  { id:"plotTwist",       name:"Plot Twist",        emoji:"🌀", desc:"Solved a card on its last guess" },
+  { id:"plotTwist",       name:"Plot Twist",        emoji:"🌀", desc:"Released a film with $1M left in the budget" },
   { id:"boxOfficeSmash",  name:"Box Office Smash",  emoji:"💥", desc:"Solved 5 cards in a row" },
   { id:"goldenPopcorn",   name:"Golden Popcorn",    emoji:"🍿", desc:"Solved every card in a full run" },
-  { id:"straightToVideo", name:"Straight to Video", emoji:"📼", desc:"Finished a run with 0 points" },
+  { id:"straightToVideo", name:"Straight to Video", emoji:"📼", desc:"Finished a run without releasing a single film" },
 ];
 function loadBadges() {
   try { const v = JSON.parse(localStorage.getItem(LS_BADGES) || "[]"); return Array.isArray(v) ? v : []; } catch { return []; }
@@ -3890,7 +3861,7 @@ function RollingPoints({value, reducedMotion=false, style}) {
   },[value, reducedMotion]);
   return (
     <span key={shake?.key} style={{...style,display:"inline-block","--amp":`${shake?.amp||0}px`,animation:shake?"ptsShake 0.36s ease":"none",color:shake?"#FFB4B4":style?.color}}
-      onAnimationEnd={()=>setShake(null)}>PTS: {shown}</span>
+      onAnimationEnd={()=>setShake(null)}>{money(shown)}</span>
   );
 }
 
@@ -3920,29 +3891,32 @@ function ClapperTake({take, note, reducedMotion=false}) {
   );
 }
 
-// Run streak shown as a popcorn bucket that fills up; kernels pop on every film found.
-function PopcornMeter({streak, popKey, reducedMotion=false}) {
-  // Shown from the start (empty at 0), with its "N in a row" label underneath.
-  const level = Math.min(5, streak);
-  const kernels = [[-26,-30],[-12,-42],[4,-46],[18,-38],[28,-24]];
-  return (
-    <div aria-label={`Streak: ${streak}`} style={{position:"absolute",top:12,left:"50%",transform:"translateX(-50%)",zIndex:250,width:80,height:58,pointerEvents:"none",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start"}}>
-      <svg width="26" height="31" viewBox="0 0 34 40" aria-hidden="true" style={{overflow:"visible",marginTop:6}}>
-        {Array.from({length:level}).map((_,i)=>(
-          <g key={i} transform={`translate(${5 + (i%3)*8 + (i>2?4:0)}, ${14 - (i>2?7:0)})`}>
-            <circle r="5.5" fill="#FFF6D8" stroke="#1C1D21" strokeWidth="1.2"/>
-            <circle r="2" cx="1.5" cy="-1" fill="#FFD84D"/>
-          </g>
-        ))}
-        <path d="M2 14 H32 L28 39 H6 Z" fill="#F3F4FF" stroke="#1C1D21" strokeWidth="1.6" strokeLinejoin="round"/>
-        <path d="M9 14 L11 39 M17 14 V39 M25 14 L23 39" stroke="#E4444F" strokeWidth="4"/>
-        <path d="M2 14 H32 L28 39 H6 Z" fill="none" stroke="#1C1D21" strokeWidth="1.6" strokeLinejoin="round"/>
-      </svg>
-      <span style={{marginTop:3,height:17,padding:"0 7px",borderRadius:9,background:"#FFD84D",border:"1.5px solid #1C1D21",fontFamily:FONT_FIGMA_STICKER,fontSize:8.5,color:"#1C1D21",display:"flex",alignItems:"center",whiteSpace:"nowrap",boxSizing:"border-box",animation:reducedMotion?"none":"titlePop 0.35s ease both"}}>{streak} in a row</span>
+// Run streak shown as the owner's popcorn bucket art: 8 drawings that fill up (and spill)
+// as the streak grows; kernels pop on every film found (owner request 2026-11-04).
+const POPCORN_STAGES = Array.from({length:9}, (_,i)=>`/stickers/popcorn-${i}.webp`);
+function PopcornMeter({streak, popKey, reducedMotion=false, inline=false, width}) {
+  const level = Math.min(POPCORN_STAGES.length-1, streak);
+  const kernels = [[-30,-34],[-14,-48],[4,-54],[20,-44],[32,-28]];
+  const bucketW = width || (inline ? 58 : 76);
+  const bucket = (
+    <div style={{position:"relative",width:bucketW}}>
+      <img src={POPCORN_STAGES[level]} alt="" aria-hidden="true" draggable="false"
+        style={{display:"block",width:bucketW,height:"auto",userSelect:"none",filter:"drop-shadow(0 3px 0 rgba(0,0,0,0.35))",animation:reducedMotion||!popKey?"none":"scorePulse 0.28s ease"}} key={`b-${level}-${popKey}`}/>
       {!reducedMotion && popKey > 0 && kernels.map(([dx,dy],i)=>(
-        <span key={`${popKey}-${i}`} style={{position:"absolute",left:36,top:14,width:9,height:9,borderRadius:"50%",background:"#FFF6D8",border:"1px solid #1C1D21",
+        <span key={`${popKey}-${i}`} style={{position:"absolute",left:bucketW/2-4,top:bucketW*0.3,width:9,height:9,borderRadius:"50%",background:"#FFF6D8",border:"1px solid #1C1D21",
           "--dx":`${dx}px`,"--dy":`${dy}px`,animation:`kernelPop 0.7s cubic-bezier(.2,.8,.3,1) ${i*30}ms both`}}/>
       ))}
+    </div>
+  );
+  // Regular runs: just the bucket; the HUD places it and the streak text (owner layout 2026-11-04).
+  if (inline) return <div aria-label={`Streak: ${streak}`} style={{pointerEvents:"none"}}>{bucket}</div>;
+  // Speed Run: bucket and pill at the spots the owner placed in the HUD layout lab
+  // (2026-11-05), in px on a 402px screen, spread as % of the width.
+  const at=(x,y)=>({position:"absolute",left:`${x/402*100}%`,top:y});
+  return (
+    <div aria-label={`Streak: ${streak}`} style={{position:"absolute",top:0,left:0,right:0,height:0,zIndex:250,pointerEvents:"none"}}>
+      <div style={at(145,-2)}>{bucket}</div>
+      <span style={{...at(143,93),height:20,padding:"0 9px",borderRadius:10,background:"#FFD84D",border:"1.5px solid #1C1D21",fontFamily:FONT_FIGMA_STICKER,fontSize:10,color:"#1C1D21",display:"flex",alignItems:"center",whiteSpace:"nowrap",boxSizing:"border-box",animation:reducedMotion?"none":"titlePop 0.35s ease both"}}>{streak} in a row</span>
     </div>
   );
 }
@@ -5468,7 +5442,7 @@ function HangmanTitle({card, found, guesses=[], reducedMotion=false, peek=false}
 // Buttons stay visible but gray out once purchased, matching Figma exactly
 // (Figma nodes 2:118616 → 2:133413 → 2:148210, the three "Hints — Revealed N" states).
 // 
-function HintsModal({card, hintsRevealed, guessesLeft, onReveal, onClose, hintAnimationSrc, reducedMotion=false, transitionFamily=TRANSITION_FAMILIES.punchy,
+function HintsModal({card, hintsRevealed, onReveal, onClose, hintAnimationSrc, reducedMotion=false, transitionFamily=TRANSITION_FAMILIES.punchy,
   powerups=null, peekUsed=false, freeHints=[], onFreeHint, onPeek, pointsLeft=Infinity}) {
   // A hint that would spend the card's last points would end the card on the spot
   // (it looked like the game skipped it, owner report 2026-11-02), so it is blocked.
@@ -5486,10 +5460,10 @@ function HintsModal({card, hintsRevealed, guessesLeft, onReveal, onClose, hintAn
   const actorsRevealed = hintsRevealed.includes(HINT_TIERS[1].id);
   const whisperRevealed = hintsRevealed.includes("whisper");
   const whisperText = card.hints?.[0] ? maskTitleWords(card.hints[0], card) : null;
-  const yearGenreOff = yearGenreRevealed || guessesLeft===0 || unaffordable(HINT_TIERS[0].rewardPenalty);
-  const whisperOff = whisperRevealed || guessesLeft===0 || unaffordable(HINT_TIERS[2].rewardPenalty);
-  const actorsOff = actorsRevealed || guessesLeft===0 || unaffordable(HINT_TIERS[1].rewardPenalty);
-  const noPts = (revealed, cost) => !revealed && unaffordable(cost) ? " · not enough pts" : "";
+  const yearGenreOff = yearGenreRevealed || unaffordable(HINT_TIERS[0].rewardPenalty);
+  const whisperOff = whisperRevealed || unaffordable(HINT_TIERS[2].rewardPenalty);
+  const actorsOff = actorsRevealed || unaffordable(HINT_TIERS[1].rewardPenalty);
+  const noPts = (revealed, cost) => !revealed && unaffordable(cost) ? " · over budget" : "";
 
   const revealWithFx = (tierId) => {
     if (tierId === HINT_TIERS[1].id) SFX.rip();
@@ -5574,21 +5548,21 @@ function HintsModal({card, hintsRevealed, guessesLeft, onReveal, onClose, hintAn
           <button onClick={()=>revealWithFx(HINT_TIERS[0].id)} disabled={yearGenreOff}
             style={{...BTN.cyan,opacity:yearGenreOff?0.4:1,cursor:yearGenreOff?"not-allowed":"pointer",padding:"13px 0"}}>
             <span style={{...WHITE_STICKER_TEXT,fontSize:13,letterSpacing:"0.03em",textTransform:"uppercase"}}>
-              Year & Genre  -1 pts{yearGenreRevealed?" ✓":""}{noPts(yearGenreRevealed,HINT_TIERS[0].rewardPenalty)}
+              Year & Genre  -$1M{yearGenreRevealed?" ✓":""}{noPts(yearGenreRevealed,HINT_TIERS[0].rewardPenalty)}
             </span>
           </button>
           {whisperText && (
             <button onClick={()=>revealWithFx("whisper")} disabled={whisperOff}
               style={{...BTN.cyan,background:"#8F7BFD",opacity:whisperOff?0.4:1,cursor:whisperOff?"not-allowed":"pointer",padding:"13px 0"}}>
               <span style={{...WHITE_STICKER_TEXT,fontSize:13,letterSpacing:"0.03em",textTransform:"uppercase"}}>
-                Director's Whisper  -2 pts{whisperRevealed?" ✓":""}{noPts(whisperRevealed,HINT_TIERS[2].rewardPenalty)}
+                Director's Whisper  -$2M{whisperRevealed?" ✓":""}{noPts(whisperRevealed,HINT_TIERS[2].rewardPenalty)}
               </span>
             </button>
           )}
           <button onClick={()=>revealWithFx(HINT_TIERS[1].id)} disabled={actorsOff}
             style={{...BTN.primary,opacity:actorsOff?0.4:1,cursor:actorsOff?"not-allowed":"pointer",padding:"13px 0"}}>
             <span style={{...WHITE_STICKER_TEXT,fontSize:13,letterSpacing:"0.03em",textTransform:"uppercase"}}>
-              Lead Actors  -3 pts{actorsRevealed?" ✓":""}{noPts(actorsRevealed,HINT_TIERS[1].rewardPenalty)}
+              Lead Actors  -$3M{actorsRevealed?" ✓":""}{noPts(actorsRevealed,HINT_TIERS[1].rewardPenalty)}
             </span>
           </button>
           {powerups && (powerups.hint>0 || powerups.peek>0 || freeHints.length>0 || peekUsed) && (
@@ -5639,7 +5613,8 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   const [phase,setPhase]=useState("playing");
   const [skipped,setSkipped]=useState(false);
   const [showSkipConfirm,setShowSkipConfirm]=useState(false);
-  const [lives,setLives]=useState(initialState?.lives ?? mode.maxGuesses);
+  // The run's studio budget at the start of the current card ($M).
+  const [budget,setBudget]=useState(initialState?.budget ?? STARTING_BUDGET);
   const [timeLeft,setTimeLeft]=useState(initialState?.timeLeft ?? (mode.timeLimit||0));
   const [timedOut,setTimedOut]=useState(false);
   const [showHints,setShowHints]=useState(false);
@@ -5669,7 +5644,6 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   const [results,setResults]=useState(initialState?.results||[]);
   const [totalScore,setTotalScore]=useState(initialState?.totalScore||0);
   const [streak,setStreak]=useState(()=>loadStreak());
-  const [perfectSolveStreak,setPerfectSolveStreak]=useState(0);
   const prevFoundRef=useRef([false,false]);
   // Set once a round's result has been applied, so a double tap on Next
   // (the button stays on screen during the card transition) can't apply it twice.
@@ -5724,11 +5698,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   const both=(found[0]&&found[1]) || titleFullyRevealed;
   const effectiveFound = both ? [true, true] : found;
   const guessStates = guesses.map(g => guessClassification(g, card));
-  // Hearts are run-level lives used when a card is skipped or fully lost.
-  // Wrong guesses affect reward only.
-  const heartsLeft=lives;
   const wrongGuessCount=guessStates.filter(state=>state==="miss").length;
-  const guessesRemainingForCard=Math.max(0, mode.maxGuesses-wrongGuessCount);
 
   // Reward tracking — derived from hint/individual-film state
   const hintCount=hintsRevealed.length;
@@ -5742,9 +5712,11 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   }, 0);
   // Each wrong guess uses one of the card's guesses; each wrong word in it costs a point.
   const wrongWordPenalty=guesses.reduce((sum,g)=>sum+guessPenalty(g, card),0);
-  const currentReward=calcReward(hintsRevealed.filter((id)=>!freeHints.includes(id)),filmFoundByIndividualGuessCount,wrongWordPenalty);
+  // currentReward is the run's budget left after this card's spending so far.
+  const currentReward=calcReward(hintsRevealed.filter((id)=>!freeHints.includes(id)),filmFoundByIndividualGuessCount,wrongWordPenalty,budget);
   const rewardSpent = !both && currentReward <= 0;
-  const cardLost=!both&&(guessesRemainingForCard===0 || rewardSpent);
+  // Owner decision 2026-11-04: no guess limit. Spending the last of the budget is GAME OVER.
+  const cardLost=!both&&rewardSpent;
   const over=both||cardLost;
   const tension=mode.difficultyPacing==="escalating"?marathonTension(cardIdx,deck.length):0;
   const accent=tension>0.6?`hsl(${Math.round(20-tension*20)},88%,56%)`:mode.accentColor;
@@ -5762,10 +5734,8 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       : "/design-reference/Guess%20button.svg"; // 0/2
   // A finished card shows the points it actually scored (0 if lost or skipped).
   const liveCardPts = viewOnly && pastResult
-    ? (typeof pastResult.pts === "number" ? pastResult.pts : (pastWon ? BASE_REWARD : 0))
+    ? (typeof pastResult.reward === "number" ? pastResult.reward : 0)
     : currentReward;
-  const maxPossibleReward=BASE_REWARD;
-  const pointsLost=maxPossibleReward-currentReward;
   const allowSingleLetterY = card.movies.some((m) => normWord(m) === "y tu mama tambien");
 
   useEffect(() => {
@@ -5791,9 +5761,9 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   // Auto-save
   useEffect(()=>{
     if(phase==="playing" && rewindIdx===null) {
-      saveSession({modeName:mode.label,modeId:mode.id,cardIdx,guesses,hintsRevealed,freeHints,peek,results,totalScore,lives,timeLeft,deckLen:deck.length,deck});
+      saveSession({modeName:mode.label,modeId:mode.id,cardIdx,guesses,hintsRevealed,freeHints,peek,results,totalScore,budget,timeLeft,deckLen:deck.length,deck});
     }
-  },[cardIdx,guesses,hintsRevealed,freeHints,peek,results,totalScore,lives,timeLeft,phase,rewindIdx,mode.label,mode.id,deck.length,deck]);
+  },[cardIdx,guesses,hintsRevealed,freeHints,peek,results,totalScore,budget,timeLeft,phase,rewindIdx,mode.label,mode.id,deck.length,deck]);
 
   useEffect(()=>{
     if(isRewound || !over || phase!=="playing") return;
@@ -5814,12 +5784,13 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       SFX.wrong();
       buzz([30,50,30]);
       // The 3rd wrong guess on a card: the crowd boos and throws a tomato (instead of the clapper).
-      if(wrongGuessCount+1 === 3 && 3 < mode.maxGuesses && !reducedMotion){
+      const endsCard = guessPenalty(g, card) >= currentReward;
+      if(wrongGuessCount+1 === 3 && !endsCard && !reducedMotion){
         SFX.boo(); SFX.splat(0.95);
         setBoo({key:Date.now()});
       }
-      // The next take, unless this miss used the card's last guess.
-      else if(wrongGuessCount+1 < mode.maxGuesses){
+      // The next take, unless this miss spent the card's last points.
+      else if(!endsCard){
         SFX.clap();
         setClapper({key:Date.now(), take:wrongGuessCount+2, note:pickRandom("directorNote", DIRECTOR_NOTES)});
         if (clapperTimerRef.current) clearTimeout(clapperTimerRef.current);
@@ -5921,7 +5892,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
 
   const handleSkip=()=>{
     if(viewOnly||isRewound) return;
-    setLives(l=>Math.max(0,l-1));
+    setBudget(currentReward); // skipping is free, but what this card already spent stays spent
     updateStreak(false);
     setShowSkipConfirm(false);
     setShowHints(false);
@@ -5942,7 +5913,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     // Only solving the current card stops its clock. Viewing an earlier card
     // (rewind) must not pause it, or players get unlimited thinking time.
     const currentCardSolved = both && rewindIdx===null;
-    if(phase!=="playing" || currentCardSolved || lives<=0 || countingDown){
+    if(phase!=="playing" || currentCardSolved || countingDown){
       speedrunDeadlineRef.current = null;
       return;
     }
@@ -5980,7 +5951,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
         speedrunRafRef.current = null;
       }
     };
-  },[phase,both,lives,mode.timeLimit,timeLeft,cardIdx,rewindIdx,countingDown]);
+  },[phase,both,mode.timeLimit,timeLeft,cardIdx,rewindIdx,countingDown]);
 
   const goToCard=(target)=>{
     setCardStates(prev=>({...prev,[activeIdx]:{guesses,hintsRevealed,freeHints,peek}}));
@@ -6026,7 +5997,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     if(skipped){
       const skipResult={card,found:[false,false],solved:false,guesses:guesses.length,wrongList:guesses.filter((g,i)=>guessStates[i]==="miss"),hints:hintsRevealed.length,guessList:[...guesses],hintList:[...hintsRevealed],pts:0,reward:currentReward,skipped:true};
       const nextResults = upsertRoundResult(results, cardIdx, skipResult);
-      if(isLast||lives<=0){
+      if(isLast){
         clearSession(mode.id);
         const dailyReplay = mode.isDaily && !completeDaily(totalScore, buildShareText(mode, nextResults, totalScore), nextResults);
         onComplete(nextResults,totalScore,streak,{dailyReplay});
@@ -6036,26 +6007,13 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
         setResults(nextResults);
         setCardIdx(idx=>idx+1);
         setGuesses([]); setHintsRevealed([]); setFreeHints([]); setPeek(false); setWhichFirst(null);
-        setPerfectSolveStreak(0);
         setSkipped(false); setPhase("playing");
       });
       return;
     }
-    const pts=calcScore(both,currentReward)+bonusPts;
-    const lostCard = !both;
-    const livesAfterLoss = Math.max(0, lives - (lostCard ? 1 : 0));
-    if (lostCard) {
-      setLives(v=>Math.max(0,v-1));
-    }
-    const isPerfectSolve = both && guesses.length===1 && hintCount===0;
-    let nextPerfectStreak = isPerfectSolve ? (perfectSolveStreak + 1) : 0;
-    let heartBonus = 0;
-    if (nextPerfectStreak >= 4) {
-      heartBonus = 1;
-      nextPerfectStreak = 0;
-      setLives(v=>Math.min(mode.maxGuesses, v+1));
-    }
-    setPerfectSolveStreak(nextPerfectStreak);
+    const pts=calcScore(both);
+    // A solve earns box office back (plus $1M for the bonus question); a loss means $0 left.
+    setBudget(both ? currentReward + BOX_OFFICE + bonusPts : 0);
 
     const newStreak=updateStreak(both);
     setStreak(newStreak);
@@ -6082,7 +6040,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
 
     // Speed Run: each card has its own clock, and running out of time ends the run
     // (owner decision 2026-10-26).
-    if(isLast||livesAfterLoss+heartBonus<=0||timedOut){
+    if(isLast||!both||timedOut){
       clearSession(mode.id);
       const dailyReplay = mode.isDaily && !completeDaily(newTotal, buildShareText(mode, nextResults, newTotal), nextResults);
       onComplete(nextResults,newTotal,newStreak,{dailyReplay});
@@ -6101,7 +6059,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
   const handleRevealDone=()=>{ setPhase("intermission"); };
 
   const handleIntermissionNext=()=>{
-    const pts=calcScore(both,currentReward)+bonusPts;
+    const pts=calcScore(both);
     const roundResult={card,found:effectiveFound,solved:both,guesses:guesses.length,wrong:wrongGuessCount,wrongList:guesses.filter((g,i)=>guessStates[i]==="miss"),peek,bonus:bonusPts,hints:hintsRevealed.length,guessList:[...guesses],hintList:[...hintsRevealed],pts,reward:currentReward};
     const nextResults = upsertRoundResult(results, activeIdx, roundResult);
     if(isLast){
@@ -6183,7 +6141,8 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     return ()=>clearTimeout(id);
   },[usher]);
 
-  const roundScore=calcScore(both,currentReward);
+  // What the result popup counts up to: the box office a solve earns back.
+  const roundScore=both ? BOX_OFFICE : 0;
   const showFooterBar = !showingResult && (!both || canReturnToCurrent);
   useEffect(()=>{
     const check=()=>{
@@ -6235,7 +6194,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     if(phase!=="result" || isRewound || skipped || timedOut || !both) return;
     const ids=[];
     if(hintCount===0) ids.push("directorsCut");
-    if(wrongGuessCount===mode.maxGuesses-1) ids.push("plotTwist");
+    if(currentReward===1) ids.push("plotTwist");
     if(runStreak>=5) ids.push("boxOfficeSmash");
     const fresh=earnBadges(ids);
     const earned=BADGES.filter(b=>fresh.includes(b.id));
@@ -6374,7 +6333,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
         </div>
       )}
 
-      <PopcornMeter streak={runStreak} popKey={popKey} reducedMotion={reducedMotion}/>
+      {mode.timeLimit>0&&<PopcornMeter width={98} streak={runStreak} popKey={popKey} reducedMotion={reducedMotion}/>}
       {clapper && <ClapperTake key={clapper.key} take={clapper.take} note={clapper.note} reducedMotion={reducedMotion}/>}
       {badgeToast && <BadgeToast badges={badgeToast}/>}
       {countingDown && <FilmLeaderCountdown reducedMotion={reducedMotion} onDone={()=>setCountingDown(false)}/>}
@@ -6403,14 +6362,16 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
           hintCount={hintCount}
           maxGuesses={mode.maxGuesses}
           roundScore={roundScore+bonusPts}
+          budgetLeft={Math.max(0,currentReward)}
           bonus={bonusEligible ? {films:card.movies, years:filmYears, answer:whichFirst} : null}
           onBonus={handleBonus}
           cardIdx={cardIdx}
           totalCards={deck.length}
           results={results}
-          isLast={isLast||timedOut}
+          isLast={isLast||timedOut||cardLost}
           skipped={skipped}
           timedOut={timedOut}
+          outOfPoints={rewardSpent}
           showSticker={showWinAnimation && both}
           stickerSrc={winAnimationSrc}
           stickerDurationMs={winAnimationDurationMs}
@@ -6425,27 +6386,12 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       {/* Persistent exit X — fixed above every popup/modal, matches every Figma reference screen */}
       {/* 44x44 tap area (recommended minimum) around the same 33x35 icon, at the same spot */}
       <button onClick={()=>{clearSession(mode.id);onQuit();}} aria-label="Exit to menu"
-        style={{position:"absolute",top:20.5,left:14.5,zIndex:400,width:44,height:44,background:"transparent",border:"none",padding:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+        style={{position:"absolute",...(mode.timeLimit>0?{top:7.5,left:3.5}:{top:1.5,left:7.5}),zIndex:400,width:44,height:44,background:"transparent",border:"none",padding:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
         <img src="/design-reference/Exit.svg" alt="" aria-hidden="true" draggable="false"
           style={{display:"block",width:33,height:35,pointerEvents:"none",userSelect:"none"}}/>
       </button>
 
-      <SoundToggle style={{position:"absolute",top:22,right:20,zIndex:400}}/>
 
-      {/* Out of lives — run is over, Home is the only exit */}
-      {lives<=0&&phase!=="result"&&(()=>{
-        const m=pickRandom("outOfLives", MSG_BANKS.outOfLives);
-        return (
-          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",zIndex:450,display:"flex",alignItems:"center",justifyContent:"center",padding:18}}>
-            <div style={{width:"100%",maxWidth:340,...SUNBURST_BG,backgroundColor:T.bgDeep,border:`2px solid ${T.border}`,borderRadius:16,boxShadow:T.shadowLg,padding:"26px 22px 24px",textAlign:"center"}}>
-              <div style={{fontSize:38,marginBottom:8}}>{m.emoji}</div>
-              <div style={{...YELLOW_STICKER_TEXT,fontSize:15,textTransform:"uppercase",marginBottom:10,lineHeight:1.45}}>{m.headline}</div>
-              <p style={{margin:"0 0 22px",fontFamily:"'Outfit',sans-serif",fontSize:14,color:"rgba(255,255,255,0.9)",lineHeight:1.6}}>{m.sub}</p>
-              <button onClick={()=>{clearSession(mode.id);onQuit();}} style={{...BTN.primary,width:"100%",padding:"14px 0"}}>Home</button>
-            </div>
-          </div>
-        );
-      })()}
 
       {/* Are-you-sure skip confirmation */}
       {showSkipConfirm&&(
@@ -6471,28 +6417,37 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
       <div style={{maxWidth:402,margin:"0 auto",animation:cameraShakeLayerAnimation}}>
 
         {/* HEADER — stat row only; the X exit button floats fixed above (see below) */}
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,padding:"72px 0 24px"}}>
-          <div style={HUD_STAT_PILL}>
-            <IconTarget size={25}/>
-            <span style={HUD_COUNTER_TEXT}>{cardIdx+1}/{deck.length}</span>
-          </div>
-          <div style={HUD_STAT_PILL}>
-            <IconStar size={21}/>
-            <RollingPoints value={liveCardPts} reducedMotion={reducedMotion} style={HUD_COUNTER_TEXT}/>
-          </div>
-          {mode.timeLimit>0&&(
-            <div style={HUD_STAT_PILL}>
-              <IconStopwatch size={22}/>
-              <span style={{...HUD_COUNTER_TEXT,color:timeLeft<=10?"#FF6B6B":"#FFFFFF"}}>
-                {String(Math.floor(timeLeft/60)).padStart(1,"0")}:{String(timeLeft%60).padStart(2,"0")}
-              </span>
+        {/* Big art, no bubbles (owner request 2026-11-04): scene clapper left, budget bag right. */}
+        {mode.timeLimit>0 ? (
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:16,padding:"112px 4px 66px"}}>
+          <SceneClapper scene={cardIdx+1} total={deck.length}/>
+          <div aria-label="Studio budget" style={{display:"flex",alignItems:"center",gap:8}}>
+            <img src="/stickers/budget-bag.webp" alt="" aria-hidden="true" draggable="false"
+              style={{display:"block",width:74,height:"auto",userSelect:"none",filter:"drop-shadow(0 3px 0 rgba(0,0,0,0.35))"}}/>
+            <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+              <RollingPoints value={liveCardPts} reducedMotion={reducedMotion} style={{...YELLOW_STICKER_TEXT,fontSize:30,lineHeight:1}}/>
+              <span aria-hidden="true" style={{...WHITE_STICKER_TEXT,fontSize:12,lineHeight:1,letterSpacing:1.5}}>BUDGET</span>
             </div>
-          )}
-          <div style={HUD_STAT_PILL}>
-            <IconHeart size={28}/>
-            <span style={HUD_COUNTER_TEXT}>{guessesRemainingForCard}/{mode.maxGuesses}</span>
           </div>
         </div>
+        ) : (
+          /* Regular runs: positions placed by the owner in the HUD layout lab (2026-11-04),
+             in px on a 402px screen; the HUD box starts 20px in, so x is offset by 20 and
+             spread as a % of its 362px width. The plot card starts 237px down. */
+          <div style={{position:"relative",height:237,zIndex:2}}>
+            {(()=>{ const at=(x,y)=>({position:"absolute",left:`${(x-20)/362*100}%`,top:y}); return (<>
+              <div style={at(63,35)}><SceneClapper scene={cardIdx+1} total={deck.length}/></div>
+              <img src="/stickers/budget-bag.webp" alt="" aria-hidden="true" draggable="false"
+                style={{...at(176,56),display:"block",width:93,height:"auto",userSelect:"none",filter:"drop-shadow(0 3px 0 rgba(0,0,0,0.35))"}}/>
+              <div aria-label="Studio budget" style={{...at(270,77),width:102,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                <RollingPoints value={liveCardPts} reducedMotion={reducedMotion} style={{...YELLOW_STICKER_TEXT,fontSize:30,lineHeight:1}}/>
+              <span aria-hidden="true" style={{...WHITE_STICKER_TEXT,fontSize:12,lineHeight:1,letterSpacing:1.5}}>BUDGET</span>
+              </div>
+              <div style={at(45,151)}><PopcornMeter inline width={104} streak={runStreak} popKey={popKey} reducedMotion={reducedMotion}/></div>
+              <span style={{...at(146,197),...WHITE_STICKER_TEXT,fontSize:17,lineHeight:1,whiteSpace:"nowrap"}}>{runStreak} in a row</span>
+            </>); })()}
+          </div>
+        )}
 
         {/* PLAYING — structure matches Figma exactly: plot card, bare hangman tiles,
             guess input, then a fixed bottom button bar. Nothing else. */}
@@ -6500,13 +6455,19 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
 
               {/*  PLOT CARD  */}
               <div style={{background:"#fff",borderRadius:22,padding:"26px 20px 22px",boxSizing:"border-box",position:"relative",border:`2px solid ${T.border}`,boxShadow:T.shadow,marginTop:0}}>
-                <div style={{position:"absolute",top:-12,left:20,minWidth:104,height:24,padding:"0 10px",background:"#44408E",border:`1.5px solid ${T.border}`,borderRadius:4,boxShadow:"0 2px 0 #1C1D21",display:"inline-flex",alignItems:"center",justifyContent:"center",fontFamily:FONT_FIGMA_STICKER,fontSize:11,color:"#F3F4FF",textTransform:"uppercase",letterSpacing:"0.04em",lineHeight:1,whiteSpace:"nowrap"}}>
-                  Mashed Plot
-                </div>
-                <div style={{position:"absolute",top:-14,right:14}}>
-                  <DiffBadge level={card.difficulty} reason={card.difficultyReason}/>
-                </div>
-                <p style={{margin:"6px 0 0",fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:"clamp(16px, 5.3vw, 22px)",lineHeight:1.42,color:"#1C1D21"}}>
+                {/* Speed Run: a big countdown clock where the difficulty badge used to be (owner request 2026-11-04). */}
+                {mode.timeLimit>0&&(
+                  /* Stopwatch at (128,240) and countdown at (188,250) on the 402px screen, per the owner's
+                     layout (2026-11-05); the card starts at x=20, y=281 and is 362px wide. */
+                  <div aria-label="Time left" style={{position:"absolute",top:0,left:0,right:0,height:0,
+                    animation:!reducedMotion&&timeLeft<=10&&timeLeft>0?"ptsShake 0.5s ease infinite":"none","--amp":"2px"}}>
+                    <div style={{position:"absolute",left:`${(128-20)/362*100}%`,top:240-281}}><IconStopwatch size={54}/></div>
+                    <span style={{position:"absolute",left:`${(188-20)/362*100}%`,top:250-281,...YELLOW_STICKER_TEXT,fontSize:30,lineHeight:1,whiteSpace:"nowrap",color:timeLeft<=10?"#FF5A5A":"#FFFFFF"}}>
+                      {`${Math.floor(timeLeft/60)}:${String(timeLeft%60).padStart(2,"0")}`}
+                    </span>
+                  </div>
+                )}
+                <p style={{margin:0,fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:"clamp(16px, 5.3vw, 22px)",lineHeight:1.42,color:"#1C1D21"}}>
                   {card.mashedPlot}
                 </p>
                 {viewOnly&&(()=>{
@@ -6537,6 +6498,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
                 // Padding cancelled by negative margins: same layout as before, room for a backdrop.
                 margin:"-8px -20px",padding:"8px 20px",
                 ...(guessDocked?{...CHECKER_BG,boxShadow:"0 -6px 12px rgba(0,0,0,0.22)"}:{})}}>
+                {/* No sound button during play: it lives on the main menu only (owner request 2026-11-04). */}
                 <GuessInput ref={guessInputRef} onSubmit={handleGuess} disabled={both||cardLost||viewOnly||countingDown} allowSingleLetterY={allowSingleLetterY}/>
               </div>
 
@@ -6565,7 +6527,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
 
               {/*  HINTS MODAL  */}
               {showHints&&!both&&!viewOnly&&(
-                <HintsModal card={card} hintsRevealed={hintsRevealed} guessesLeft={guessesRemainingForCard}
+                <HintsModal card={card} hintsRevealed={hintsRevealed} 
                   powerups={powerupsAllowed ? loadPowerups() : null} peekUsed={peek} freeHints={freeHints}
                   onFreeHint={handleFreeHint} onPeek={handlePeek}
                   onReveal={handleRevealHint} pointsLeft={currentReward} onClose={()=>setShowHints(false)} hintAnimationSrc={STICKER_ASSETS.hintAnimation}
@@ -6745,7 +6707,7 @@ function EndScreen({mode,results,totalScore,dailyReplay=false,perfectRun=false,g
 
   return (
     <div style={{position:"absolute",inset:0,zIndex:700,overflowY:"auto",...CHECKER_BG,backgroundColor:T.bg,color:T.textOnDark,animation:"fadeIn 0.5s ease"}}>
-      <CurtainReveal zIndex={720} reducedMotion={reducedMotion} line={`Final score: ${totalScore} point${totalScore===1?"":"s"}`}/>
+      <CurtainReveal zIndex={720} reducedMotion={reducedMotion} line={`Films released: ${totalScore}`}/>
       {perfectRun && !reducedMotion && <CameraFlashes/>}
       <div style={{width:"min(402px, 100vw)",minHeight:"100dvh",margin:"0 auto",padding:"14px 0 24px",boxSizing:"border-box"}}>
       <div style={{width:"100%",minHeight:"calc(100dvh - 38px)",...WIN_RESULT_BG,backgroundColor:T.bgDeep,border:`2px solid ${T.border}`,borderRadius:20,boxShadow:T.shadowLg,padding:"56px 22px 24px",textAlign:"center",boxSizing:"border-box",display:"flex",flexDirection:"column",position:"relative"}}>
@@ -6974,7 +6936,7 @@ function PlotMixApp() {
         peek:!!saved.peek,
         results:saved.results,
         totalScore:saved.totalScore,
-        lives:saved.lives,
+        budget:saved.budget,
         timeLeft:saved.timeLeft,
       });
       setScreen("game");
@@ -7076,6 +7038,7 @@ function PlotMixApp() {
         @keyframes slideIn { from{opacity:0;transform:translateX(-8px)}  to{opacity:1;transform:translateX(0)} }
         @keyframes slideUp { from{opacity:0;transform:translateY(20px)}  to{opacity:1;transform:translateY(0)} }
         @keyframes pulse   { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        @keyframes cancelStamp{ 0%{opacity:0;transform:translate(-50%,-50%) rotate(-12deg) scale(2.4)} 70%{opacity:1;transform:translate(-50%,-50%) rotate(-12deg) scale(0.94)} 100%{opacity:1;transform:translate(-50%,-50%) rotate(-12deg) scale(1)} }
         @keyframes titlePop{ 0%{opacity:0;transform:scale(0.75)} 60%{transform:scale(1.06)} 100%{opacity:1;transform:scale(1)} }
         @keyframes impactShake { 0%{transform:translateX(0)} 25%{transform:translateX(-6px)} 50%{transform:translateX(5px)} 75%{transform:translateX(-3px)} 100%{transform:translateX(0)} }
         @keyframes impactFlash { 0%{opacity:0} 30%{opacity:1} 100%{opacity:0} }
