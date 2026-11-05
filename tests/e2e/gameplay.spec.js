@@ -1,7 +1,7 @@
 // Regression tests for critical gameplay behaviour, written against the
 // current rules in PlotMix.jsx (they describe what the game does today):
-//   - one studio budget for the whole run, starting at $10M; a solve earns $2M back and scores 1 film
-//   - each wrong word in a guess -$1M (a one-word wrong guess costs 1), "Year & Genre" hint -1, "Lead Actors" hint -3
+//   - one studio budget for the whole run, starting at its $100M max; only a clean solve (no paid hints, no wrong words) earns $20M back, never past $100M; a solve scores 1 film
+//   - each wrong word in a guess -$10M (a one-word wrong guess costs 1 unit), "Year & Genre" hint -$10M, "Lead Actors" hint -$30M
 //   - guessing each film separately is not penalised
 //   - no guess limit: when the budget hits $0 the studio cancels the picture (GAME OVER); skips are free
 import { test, expect } from '@playwright/test'
@@ -27,7 +27,7 @@ test.describe('guessing and scoring', () => {
     const card = await currentCard(page, 'daily')
 
     await submitGuess(page, card.movies[0])
-    await expect(pointsCounter(page)).toHaveText('$10M')
+    await expect(pointsCounter(page)).toHaveText('$100M')
     await submitGuess(page, card.movies[1])
 
     await finishRound(page, 'Finish')
@@ -52,7 +52,7 @@ test.describe('guessing and scoring', () => {
     const session = await waitForSave(page, 'standard', (s) => s.cardIdx === 1)
     expect(session.results[0]).toMatchObject({ solved: true, pts: 1, guesses: 1, hints: 0 })
     expect(session.totalScore).toBe(1)
-    expect(session.budget).toBe(12)
+    expect(session.budget).toBe(10) // already at the $100M max
   })
 
   test('a wrong guess costs 1 point and is kept in the guess history', async ({ page }) => {
@@ -61,14 +61,14 @@ test.describe('guessing and scoring', () => {
     const card = await currentCard(page, 'standard')
 
     await submitGuess(page, WRONG_GUESS)
-    await expect(pointsCounter(page)).toHaveText('$9M')
+    await expect(pointsCounter(page)).toHaveText('$90M')
 
     await submitGuess(page, card.mashedTitle)
     await finishRound(page, 'Next')
 
     const session = await waitForSave(page, 'standard', (s) => s.cardIdx === 1)
     expect(session.results[0]).toMatchObject({ solved: true, pts: 1, guesses: 2 })
-    expect(session.budget).toBe(11)
+    expect(session.budget).toBe(9) // a solve after a wrong word earns no box office
     expect(session.results[0].guessList).toEqual([WRONG_GUESS, card.mashedTitle])
   })
 
@@ -79,7 +79,7 @@ test.describe('guessing and scoring', () => {
     for (let i = 0; i < 9; i++) {
       await submitGuess(page, `${WRONG_GUESS}${i}`)
     }
-    await expect(guessInput(page)).toBeEnabled() // no guess limit: $1M still left
+    await expect(guessInput(page)).toBeEnabled() // no guess limit: $10M still left
     await submitGuess(page, `${WRONG_GUESS}9`)
     await expect(guessInput(page)).toBeDisabled()
     await expect(page.getByRole('img', { name: 'Cancelled' })).toBeVisible()
@@ -97,11 +97,11 @@ test.describe('hints', () => {
     await page.getByRole('button', { name: 'Open hints' }).click()
     await page.getByRole('button', { name: /Year & Genre/ }).click()
     await expect(page.getByText(String(card.hintData.films[0].year)).first()).toBeVisible()
-    await expect(pointsCounter(page)).toHaveText('$9M')
+    await expect(pointsCounter(page)).toHaveText('$90M')
 
     await page.getByRole('button', { name: /Lead Actors/ }).click()
     await expect(page.getByText(card.hintData.films[0].actors[0]).first()).toBeVisible()
-    await expect(pointsCounter(page)).toHaveText('$6M')
+    await expect(pointsCounter(page)).toHaveText('$60M')
 
     // A revealed hint cannot be bought twice.
     await expect(page.getByRole('button', { name: /Year & Genre/ })).toBeDisabled()
@@ -146,7 +146,7 @@ test.describe('saving', () => {
     await expect(resume).toBeVisible({ timeout: 30_000 })
     await resume.click()
 
-    await expect(pointsCounter(page)).toHaveText('$9M')
+    await expect(pointsCounter(page)).toHaveText('$90M')
     const resumed = await waitForSave(page, 'standard')
     expect(resumed.deck[resumed.cardIdx].id).toBe(card.id)
     expect(resumed.guesses).toEqual([WRONG_GUESS])
