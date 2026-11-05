@@ -2359,7 +2359,15 @@ const RESULT_RAYS_BG = {
 
 const SUNBURST_BG = RESULT_RAYS_BG;
 
-const WIN_RESULT_BG = RESULT_RAYS_BG;
+// Win sheet: same glow and gradient, but the rays live on their own layer so they can spin.
+const WIN_RESULT_BG = {
+  backgroundColor: "#4A45EF",
+  backgroundImage: [
+    "radial-gradient(circle at 50% 104%, rgba(206, 190, 255, 0.58) 0%, rgba(206, 190, 255, 0.24) 14%, rgba(206, 190, 255, 0) 58%)",
+    "linear-gradient(180deg, #6757F5 0%, #5146E7 52%, #473DD9 100%)",
+  ].join(","),
+};
+const WIN_RAYS_LAYER = "repeating-conic-gradient(from -90deg, rgba(157, 142, 255, 0.44) 0deg 10deg, rgba(83, 68, 214, 0.1) 10deg 20deg)";
 
 const RESULT_FOOTER_BG = {
   backgroundColor: "#9381FE",
@@ -3251,6 +3259,23 @@ function getResultMessage(both, hintsUsed, guessCount, maxGuesses, skipped=false
 // 
 // ROUND RESULT POPUP — auto-shown the moment a round ends
 // 
+// Dressing-room lamps around the answer card on the win popup. Points run counter-clockwise
+// from the top middle, so staggering their animation by index makes the light chase counter-clockwise.
+function marqueeBulbs(w, h, gap = 22) {
+  const per = 2 * (w + h), n = Math.round(per / gap), pts = [];
+  const segs = [[w/2,0,0,0],[0,0,0,h],[0,h,w,h],[w,h,w,0],[w,0,w/2,0]];
+  for (let i = 0; i < n; i++) {
+    let d = i * per / n;
+    for (const [x1,y1,x2,y2] of segs) {
+      const len = Math.hypot(x2-x1, y2-y1);
+      if (d <= len) { pts.push({x: x1 + (x2-x1)*d/len, y: y1 + (y2-y1)*d/len}); break; }
+      d -= len;
+    }
+  }
+  return pts;
+}
+const MARQUEE_BULBS = marqueeBulbs(352, 78, 24);
+
 function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, roundScore, bonus=null, onBonus, cardIdx, totalCards, results=[], isLast, onNext, onMenu, skipped=false, timedOut=false, outOfPoints=false, budgetLeft=0, showSticker=false, stickerSrc=null, stickerDurationMs=2200, onStickerEnded, reducedMotion=false, transitionFamily=TRANSITION_FAMILIES.punchy}) {
   const both = found[0] && found[1];
   const won = both;
@@ -3492,6 +3517,9 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
         )}
 
         <div style={{position:"relative",width:"min(402px, 100vw)",margin:"0 auto",borderRadius:"12px 12px 0 0",overflow:"visible",boxShadow:T.shadowLg,...resultSheetBg,backgroundColor:T.bgDeep,animation:reducedMotion?"none":transitionFamily.popupSheetIn,transformOrigin:"50% 100%"}}>
+          <div aria-hidden="true" style={{position:"absolute",inset:0,overflow:"hidden",borderRadius:"12px 12px 0 0",pointerEvents:"none"}}>
+            <div style={{position:"absolute",left:"50%",top:"104%",width:1800,height:1800,margin:"-900px 0 0 -900px",background:WIN_RAYS_LAYER,animation:reducedMotion?"none":"raysSpin 40s linear infinite"}}/>
+          </div>
           {!!resultLottieSrc && !reducedMotion && (
             <LottieOverlay
               key={`${resultLottieSrc}-${cardIdx}-win`}
@@ -3533,6 +3561,10 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
             <div style={{...movieChipStyle(bottomChip),position:"absolute",left:rx(movieStackCenterX),top:ry(bottomChipY),transform:"translateX(-50%)",...smashIn(240, 280)}}>{bottomChip.lines.join(" ")}</div>
 
             <div style={{position:"absolute",left:rx(25),top:ry(titleY),width:rx(352),height:ry(78),background:"#342698",border:"2px solid #F6A507",borderRadius:11,boxShadow:"0 4px 0 #1C1D21",padding:"10px 12px",boxSizing:"border-box",display:"flex",alignItems:"center",justifyContent:"center",...titleSlam}}>
+              {MARQUEE_BULBS.map((b,i)=>(
+                <span key={i} aria-hidden="true" style={{position:"absolute",left:`${b.x/352*100}%`,top:`${b.y/78*100}%`,width:10,height:10,margin:"-5px 0 0 -5px",borderRadius:"50%",border:"1px solid #1C1D21",boxSizing:"border-box",
+                  ...(reducedMotion ? {background:"#FFF8D6",boxShadow:"0 0 6px 2px rgba(255,216,77,0.75)"} : {background:"#9A7424",animation:`bulbChase 2.4s linear ${(i/MARQUEE_BULBS.length-1)*2.4}s infinite`})}}/>
+              ))}
               <div style={popupTitleStyle}>{title}</div>
             </div>
 
@@ -4232,6 +4264,8 @@ function BadgeToast({badges}) {
 }
 
 const CINEMA_KEYFRAMES = `
+  @keyframes raysSpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+  @keyframes bulbChase { 0%{background:#FFF8D6; box-shadow:0 0 8px 3px rgba(255,216,77,0.9)} 30%,100%{background:#9A7424; box-shadow:0 0 0 0 rgba(255,216,77,0)} }
   @keyframes decorSway { 0%,100%{transform:translateX(-50%) rotate(-6deg)} 50%{transform:translateX(-50%) rotate(6deg)} }
   @keyframes vhsPress { 0%,49%{transform:translateY(0); box-shadow:0 7px 0 #0B0C10} 50%,100%{transform:translateY(6px); box-shadow:0 1px 0 #0B0C10} }
   @keyframes laserReady { 0%,100%{filter:drop-shadow(0 0 1px #FF2E63)} 50%{filter:drop-shadow(0 0 6px #FF2E63)} }
