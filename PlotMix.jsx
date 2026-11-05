@@ -4282,7 +4282,14 @@ const CINEMA_KEYFRAMES = `
   @keyframes clapperIn { 0%{opacity:0; transform:translateX(-50%) translateY(10px) scale(0.9)} 12%{opacity:1; transform:translateX(-50%) translateY(0) scale(1)} 82%{opacity:1; transform:translateX(-50%) translateY(0) scale(1)} 100%{opacity:0; transform:translateX(-50%) translateY(-8px) scale(0.98)} }
   @keyframes clapSnap { 0%{transform:rotate(-30deg)} 55%{transform:rotate(0deg)} 70%{transform:rotate(-5deg)} 100%{transform:rotate(0deg)} }
   @keyframes popcornSpill { 0%{opacity:1; transform:translate(0,0) rotate(0) scale(0.6)} 55%{opacity:1; transform:translate(var(--dx),var(--dy)) rotate(var(--rot)) scale(1)} 100%{opacity:0; transform:translate(calc(var(--dx) * 1.5),calc(var(--dy) * -0.6)) rotate(var(--rot)) scale(0.9)} }
-  @keyframes rocketFly { 0%{transform:translate(-50%,0)} 100%{transform:translate(-50%,var(--fly))} }
+  @keyframes armReach { 0%{opacity:0; transform:scaleX(0.05) scaleY(0.6)} 20%{opacity:1} 100%{opacity:1; transform:none} }
+  @keyframes armHide { to{opacity:0} }
+  @keyframes armShow { from{opacity:0} to{opacity:1} }
+  @keyframes armRetract { 0%{opacity:1; transform:none} 100%{opacity:0; transform:scaleX(0.05) scaleY(0.6)} }
+  @keyframes rocketFlight { 0%{transform:translate(-50%,-50%) rotate(0deg) scale(0.9)} 25%{transform:translate(calc(-50% + var(--dx) * 0.08),calc(-50% + var(--dy) * 0.12)) rotate(var(--rot)) scale(1)} 100%{transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) rotate(var(--rot)) scale(1)} }
+  @keyframes exhaustPuff { 0%{opacity:0; transform:scale(0.4)} 20%{opacity:1} 100%{opacity:0; transform:scale(1.15) translateY(6px)} }
+  @keyframes bigBoom { 0%{opacity:1; transform:translate(-50%,-50%) scale(0.15) rotate(-8deg)} 35%{opacity:1; transform:translate(-50%,-50%) scale(1.05) rotate(3deg)} 70%{opacity:1; transform:translate(-50%,-50%) scale(1) rotate(0)} 100%{opacity:0; transform:translate(-50%,-50%) scale(1.15)} }
+  @keyframes lassoLine { 0%{opacity:1; stroke-dashoffset:1} 50%{opacity:1; stroke-dashoffset:0} 100%{opacity:0; stroke-dashoffset:0} }
   @keyframes kernelPop { 0%{opacity:1; transform:translate(0,0) scale(0.4)} 70%{opacity:1} 100%{opacity:0; transform:translate(var(--dx),var(--dy)) scale(1)} }
   @keyframes leaderSweep { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
   @keyframes curtainLeft { from{transform:translateX(0)} to{transform:translateX(-102%)} }
@@ -4560,6 +4567,18 @@ const SLOWMO_MS = 4000;
 // Rocket (owner idea 2026-11-05): catch one to load it; the next tap launches it instead of the
 // laser. It blows up the first piece in its path and everything within ROCKET_RADIUS of it.
 const ROCKET_MAX = 3, ROCKET_RADIUS = 95;
+// Rocket launch, drawn by the owner (public/stickers/rocket/): a hatch opens on the bucket, a
+// robot arm swings out holding the rocket, lets go, and the rocket homes in on the lowest bad
+// piece. Sizes are the owner's art scaled so its bucket matches ours (775 px wide there).
+const RK = (BUCKET_W + 6) / 775;
+const ROCKET_ART = {
+  hatchDx: (598 - 427.5) * RK, armBottom: (966 - 760) * RK,
+  holdW: 891 * RK, holdH: 617 * RK, emptyW: 758 * RK, emptyH: 430 * RK,
+  handDx: (1365 - 427.5) * RK, handUp: (966 - 392) * RK,
+  rocketW: 200 * RK, rocketH: 345 * RK, exhaustW: 636 * RK, exhaustH: 724 * RK, exhaustFlameX: 475 * RK,
+};
+const ROCKET_REACH_MS = 220, ROCKET_FLIGHT_MS = 300, ROCKET_RETRACT_MS = 260;
+const VIP_MS = 5000, FREEZE_MS = 3000, GUMMY_MS = 5000, LICORICE_PULLS = 3;
 const ARCADE_STREAK_FOR_PASS = 5;
 function comboMultiplier(c) { return c >= 10 ? 3 : c >= 5 ? 2 : 1; }
 const LS_ARCADE_PASSES = "plotmix_arcade_passes";
@@ -4590,6 +4609,11 @@ const ARCADE_ITEMS = [
   { kind: "glasses",  weight: 1.5, label: "3D glasses" },
   { kind: "clapper",  weight: 1.5, label: "Clapperboard" },
   { kind: "rocket",   weight: 1.5, label: "Rocket" },
+  // Concession-stand power-ups (owner picks 2026-11-05).
+  { kind: "slushie",  weight: 1.5, label: "Blue raspberry slushie" },
+  { kind: "gummy",    weight: 1.5, label: "Sour gummy worm" },
+  { kind: "licorice", weight: 1.5, label: "Licorice whip" },
+  { kind: "jaw",      weight: 1.5, label: "Jawbreaker" },
 ];
 const ARCADE_KIND = Object.fromEntries(ARCADE_ITEMS.map((it) => [it.kind, it]));
 const CANDY_COLORS = ["#20B46A"]; // green (owner request 2026-11-05)
@@ -4799,7 +4823,62 @@ function ArcadeItemArt({kind, color, variant=0}) {
       </svg>
     );
   }
-  if (kind === "rocket") return <RocketArt/>;
+  if (kind === "rocket") return <img src="/stickers/rocket/rocket.webp" alt="" aria-hidden="true" draggable="false" style={{display:"block",height:"100%",margin:"0 auto"}}/>;
+  if (kind === "slushie") {
+    return (
+      <svg viewBox="0 0 48 48" width="100%" height="100%" aria-hidden="true">
+        <path d="M27 2 L23 16" stroke="#1C1D21" strokeWidth="4.4" strokeLinecap="round"/>
+        <path d="M27 2 L23 16" stroke="#FF4FA3" strokeWidth="2.6" strokeLinecap="round"/>
+        <path d="M12 17 Q24 6 36 17 Z" fill="#E9F7FF" fillOpacity="0.85" stroke="#1C1D21" strokeWidth="1.6" strokeLinejoin="round"/>
+        <rect x="10" y="16" width="28" height="4" rx="2" fill="#F7F4EE" stroke="#1C1D21" strokeWidth="1.6"/>
+        <path d="M12 20 L15 44 H33 L36 20 Z" fill="#1E7BFF" stroke="#1C1D21" strokeWidth="1.8" strokeLinejoin="round"/>
+        <path d="M13 24 L35 24" stroke="#5FB4FF" strokeWidth="2"/>
+        <path d="M15.5 29 Q24 33 32.5 29 L31.4 38 Q24 41 16.6 38 Z" fill="#F7F4EE" stroke="#1C1D21" strokeWidth="1.2"/>
+        <text x="24" y="36.4" textAnchor="middle" fontSize="5.4" fontWeight="900" fill="#1E7BFF" fontFamily="Arial, sans-serif">ICE</text>
+        <path d="M16 22 L18 41" stroke="#FFFFFF" strokeWidth="1.6" strokeLinecap="round" opacity="0.55"/>
+      </svg>
+    );
+  }
+  if (kind === "gummy") {
+    const segs = ["#FF3B5C", "#FFD84D", "#27C46B", "#FF3B5C", "#FFD84D", "#27C46B"];
+    return (
+      <svg viewBox="0 0 48 48" width="100%" height="100%" aria-hidden="true">
+        <path d="M6 30 C10 18 18 18 22 26 C26 34 34 34 40 20" fill="none" stroke="#1C1D21" strokeWidth="11.5" strokeLinecap="round"/>
+        {segs.map((c, i) => {
+          const t0 = i / segs.length, t1 = (i + 1) / segs.length;
+          return <path key={i} d="M6 30 C10 18 18 18 22 26 C26 34 34 34 40 20" fill="none" stroke={c} strokeWidth="8.5" strokeLinecap={i === 0 || i === segs.length - 1 ? "round" : "butt"}
+            pathLength="1" strokeDasharray={`${t1 - t0} 1`} strokeDashoffset={-t0}/>;
+        })}
+        {[[9,27],[16,22],[24,30],[31,31],[37,24]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r="0.9" fill="#FFFFFF" opacity="0.9"/>)}
+        <circle cx="40.5" cy="18.8" r="1.1" fill="#1C1D21"/><circle cx="37.6" cy="17.6" r="1.1" fill="#1C1D21"/>
+      </svg>
+    );
+  }
+  if (kind === "licorice") {
+    return (
+      <svg viewBox="0 0 48 48" width="100%" height="100%" aria-hidden="true">
+        <path d="M24 24 m-13 0 a13 13 0 1 0 26 0 a13 13 0 1 0 -26 0 M24 24 m-7 0 a7 7 0 1 0 14 0 a7 7 0 1 0 -14 0 M37 24 C42 30 44 38 40 45" fill="none" stroke="#1C1D21" strokeWidth="7" strokeLinecap="round"/>
+        <path d="M24 24 m-13 0 a13 13 0 1 0 26 0 a13 13 0 1 0 -26 0 M24 24 m-7 0 a7 7 0 1 0 14 0 a7 7 0 1 0 -14 0 M37 24 C42 30 44 38 40 45" fill="none" stroke="#D3122F" strokeWidth="4.6" strokeLinecap="round"/>
+        <path d="M24 24 m-13 0 a13 13 0 1 0 26 0 a13 13 0 1 0 -26 0 M24 24 m-7 0 a7 7 0 1 0 14 0 a7 7 0 1 0 -14 0 M37 24 C42 30 44 38 40 45" fill="none" stroke="#FF6B7F" strokeWidth="1.4" strokeDasharray="2 3" strokeLinecap="round"/>
+      </svg>
+    );
+  }
+  if (kind === "jaw") {
+    return (
+      <svg viewBox="0 0 48 48" width="100%" height="100%" aria-hidden="true">
+        <defs><clipPath id="jaw-clip"><circle cx="24" cy="24" r="18"/></clipPath></defs>
+        <g clipPath="url(#jaw-clip)">
+          <rect x="0" y="0" width="48" height="48" fill="#FF4FA3"/>
+          <circle cx="34" cy="34" r="30" fill="none" stroke="#FFD84D" strokeWidth="6"/>
+          <circle cx="34" cy="34" r="22" fill="none" stroke="#2F6BFF" strokeWidth="6"/>
+          <circle cx="34" cy="34" r="14" fill="none" stroke="#27C46B" strokeWidth="6"/>
+          <circle cx="34" cy="34" r="6" fill="#FF8A1C"/>
+        </g>
+        <circle cx="24" cy="24" r="18" fill="none" stroke="#1C1D21" strokeWidth="1.8"/>
+        <ellipse cx="17" cy="15" rx="5.5" ry="3.2" transform="rotate(-35 17 15)" fill="#FFFFFF" opacity="0.7"/>
+      </svg>
+    );
+  }
   return (
     <svg viewBox="0 0 48 48" width="100%" height="100%" aria-hidden="true">
       <ellipse cx="24" cy="26" rx="17" ry="13" fill="#5A2E1A"/>
@@ -4809,19 +4888,19 @@ function ArcadeItemArt({kind, color, variant=0}) {
   );
 }
 
-// A cartoon rocket pointing up: red nose, white body with a porthole, fins and a flame.
-function RocketArt({flame = true}) {
+// The owner's rocket launcher: the hatch and arm swing out holding the rocket, the rocket
+// leaves (the arena draws its flight), the empty claw lingers, then everything folds back in.
+function RocketArm({side = 1, cx, reducedMotion = false}) {
+  const A = ROCKET_ART;
+  const total = ROCKET_REACH_MS + ROCKET_RETRACT_MS + 120;
+  const base = {position:"absolute",left:cx + A.hatchDx,bottom:A.armBottom,transformOrigin:"0% 60%",pointerEvents:"none"};
   return (
-    <svg viewBox="0 0 48 48" width="100%" height="100%" aria-hidden="true">
-      {flame && <path d="M19 37 Q24 50 29 37 Z" fill="#FFB21F" stroke="#1C1D21" strokeWidth="1.2" strokeLinejoin="round"/>}
-      {flame && <path d="M21.5 37 Q24 44 26.5 37 Z" fill="#FFF3A6"/>}
-      <path d="M17 26 L9 36 L17 34 Z M31 26 L39 36 L31 34 Z" fill="#E4444F" stroke="#1C1D21" strokeWidth="1.5" strokeLinejoin="round"/>
-      <path d="M24 3 C31 9 32 20 31 37 H17 C16 20 17 9 24 3 Z" fill="#F7F4EE" stroke="#1C1D21" strokeWidth="1.8" strokeLinejoin="round"/>
-      <path d="M24 3 C28 6 30 10 30.6 14 H17.4 C18 10 20 6 24 3 Z" fill="#E4444F" stroke="#1C1D21" strokeWidth="1.5" strokeLinejoin="round"/>
-      <circle cx="24" cy="22" r="4.6" fill="#7FD3FF" stroke="#1C1D21" strokeWidth="1.6"/>
-      <circle cx="22.6" cy="20.6" r="1.4" fill="#fff"/>
-      <path d="M22 30 V37 M26 30 V37" stroke="#1C1D21" strokeWidth="1.2"/>
-    </svg>
+    <div data-rocket-arm="" aria-hidden="true" style={{position:"absolute",left:0,bottom:0,width:0,height:0,transformOrigin:`${cx}px 0`,transform:side < 0 ? "scaleX(-1)" : "none"}}>
+      <img src="/stickers/rocket/arm-hold.webp" alt="" draggable="false" style={{...base,width:A.holdW,height:A.holdH,
+        animation:reducedMotion ? "none" : `armReach ${ROCKET_REACH_MS}ms cubic-bezier(.2,1.4,.5,1) both, armHide 1ms linear ${ROCKET_REACH_MS}ms both`}}/>
+      <img src="/stickers/rocket/arm-empty.webp" alt="" draggable="false" style={{...base,width:A.emptyW,height:A.emptyH,
+        animation:reducedMotion ? "none" : `armShow 1ms linear ${ROCKET_REACH_MS}ms both, armRetract ${ROCKET_RETRACT_MS}ms ease-in ${total - ROCKET_RETRACT_MS}ms both`}}/>
+    </div>
   );
 }
 
@@ -4834,15 +4913,19 @@ const BUCKET_ART_W = 306, BUCKET_ART_BODY_L = 54, BUCKET_ART_BODY_W = 202, BUCKE
 // and from then on every catch sends popcorn flying over the rim.
 function bucketStage(catches) { return Math.max(0, Math.min(POPCORN_STAGES.length - 1, catches)); }
 const SPILL_KERNELS = [[-44,-30,-120],[-24,-52,-60],[0,-62,40],[22,-50,90],[42,-28,160]];
-function PopcornBox({x = null, charged = false, catches = 0, reducedMotion = false}) {
+function PopcornBox({x = null, charged = false, catches = 0, reducedMotion = false, wide = false, launch = null, jaw = false}) {
   const k = (BUCKET_W + 6) / BUCKET_ART_BODY_W;   // scale so the bucket body is the catch width
   const w = BUCKET_ART_W * k;
   const left = x === null ? "50%" : x;
   return (
     <div role="img" aria-label="Popcorn box"
       style={{position:"absolute",left,bottom:2,width:w,height:BUCKET_H,transform:`translateX(${-BUCKET_ART_MID * k}px)`,pointerEvents:"none"}}>
+      {launch && <RocketArm key={launch.key} side={launch.side} cx={BUCKET_ART_MID * k} reducedMotion={reducedMotion}/>}
       <img src={POPCORN_STAGES[bucketStage(catches)]} alt="" aria-hidden="true" draggable="false"
-        style={{position:"absolute",left:0,bottom:0,width:w,height:"auto",userSelect:"none",filter:"drop-shadow(0 3px 0 rgba(0,0,0,0.35))"}}/>
+        style={{position:"absolute",left:0,bottom:0,width:w,height:"auto",userSelect:"none",filter:"drop-shadow(0 3px 0 rgba(0,0,0,0.35))",
+          transformOrigin:`${BUCKET_ART_MID * k}px 100%`,transform:wide ? "scaleX(2)" : "none",transition:"transform 0.25s cubic-bezier(.3,1.6,.5,1)"}}/>
+      {jaw && <span aria-label="Jawbreaker ready" style={{position:"absolute",left:BUCKET_ART_MID * k - 13,bottom:BUCKET_H - 10,width:26,height:26,
+        animation:reducedMotion ? "none" : "pulse 1s ease-in-out infinite"}}><ArcadeItemArt kind="jaw"/></span>}
       {charged && <span aria-hidden="true" style={{position:"absolute",left:BUCKET_ART_MID * k - 62,bottom:BUCKET_H * 0.32 + 13 - 62,width:124,height:124,borderRadius:"50%",
         background:"radial-gradient(circle, #FFFFFF 0 14%, rgba(255,250,170,1) 24%, rgba(255,226,80,0.85) 38%, rgba(255,190,60,0.45) 54%, rgba(255,170,60,0) 70%)",
         animation:"laserHalo 1.4s ease-in-out infinite"}}/>}
@@ -4855,6 +4938,40 @@ function PopcornBox({x = null, charged = false, catches = 0, reducedMotion = fal
           <ArcadeItemArt kind="popcorn" variant={i}/>
         </span>
       ))}
+    </div>
+  );
+}
+
+// Popcorn Panic logo (owner 2026-11-05): the overflowing bucket with POPCORN PANIC! on a
+// yellow label, as on the main-menu button, without the plays badge.
+function PopcornPanicLogo({height = 128}) {
+  return (
+    <div role="img" aria-label="Popcorn Panic" style={{position:"relative",height,aspectRatio:"306 / 283",
+      background:"url(/stickers/popcorn-8.webp) center / contain no-repeat",filter:"drop-shadow(0 4px 0 rgba(28,29,33,0.55))"}}>
+      <span style={{position:"absolute",left:"50%",top:"56%",transform:"translate(-50%,-50%) rotate(-5deg)",display:"flex",flexDirection:"column",alignItems:"center",
+        background:"#FFD84D",border:"2px solid #1C1D21",borderRadius:6,padding:"3px 6px 2px",boxShadow:"0 2px 0 #1C1D21",whiteSpace:"nowrap"}}>
+        <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:height * 0.115,lineHeight:1.05,color:"#1C1D21"}}>POPCORN</span>
+        <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:height * 0.135,lineHeight:1.05,color:"#E8344E"}}>PANIC!</span>
+      </span>
+    </div>
+  );
+}
+// Lives as hearts: full red ones left, faded empty ones for each life lost.
+function ArcadeHearts({lives, size = 15}) {
+  return Array.from({length:ARCADE_LIVES}).map((_, i) => (
+    <span key={i} aria-hidden="true" style={{fontSize:size,lineHeight:1,opacity:i < lives ? 1 : 0.3,filter:i < lives ? "none" : "grayscale(1) brightness(1.6)"}}>{i < lives ? "❤️" : "🤍"}</span>
+  ));
+}
+const ARCADE_PILL = { ...HUD_STAT_PILL, minHeight:34, padding:"0 9px", gap:4 };
+const ARCADE_PILL_TEXT = { ...HUD_COUNTER_TEXT, fontSize:14, display:"inline-flex", alignItems:"center", gap:4, transform:"none" };
+const ARCADE_PILL_ICON = { fontSize:15, WebkitTextStroke:"0", textShadow:"none" };
+const ARCADE_TILE_VALUE = { ...HUD_COUNTER_TEXT, fontSize:18, transform:"none" };
+function ResultTile({label, ariaLabel, children}) {
+  return (
+    <div aria-label={ariaLabel} style={{background:"#241D66",border:"2px solid #1C1D21",borderRadius:10,boxShadow:"0 2px 0 #1C1D21",padding:"9px 4px 7px",
+      display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
+      <div style={{display:"flex",gap:1,alignItems:"center",minHeight:22}}>{children}</div>
+      <span style={{fontFamily:"'Outfit',sans-serif",fontSize:11,fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",color:"#C9C4F2"}}>{label}</span>
     </div>
   );
 }
@@ -4898,7 +5015,16 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
   const catchesRef = useRef(0);
   const [rockets, setRockets] = useState(0);
   const rocketsRef = useRef(0);
-  const [rocketShots, setRocketShots] = useState([]); // {id, x, fly}
+  const [rocketShots, setRocketShots] = useState([]); // rockets in flight: {id, x, y, dx, dy, rot}
+  const [launch, setLaunch] = useState(null);         // {key, side}: the arm swinging out
+  const aliveRef = useRef(false);                     // a play is running (guards delayed effects)
+  const freezeUntilRef = useRef(0);
+  const [frozen, setFrozen] = useState(false);
+  const gummyUntilRef = useRef(0);
+  const [wide, setWide] = useState(false);
+  const jawRef = useRef(0);
+  const [jaw, setJaw] = useState(0);
+  const [lassos, setLassos] = useState([]);           // licorice pulls on screen: {id, x1, y1, x2, y2}
   const [levelUp, setLevelUp] = useState(null); // {key, lv}: "LEVEL 3" banner
   useEffect(() => {
     if (!levelUp) return;
@@ -4913,6 +5039,8 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
     comboRef.current = 0; frenzyUntilRef.current = 0; frenzyRunRef.current = 0;
     laserRef.current = { charges: LASER_MAX, nextAt: 0 };
     catchesRef.current = 0; setCatches(0); rocketsRef.current = 0; setRockets(0); setRocketShots([]); setZapLearned(false);
+    setLaunch(null); freezeUntilRef.current = 0; setFrozen(false); gummyUntilRef.current = 0; setWide(false);
+    jawRef.current = 0; setJaw(0); setLassos([]);
     setLaser(LASER_MAX); setBeams([]); setBooms([]); setTimeLeft(Math.ceil(ARCADE_GAME_MS / 1000));
     setScore(0); setLives(ARCADE_LIVES); setLevel(1); setCombo(0); setFrenzy(false);
     setBoost(null); setFlash(null); setItems([]); setResult(null);
@@ -4939,9 +5067,10 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
     let done = false, raf = null, last = performance.now(), nextSpawnAt = Date.now() + 400, shownLevel = 1;
     itemsRef.current = [];
     const levelNow = () => 1 + Math.floor((Math.min(Date.now(), startedAt + ARCADE_GAME_MS) - startedAt) / ARCADE_LEVEL_MS);
+    aliveRef.current = true;
     const finish = (reason = "lives") => {
       if (done) return;
-      done = true;
+      done = true; aliveRef.current = false;
       if (raf) cancelAnimationFrame(raf);
       const final = scoreRef.current;
       const prize = prizeForScore(final);
@@ -4986,7 +5115,8 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
       // Spawn: faster each level; a Popcorn Frenzy rains popcorn only. From level 3 pieces
       // drift sideways, and bats always swoop from side to side.
       if (now >= nextSpawnAt) {
-        const it = inFrenzy ? ARCADE_ITEMS[0] : pickArcadeItem(lv);
+        const vip = boostRef.current?.type === "vip" && now <= boostRef.current.until;
+        const it = inFrenzy || vip ? ARCADE_ITEMS[0] : pickArcadeItem(lv);
         const fall = Math.max(ARCADE_MIN_FALL, ARCADE_BASE_FALL * Math.pow(0.9, lv - 1));
         const drift = lv >= 3 ? (Math.random() * 2 - 1) * 0.012 * (lv - 2) : 0;
         const x = ARCADE_ITEM / 2 + Math.random() * (W - ARCADE_ITEM);
@@ -5002,8 +5132,19 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
       const bx = bucketXRef.current;
       const keep = [];
       const half = ARCADE_ITEM / 2;
+      const freezing = now < freezeUntilRef.current;
+      const catchHalf = (now < gummyUntilRef.current ? 2 : 1) * BUCKET_W / 2;
       for (const it of itemsRef.current) {
         const prevY = it.y;
+        // A jawbreaker bounce: the piece flies back up and away under gravity, harmless.
+        if (it.bounced) {
+          it.y += it.vy * moveDt; it.x += it.vx * moveDt; it.vy += 0.0028 * moveDt; it.angle += 0.6 * moveDt;
+          if (it.y - ARCADE_ITEM > H || it.x < -ARCADE_ITEM || it.x > W + ARCADE_ITEM) continue;
+          keep.push(it); continue;
+        }
+        // Brain freeze: bad pieces hang in mid-air.
+        if (freezing && ARCADE_KIND[it.kind]?.bad) { it.frozen = true; keep.push(it); continue; }
+        it.frozen = false;
         it.y += it.vy * moveDt;
         it.angle += it.spin * moveDt;
         if (it.kind === "bat") {
@@ -5014,7 +5155,7 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
           it.x += it.vx * moveDt;
           if (it.x < half || it.x > W - half) { it.vx = -it.vx; it.x = Math.max(half, Math.min(W - half, it.x)); }
         }
-        if (prevY < catchY && it.y >= catchY && Math.abs(it.x - bx) <= BUCKET_W / 2) { catchItem(it); continue; }
+        if (prevY < catchY && it.y >= catchY && Math.abs(it.x - bx) <= catchHalf) { if (catchItem(it) === "bounce") keep.push(it); continue; }
         if (it.y - ARCADE_ITEM / 2 > H) continue; // dropped: no points, no penalty
         keep.push(it);
       }
@@ -5022,18 +5163,21 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
       setItems(keep.map((it) => ({ ...it })));
       setLevel(lv);
       if (boostRef.current && now > boostRef.current.until) { boostRef.current = null; setBoost(null); }
+      setFrozen(now < freezeUntilRef.current);
+      setWide(now < gummyUntilRef.current);
       if (frenzyUntilRef.current && now > frenzyUntilRef.current) { frenzyUntilRef.current = 0; setFrenzy(false); }
       raf = requestAnimationFrame(step);
     };
     raf = requestAnimationFrame(step);
-    return () => { done = true; if (raf) cancelAnimationFrame(raf); };
+    return () => { done = true; aliveRef.current = false; if (raf) cancelAnimationFrame(raf); };
   }, [phase]);
 
   // Slide the box: it follows the finger (or mouse); arrow keys work too.
   const moveBucket = (clientX) => {
     const arena = arenaRef.current; if (!arena) return;
     const r = arena.getBoundingClientRect();
-    const x = Math.max(BUCKET_W / 2 + 6, Math.min(r.width - BUCKET_W / 2 - 6, clientX - r.left));
+    const half = (Date.now() < gummyUntilRef.current ? 2 : 1) * BUCKET_W / 2 + 6;
+    const x = Math.max(half, Math.min(r.width - half, clientX - r.left));
     bucketXRef.current = x; setBucketX(x);
     if (showSlideHint) setShowSlideHint(false);
   };
@@ -5067,31 +5211,47 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
   };
   const fireRocket = () => {
     rocketsRef.current -= 1; setRockets(rocketsRef.current);
-    const bx = bucketXRef.current ?? 0;
-    const H = arenaRef.current?.clientHeight || 500;
-    const launchY = H - BUCKET_H;
-    // It flies up the column and goes off at the first piece in its path (or near the top).
-    const target = itemsRef.current.filter((it) => Math.abs(it.x - bx) <= LASER_HALF_W && it.y < launchY + 18)
-      .sort((a, b) => b.y - a.y)[0];
-    const cx = target ? target.x : bx, cy = target ? target.y : Math.min(140, launchY / 3);
-    const shotId = ++idRef.current;
-    setRocketShots((r) => [...r, { id: shotId, x: bx, fly: cy - launchY }]);
-    setTimeout(() => setRocketShots((r) => r.filter((x) => x.id !== shotId)), 260);
-    SFX.laser(); buzz(15);
-    const hit = itemsRef.current.filter((it) => Math.hypot(it.x - cx, it.y - cy) <= ROCKET_RADIUS);
-    itemsRef.current = itemsRef.current.filter((it) => !hit.includes(it));
-    const bad = hit.filter((it) => ARCADE_KIND[it.kind]?.bad).length;
-    const dbl = boostRef.current?.type === "double" && Date.now() <= boostRef.current.until ? 2 : 1;
-    const pts = 2 * bad * dbl;
-    if (bad && !zapLearned) setZapLearned(true);
-    scoreRef.current += pts; setScore(scoreRef.current);
-    explode(cx, cy, true);
-    showFlash(bad ? `🚀 KABOOM! ${bad} blasted +${pts}` : "🚀 KABOOM! …missed everything");
+    const arena = arenaRef.current;
+    const W = arena?.clientWidth || 360;
+    const side = (bucketXRef.current ?? W / 2) < W / 2 ? 1 : -1; // the arm swings toward open space
+    const key = ++idRef.current;
+    setLaunch({ key, side });
+    SFX.slate?.(); buzz(10);
+    setTimeout(() => setLaunch((l) => (l && l.key === key ? null : l)), ROCKET_REACH_MS + ROCKET_RETRACT_MS + 140);
+    // The arm lets go: the rocket homes in on the lowest bad piece (or anything, or straight up).
+    setTimeout(() => {
+      if (!aliveRef.current) return;
+      const H = arenaRef.current?.clientHeight || 500;
+      const bx = bucketXRef.current ?? W / 2;
+      const hx = bx + side * ROCKET_ART.handDx, hy = H - 2 - ROCKET_ART.handUp;
+      const live = itemsRef.current.filter((it) => !it.bounced && it.y > 0 && it.y < hy);
+      const target = live.filter((it) => ARCADE_KIND[it.kind]?.bad).sort((p, q) => q.y - p.y)[0]
+        || live.sort((p, q) => q.y - p.y)[0];
+      const lead = (it) => (it.frozen ? 0 : it.vy * ROCKET_FLIGHT_MS);
+      const tx = target ? target.x : hx, ty = target ? Math.max(30, target.y + lead(target)) : 60;
+      const dx = tx - hx, dy = ty - hy;
+      const shotId = ++idRef.current;
+      setRocketShots((rs) => [...rs, { id: shotId, x: hx, y: hy, dx, dy, rot: Math.atan2(dx, -dy) * 180 / Math.PI }]);
+      SFX.laser(); buzz(15);
+      setTimeout(() => {
+        setRocketShots((rs) => rs.filter((x) => x.id !== shotId));
+        if (!aliveRef.current) return;
+        const hit = itemsRef.current.filter((it) => Math.hypot(it.x - tx, it.y - ty) <= ROCKET_RADIUS);
+        itemsRef.current = itemsRef.current.filter((it) => !hit.includes(it));
+        const bad = hit.filter((it) => ARCADE_KIND[it.kind]?.bad).length;
+        const dbl = boostRef.current?.type === "double" && Date.now() <= boostRef.current.until ? 2 : 1;
+        const pts = 2 * bad * dbl;
+        if (bad) setZapLearned(true);
+        scoreRef.current += pts; setScore(scoreRef.current);
+        explode(tx, ty, true);
+        showFlash(bad ? `🚀 KABOOM! ${bad} blasted +${pts}` : "🚀 KABOOM! …missed everything");
+      }, ROCKET_FLIGHT_MS);
+    }, ROCKET_REACH_MS);
   };
   const explode = (x, y, big = false) => {
     const boomId = ++idRef.current;
     setBooms((b) => [...b, { id: boomId, x, y, big }]);
-    setTimeout(() => setBooms((b) => b.filter((e) => e.id !== boomId)), big ? 800 : 600);
+    setTimeout(() => setBooms((b) => b.filter((e) => e.id !== boomId)), big ? 900 : 600);
     SFX.boom(); buzz([25, 20, 25]);
   };
   const onArenaDown = (e) => { pointerStartRef.current = { x: e.clientX, y: e.clientY, t: Date.now() }; moveBucket(e.clientX); };
@@ -5128,8 +5288,18 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
       setScore(scoreRef.current);
       SFX.comboNote(Math.min(c - 1, 14)); buzz(12);
       catchesRef.current += 1; setCatches(catchesRef.current);
-      if (it.kind === "ticket") showFlash(`🎟️ Golden ticket! +${info.good * mult}`);
-      if (it.kind === "reel") showFlash(`🎞️ Film reel! +${info.good * mult}`);
+      if (it.kind === "ticket") {
+        // VIP screening: everything on screen, and everything that falls for 5 s, is popcorn.
+        boostRef.current = { type: "vip", until: now + VIP_MS }; setBoost(boostRef.current);
+        for (const p of itemsRef.current) if (ARCADE_KIND[p.kind]?.bad) { p.kind = "popcorn"; p.label = "Popcorn"; p.vip = true; }
+        showFlash(`🎟️ Golden ticket! +${info.good * mult} · VIP: it's all popcorn!`);
+      }
+      if (it.kind === "reel") {
+        if (livesRef.current < ARCADE_LIVES) {
+          livesRef.current += 1; setLives(livesRef.current);
+          showFlash(`🎞️ Film reel! +${info.good * mult} · Rewind: +1 life`);
+        } else showFlash(`🎞️ Film reel! +${info.good * mult}`);
+      }
       if (!it.frenzy && now >= frenzyUntilRef.current) frenzyRunRef.current += 1;
       if (frenzyRunRef.current >= FRENZY_AT) {
         frenzyRunRef.current = 0;
@@ -5158,6 +5328,36 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
       showFlash("🕶️ 3D glasses: slow motion!"); SFX.badge(); buzz([15, 30, 15]);
       return;
     }
+    if (it.kind === "slushie") {
+      freezeUntilRef.current = Date.now() + FREEZE_MS; setFrozen(true);
+      showFlash("🥶 Brain freeze! Bad bits frozen solid"); SFX.badge(); buzz([15, 30, 15]);
+      return;
+    }
+    if (it.kind === "gummy") {
+      gummyUntilRef.current = Date.now() + GUMMY_MS; setWide(true);
+      showFlash("🪱 Sour power! Mega bucket"); SFX.badge(); buzz([15, 30, 15]);
+      return;
+    }
+    if (it.kind === "licorice") {
+      // Lasso the nearest good pieces (up to 3) straight into the bucket.
+      const H = arenaRef.current?.clientHeight || 500;
+      const bx = bucketXRef.current ?? 0, by = H - BUCKET_H + 18;
+      const goods = itemsRef.current.filter((p) => ARCADE_KIND[p.kind]?.good && !p.bounced)
+        .sort((p, q) => Math.hypot(p.x - bx, p.y - by) - Math.hypot(q.x - bx, q.y - by)).slice(0, LICORICE_PULLS);
+      itemsRef.current = itemsRef.current.filter((p) => !goods.includes(p));
+      const lid = ++idRef.current;
+      setLassos((ls) => [...ls, { id: lid, from: { x: bx, y: by }, to: goods.map((p) => ({ x: p.x, y: p.y })) }]);
+      setTimeout(() => setLassos((ls) => ls.filter((l) => l.id !== lid)), 600);
+      showFlash(goods.length ? `🍬 Yee-haw! Licorice lasso` : "🍬 Licorice lasso… nothing to rope");
+      SFX.badge(); buzz([15, 30, 15]);
+      goods.forEach((p) => catchItem(p));
+      return;
+    }
+    if (it.kind === "jaw") {
+      jawRef.current = 1; setJaw(1);
+      showFlash("🍭 Jawbreaker! The next bad bit bounces off"); SFX.badge(); buzz([15, 30, 15]);
+      return;
+    }
     if (it.kind === "rocket") {
       rocketsRef.current = Math.min(ROCKET_MAX, rocketsRef.current + 1); setRockets(rocketsRef.current);
       showFlash("🚀 Rocket loaded! Tap to launch"); SFX.badge(); buzz([15, 30, 15]);
@@ -5167,6 +5367,13 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
       laserRef.current = { charges: LASER_MAX, nextAt: 0 }; setLaser(LASER_MAX);
       showFlash("🎬 Action! Laser fully charged"); SFX.clap?.(); buzz([15, 30, 15]);
       return;
+    }
+    // A jawbreaker in the bucket: this bad piece bounces off and nothing is lost.
+    if (jawRef.current > 0) {
+      jawRef.current = 0; setJaw(0);
+      it.bounced = true; it.vy = -0.55; it.vx = (it.x < (arenaRef.current?.clientWidth || 360) / 2 ? -1 : 1) * 0.28;
+      showFlash("🍭 BOING! Bounced right off"); SFX.hint(); buzz(20);
+      return "bounce";
     }
     // A bad piece: the combo breaks, and a life is lost unless shielded.
     comboRef.current = 0; setCombo(0); frenzyRunRef.current = 0;
@@ -5192,7 +5399,9 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
         </button>
       )}
       <div style={{maxWidth:402,margin:"0 auto",padding:"72px 16px 24px",textAlign:"center"}}>
-        <div style={{...WHITE_STICKER_TEXT,fontSize:24,textTransform:"uppercase"}}>Popcorn Panic</div>
+        {phase === "playing"
+          ? <div style={{...WHITE_STICKER_TEXT,fontSize:24,textTransform:"uppercase"}}>Popcorn Panic</div>
+          : <div style={{display:"flex",justifyContent:"center",marginTop:phase === "done" ? -34 : -40,marginBottom:phase === "done" ? 10 : 0}}><PopcornPanicLogo height={phase === "done" ? 128 : 150}/></div>}
         {phase === "lobby" && (
           <div style={{marginTop:14}}>
             {/* Owner decision 2026-10-25: no rules or prize list up front; players learn by playing
@@ -5210,20 +5419,25 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
             <CurtainPicker/>
           </div>
         )}
-        {phase !== "lobby" && (
-          <div style={{display:"flex",justifyContent:"center",gap:8,margin:"10px 0",flexWrap:"wrap"}}>
-            <div style={HUD_STAT_PILL}><span aria-label={`Score: ${score}`} style={HUD_COUNTER_TEXT}>🍿 {score}</span></div>
-            <div style={HUD_STAT_PILL}><span aria-label={`Lives: ${lives}`} style={HUD_COUNTER_TEXT}>{"❤️".repeat(Math.max(0, lives))}{"🖤".repeat(Math.max(0, ARCADE_LIVES - lives))}</span></div>
-            <div style={HUD_STAT_PILL}><span aria-label={`Speed ${level}`} style={HUD_COUNTER_TEXT}>⏩ {level}</span></div>
-            {phase === "playing" && <div style={HUD_STAT_PILL}><span aria-label={`Time left: ${timeLeft}`} style={{...HUD_COUNTER_TEXT,color:timeLeft <= 10 ? "#FF6B6B" : undefined}}>⏱ {timeLeft}</span></div>}
-            {phase === "playing" && <div style={HUD_STAT_PILL}><span aria-label={`Laser charges: ${laser}`} style={HUD_COUNTER_TEXT}>🔫 {"⚡".repeat(laser)}{"·".repeat(LASER_MAX - laser)}</span></div>}
+        {/* In-play HUD (owner 2026-11-05: symbols were tiny, and lost lives as black hearts read
+            as nonsense): bigger icons and numbers, and a lost life is a faded, empty heart. */}
+        {phase === "playing" && (
+          <div style={{display:"flex",justifyContent:"center",gap:6,margin:"10px 0",flexWrap:"nowrap"}}>
+            <div style={ARCADE_PILL}><span aria-label={`Score: ${score}`} style={ARCADE_PILL_TEXT}><span style={ARCADE_PILL_ICON}>🍿</span>{score}</span></div>
+            <div style={ARCADE_PILL}><span aria-label={`Lives: ${lives}`} style={{display:"flex",gap:1}}><ArcadeHearts lives={lives} size={15}/></span></div>
+            <div style={ARCADE_PILL}><span aria-label={`Speed ${level}`} style={ARCADE_PILL_TEXT}><span style={ARCADE_PILL_ICON}>⏩</span>{level}</span></div>
+            <div style={ARCADE_PILL}><span aria-label={`Time left: ${timeLeft}`} style={{...ARCADE_PILL_TEXT,color:timeLeft <= 10 ? "#FF6B6B" : "#FFFFFF"}}><span style={ARCADE_PILL_ICON}>⏱️</span>{timeLeft}</span></div>
+            <div style={ARCADE_PILL}><span aria-label={`Laser charges: ${laser}`} style={{...ARCADE_PILL_TEXT,gap:1}}><span style={ARCADE_PILL_ICON}>🔫</span>
+              {Array.from({length:LASER_MAX}).map((_, i) => <span key={i} style={{fontSize:13,opacity:i < laser ? 1 : 0.25,filter:i < laser ? "none" : "grayscale(1)"}}>⚡</span>)}</span></div>
           </div>
         )}
         {phase === "playing" && (
           <div style={{minHeight:20,display:"flex",justifyContent:"center",gap:10}}>
             {rockets > 0 && <span aria-label={`Rockets: ${rockets}`} style={{...YELLOW_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>🚀 ×{rockets} tap to launch</span>}
             {mult > 1 && <span aria-label={`Combo ×${mult}`} style={{...YELLOW_STICKER_TEXT,fontSize:13}}>×{mult} combo</span>}
-            {boost && <span aria-label="Active boost" style={{...YELLOW_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>{boost.type === "shield" ? "🛡️ Shield" : boost.type === "slow" ? "🕶️ Slow-mo" : "⚡ Double"}</span>}
+            {boost && <span aria-label="Active boost" style={{...YELLOW_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>{boost.type === "shield" ? "🛡️ Shield" : boost.type === "slow" ? "🕶️ Slow-mo" : boost.type === "vip" ? "🎟️ VIP" : "⚡ Double"}</span>}
+            {frozen && <span aria-label="Brain freeze" style={{...YELLOW_STICKER_TEXT,fontSize:12,textTransform:"uppercase",color:"#9FE0FF"}}>🥶 Freeze</span>}
+            {wide && <span aria-label="Mega bucket" style={{...YELLOW_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>🪱 Mega</span>}
           </div>
         )}
         {phase === "playing" && flash && (
@@ -5232,13 +5446,23 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
           </div>
         )}
         {phase === "done" && result && (
-          <div role="status" aria-label="Arcade result" style={{position:"relative",marginTop:12,padding:"18px 14px",background:T.bgDeep,border:"2px solid #1C1D21",borderRadius:14,boxShadow:T.shadow}}>
+          <div role="status" aria-label="Arcade result" style={{position:"relative",marginTop:6,padding:"16px 14px 18px",background:T.bgDeep,border:"2px solid #1C1D21",borderRadius:14,boxShadow:T.shadow}}>
             {result.isRecord && !reducedMotion && (
               <LottieOverlay src={LOTTIE_ASSETS.roundWin} loop={false} style={{position:"absolute",left:"50%",top:-60,width:280,height:280,transform:"translateX(-50%)",pointerEvents:"none",opacity:0.8}}/>
             )}
             {result.isRecord && (
               <div aria-label="New record" style={{...YELLOW_STICKER_TEXT,fontSize:22,textTransform:"uppercase",marginBottom:8,animation:reducedMotion?"none":"titlePop 0.5s ease both"}}>🏆 New record!</div>
             )}
+            {/* The final tally (owner 2026-11-05): big, labelled numbers instead of tiny pills. */}
+            <div aria-label={`Score: ${result.score}`} style={{display:"flex",flexDirection:"column",alignItems:"center",margin:"2px 0 12px"}}>
+              <span style={{...YELLOW_STICKER_TEXT,fontSize:52,lineHeight:1}}>{result.score}</span>
+              <span style={{...WHITE_STICKER_TEXT,fontSize:12,letterSpacing:"0.12em",marginTop:4}}>POINTS</span>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(3, 1fr)",gap:8,marginBottom:14}}>
+              <ResultTile label="Survived" ariaLabel={`Survived ${result.seconds} seconds`}><span style={ARCADE_TILE_VALUE}>0:{String(result.seconds).padStart(2, "0")}</span></ResultTile>
+              <ResultTile label="Top speed" ariaLabel={`Top speed ${result.level}`}><span style={ARCADE_TILE_VALUE}>⏩{result.level}</span></ResultTile>
+              <ResultTile label="Lives left" ariaLabel={`Lives: ${lives}`}><ArcadeHearts lives={lives} size={17}/></ResultTile>
+            </div>
             <div style={{...YELLOW_STICKER_TEXT,fontSize:16,textTransform:"uppercase"}}>
               {result.prize ? `${result.prize.emoji} ${result.prize.name}!` : "No prize this time"}
             </div>
@@ -5261,8 +5485,9 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
             <div key={it.id} role="img" aria-label={it.label}
               style={{position:"absolute",left:it.x - (it.kind === "unpopped" ? 18 : 23),top:it.y - (it.kind === "unpopped" ? 18 : 23),
                 width:it.kind === "unpopped" ? 36 : 46,height:it.kind === "unpopped" ? 36 : 46,pointerEvents:"none",
-                transform:`rotate(${it.angle}deg)`,filter:"drop-shadow(0 3px 0 rgba(28,29,33,0.6))"}}>
+                transform:`rotate(${it.angle}deg)`,filter:it.frozen ? "drop-shadow(0 0 6px #9FE0FF) saturate(0.4) brightness(1.15) hue-rotate(170deg)" : "drop-shadow(0 3px 0 rgba(28,29,33,0.6))"}}>
               <ArcadeItemArt kind={it.kind} color={it.color} variant={it.variant}/>
+              {it.frozen && <span aria-hidden="true" style={{position:"absolute",inset:-4,borderRadius:12,background:"rgba(170,230,255,0.35)",border:"2px solid rgba(220,245,255,0.9)"}}/>}
             </div>
           ))}
           {beams.map((b) => (
@@ -5271,12 +5496,33 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
               boxShadow:"0 0 14px 4px rgba(255,46,99,0.7)",pointerEvents:"none",animation:reducedMotion ? "none" : "laserBeam 0.22s ease-out both"}}/>
           ))}
           {rocketShots.map((r) => (
-            <div key={r.id} data-rocket-shot="" aria-hidden="true" style={{position:"absolute",left:r.x,bottom:BUCKET_H - 10,width:34,height:34,pointerEvents:"none",zIndex:4,
-              "--fly":`${r.fly}px`,animation:reducedMotion ? "none" : "rocketFly 0.24s ease-in both",transform:"translateX(-50%)"}}>
-              <RocketArt/>
+            <div key={r.id} data-rocket-shot="" aria-hidden="true" style={{position:"absolute",left:r.x,top:r.y,width:0,height:0,pointerEvents:"none",zIndex:4}}>
+              {!reducedMotion && <img src="/stickers/rocket/exhaust.webp" alt="" draggable="false" style={{position:"absolute",left:-ROCKET_ART.exhaustFlameX,top:ROCKET_ART.rocketH * 0.3,
+                width:ROCKET_ART.exhaustW,height:ROCKET_ART.exhaustH,transformOrigin:`${ROCKET_ART.exhaustFlameX}px 0`,animation:"exhaustPuff 0.7s ease-out both"}}/>}
+              <img src="/stickers/rocket/rocket.webp" alt="" draggable="false" style={{position:"absolute",left:0,top:0,width:ROCKET_ART.rocketW,height:ROCKET_ART.rocketH,
+                "--dx":`${r.dx}px`,"--dy":`${r.dy}px`,"--rot":`${r.rot}deg`,transform:"translate(-50%,-50%)",
+                animation:reducedMotion ? "none" : `rocketFlight ${ROCKET_FLIGHT_MS}ms cubic-bezier(.5,0,.9,.6) both`}}/>
             </div>
           ))}
-          {booms.map((b) => (
+          {lassos.map((l) => (
+            <svg key={l.id} aria-hidden="true" style={{position:"absolute",inset:0,width:"100%",height:"100%",pointerEvents:"none",zIndex:4,overflow:"visible"}}>
+              {l.to.map((t, i) => (
+                <g key={i}>
+                  <path d={`M${l.from.x} ${l.from.y} Q${(l.from.x + t.x) / 2 + 30} ${(l.from.y + t.y) / 2} ${t.x} ${t.y}`} fill="none" stroke="#1C1D21" strokeWidth="7" strokeLinecap="round"
+                    pathLength="1" strokeDasharray="1" style={{animation:"lassoLine 0.6s ease-out both"}}/>
+                  <path d={`M${l.from.x} ${l.from.y} Q${(l.from.x + t.x) / 2 + 30} ${(l.from.y + t.y) / 2} ${t.x} ${t.y}`} fill="none" stroke="#D3122F" strokeWidth="4" strokeLinecap="round"
+                    pathLength="1" strokeDasharray="1" style={{animation:"lassoLine 0.6s ease-out both"}}/>
+                  <circle cx={t.x} cy={t.y} r="16" fill="none" stroke="#D3122F" strokeWidth="3.5" style={{animation:"lassoLine 0.6s ease-out both"}}/>
+                </g>
+              ))}
+            </svg>
+          ))}
+          {booms.map((b) => b.big ? (
+            <div key={b.id} data-boom="big" aria-hidden="true" style={{position:"absolute",left:b.x,top:b.y,width:0,height:0,pointerEvents:"none",zIndex:4}}>
+              <img src="/stickers/rocket/explosion.webp" alt="" draggable="false" style={{position:"absolute",left:0,top:0,width:ROCKET_RADIUS * 2.7,height:"auto",
+                transform:"translate(-50%,-50%)",animation:reducedMotion ? "none" : "bigBoom 0.85s ease-out both"}}/>
+            </div>
+          ) : (
             <div key={b.id} data-boom="" aria-hidden="true" style={{position:"absolute",left:b.x,top:b.y,width:0,height:0,pointerEvents:"none",zIndex:4}}>
               <svg viewBox="0 0 100 100" width={b.big ? ROCKET_RADIUS * 2.1 : 96} height={b.big ? ROCKET_RADIUS * 2.1 : 96} style={{position:"absolute",left:0,top:0,animation:reducedMotion ? "none" : "boomBurst 0.55s ease-out both",transform:"translate(-50%,-50%)"}}>
                 <polygon points="50,2 61,32 95,22 70,48 98,70 64,68 58,98 46,70 14,92 30,62 2,50 30,38 12,10 42,30" fill="#FF7A1A" stroke="#1C1D21" strokeWidth="2.5" strokeLinejoin="round"/>
@@ -5320,12 +5566,15 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
               <div aria-label="Zap coach" role="status" style={{position:"absolute",left:target.x,top:target.y,width:0,height:0,pointerEvents:"none",zIndex:4}}>
                 <div style={{position:"absolute",left:0,top:0,width:66,height:66,borderRadius:"50%",border:"3px dashed #FF2E63",boxShadow:"0 0 10px rgba(255,46,99,0.8)",
                   transform:"translate(-50%,-50%)",animation:reducedMotion ? "none" : "zapCoach 0.8s ease-in-out infinite"}}/>
-                <div style={{position:"absolute",left:0,top:-58,transform:"translateX(-50%)",whiteSpace:"nowrap",padding:"4px 10px",borderRadius:10,
+                <div style={{position:"absolute",left:Math.max(72 - target.x, Math.min(0, (arenaRef.current?.clientWidth || 402) - 72 - target.x)),top:-58,transform:"translateX(-50%)",whiteSpace:"nowrap",padding:"4px 10px",borderRadius:10,
                   background:"#FF2E63",border:"2px solid #1C1D21",...WHITE_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>Tap it to zap it! 🔫</div>
               </div>
             );
           })()}
-          {bucketX !== null && <PopcornBox x={bucketX} charged={laser > 0} catches={catches} reducedMotion={reducedMotion}/>}
+          <div aria-hidden="true" style={{position:"absolute",width:1,height:1,overflow:"hidden",opacity:0,pointerEvents:"none"}}>
+            {["arm-hold", "arm-empty", "rocket", "exhaust", "explosion"].map((n) => <img key={n} src={`/stickers/rocket/${n}.webp`} alt="" width="1" height="1"/>)}
+          </div>
+          {bucketX !== null && <PopcornBox x={bucketX} charged={laser > 0} catches={catches} reducedMotion={reducedMotion} wide={wide} launch={launch} jaw={jaw > 0}/>}
           {bucketX !== null && showSlideHint && (
             <div aria-hidden="true" style={{position:"absolute",left:bucketX,bottom:BUCKET_H + 14,transform:"translateX(-50%)",...WHITE_STICKER_TEXT,fontSize:13,whiteSpace:"nowrap",pointerEvents:"none",animation:reducedMotion?"none":"pulse 1.2s ease-in-out infinite"}}>
               ← slide · tap to zap →

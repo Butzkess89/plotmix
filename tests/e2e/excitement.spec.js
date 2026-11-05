@@ -375,17 +375,17 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
     expect(await page.evaluate(() => localStorage.getItem('plotmix_arcade_passes'))).toBe('0')
   })
 
-  test('pieces look like popcorn, burnt popcorn, unpopped kernels and chocolate candies', async ({ page }) => {
-    await seedRandom(page)
-    await startGame(page)
-    for (const name of ['Popcorn', 'Burnt popcorn', 'Unpopped kernel', 'Chocolate candy']) {
-      await expect(piece(page, name)).toBeAttached({ timeout: 20_000 })
-    }
-    await expect(page.getByRole('img', { name: 'Popcorn box' })).toBeVisible()
-  })
+  for (const [v, name] of [[0.1, 'Popcorn'], [0.6, 'Burnt popcorn'], [0.75, 'Unpopped kernel'], [0.887, 'Chocolate candy']]) {
+    test(`pieces: ${name.toLowerCase()} falls, and the popcorn box is there`, async ({ page }) => {
+      await fixRandomOnLoad(page, v)
+      await startGame(page)
+      await expect(piece(page, name)).toBeAttached({ timeout: 10_000 })
+      await expect(page.getByRole('img', { name: 'Popcorn box' })).toBeVisible()
+    })
+  }
 
   // Fix Math.random so every piece is the same kind and falls in the same spot
-  // (0.1 = popcorn, 0.7 = burnt popcorn, 0.95 = chocolate candy; others below).
+  // (0.1 = popcorn, 0.7 = unpopped kernel, 0.887 = chocolate candy; others below).
   const fixRandom = (page, v) => page.evaluate((x) => { Math.random = () => x }, v)
   const fixRandomOnLoad = (page, v) => page.addInitScript((x) => { Math.random = () => x }, v)
   async function holdBoxUnderFirst(page, name) {
@@ -454,7 +454,7 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
   })
 
   test('tapping fires the laser: a bad piece explodes for points and a charge is used', async ({ page }) => {
-    await fixRandomOnLoad(page, 0.7)
+    await fixRandomOnLoad(page, 0.6)
     await startGame(page)
     await expect(page.getByLabel('Laser charges: 3')).toBeVisible()
     const p = piece(page, 'Burnt popcorn')
@@ -479,12 +479,12 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
 
   // Level 1 odds put each fixed random value on one kind of piece.
   for (const [v, name, event] of [
-    [0.46, 'Golden ticket', /Golden ticket! \+5/],
-    [0.5, 'Film reel', /Film reel! \+3/],
-    [0.88, 'Ringing phone', /Phones off in the theatre! −1 life/],
-    [0.96, '3D glasses', /slow motion/],
-    [0.98, 'Clapperboard', /Action! Laser fully charged/],
-    [0.995, 'Rocket', /Rocket loaded!/],
+    [0.42, 'Golden ticket', /Golden ticket! \+5/],
+    [0.467, 'Film reel', /Film reel! \+3/],
+    [0.82, 'Ringing phone', /Phones off in the theatre! −1 life/],
+    [0.908, '3D glasses', /slow motion/],
+    [0.922, 'Clapperboard', /Action! Laser fully charged/],
+    [0.936, 'Rocket', /Rocket loaded!/],
   ]) {
     test(`cinema extras: catching a ${name.toLowerCase()}`, async ({ page }) => {
       // Record every message shown: with only bad pieces falling, the game can end (and the
@@ -504,7 +504,7 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
   }
 
   test('a caught rocket launches on the next tap and blows up several pieces at once', async ({ page }) => {
-    await fixRandomOnLoad(page, 0.995)
+    await fixRandomOnLoad(page, 0.936)
     await startGame(page)
     await holdBoxUnderFirst(page, 'Rocket')
     await expect(page.getByLabel('Rockets: 1')).toBeVisible({ timeout: 10_000 })
@@ -529,8 +529,52 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
     expect(s).toBeGreaterThan(0)
   })
 
+  // Concession-stand power-ups (owner picks 2026-11-05).
+  for (const [v, name, event] of [
+    [0.95, 'Blue raspberry slushie', /Brain freeze!/],
+    [0.965, 'Sour gummy worm', /Mega bucket/],
+    [0.979, 'Licorice whip', /Licorice lasso/],
+    [0.993, 'Jawbreaker', /Jawbreaker!/],
+  ]) {
+    test(`power-ups: catching a ${name.toLowerCase()}`, async ({ page }) => {
+      await page.addInitScript(() => {
+        window.__events = []
+        new MutationObserver(() => {
+          const el = document.querySelector('[aria-label="Arcade event"]')
+          if (el && window.__events[window.__events.length - 1] !== el.textContent) window.__events.push(el.textContent)
+        }).observe(document, { subtree: true, childList: true, characterData: true })
+      })
+      await fixRandomOnLoad(page, v)
+      await startGame(page)
+      await holdBoxUnderFirst(page, name)
+      await expect.poll(() => page.evaluate(() => window.__events.join(' | ')), { timeout: 10_000 }).toMatch(event)
+    })
+  }
+
+  test('a jawbreaker bounces the next bad piece off without losing a life', async ({ page }) => {
+    // Record every message: more bad pieces land right after the bounce and replace it.
+    await page.addInitScript(() => {
+      window.__events = []
+      new MutationObserver(() => {
+        const el = document.querySelector('[aria-label="Arcade event"]')
+        if (el && window.__events[window.__events.length - 1] !== el.textContent) window.__events.push(el.textContent)
+      }).observe(document, { subtree: true, childList: true, characterData: true })
+    })
+    await fixRandomOnLoad(page, 0.993)
+    await startGame(page)
+    await holdBoxUnderFirst(page, 'Jawbreaker')
+    await expect(page.getByLabel('Jawbreaker ready')).toBeVisible({ timeout: 10_000 })
+    await fixRandom(page, 0.6)
+    await holdBoxUnderFirst(page, 'Burnt popcorn')
+    await expect.poll(() => page.evaluate(() => window.__events.join(' | ')), { timeout: 10_000 }).toMatch(/BOING!/)
+    // The bounce came before any life was lost.
+    const events = await page.evaluate(() => window.__events)
+    const boing = events.findIndex((e) => /BOING!/.test(e))
+    expect(events.slice(0, boing).some((e) => /life/.test(e))).toBe(false)
+  })
+
   test('vampire bats swoop from side to side', async ({ page }) => {
-    await fixRandomOnLoad(page, 0.92)
+    await fixRandomOnLoad(page, 0.858)
     await startGame(page)
     const bat = piece(page, 'Vampire bat')
     await expect(bat).toBeAttached({ timeout: 10_000 })
@@ -563,7 +607,7 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
   })
 
   test('a chocolate candy caught in the box gives a boost', async ({ page }) => {
-    await fixRandomOnLoad(page, 0.95)
+    await fixRandomOnLoad(page, 0.887)
     await startGame(page)
     await holdBoxUnderFirst(page, 'Chocolate candy')
     await expect(page.getByLabel('Arcade event')).toContainText('🍫', { timeout: 10_000 })
