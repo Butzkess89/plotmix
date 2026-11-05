@@ -4547,7 +4547,7 @@ const ARCADE_LEVEL_MS = 5000;
 const ARCADE_GAME_MS = 45000;                            // each play lasts 45 seconds at most
 const ARCADE_BASE_SPAWN = 480, ARCADE_MIN_SPAWN = 170;   // ms between pieces
 const ARCADE_BASE_FALL = 2600, ARCADE_MIN_FALL = 1050;   // ms for a piece to fall the whole way
-const BUCKET_W = 96, BUCKET_H = 80, ARCADE_ITEM = 46;
+const BUCKET_W = 96, BUCKET_H = 118, ARCADE_ITEM = 46; // BUCKET_H: the bucket art is taller than wide
 // A Popcorn Frenzy can no longer feed itself (owner report 2026-10-25: it chained forever):
 // the next one needs another 15 regular catches in a row; frenzy popcorn doesn't count.
 const FRENZY_AT = 15, FRENZY_MS = 2500, FRENZY_SPAWN_MS = 150;
@@ -4799,39 +4799,26 @@ function ArcadeItemArt({kind, color, variant=0}) {
   );
 }
 
-// The catching box: angled like a real popcorn box, with a scalloped (arched) top edge.
-function PopcornBox({x = null, charged = false}) {
-  const top = 14, bottom = 96, l0 = 6, r0 = 134, l1 = 26, r1 = 114; // top corners wider than bottom
-  const arches = 8, w = (r0 - l0) / arches;
-  let scallop = `M${l0} ${top}`;
-  for (let i = 0; i < arches; i++) scallop += ` q${w / 2} -10 ${w} 0`;
-  const stripes = 7;
-  const lerp = (a, b, t) => a + (b - a) * t;
+// The catching box is the same popcorn bucket art as the run streak (owner request 2026-11-05),
+// starting empty and filling up as the score climbs. A small lens on the front glows while the
+// laser has a shot ready. Every stage is drawn on the same 306x283 canvas with the bucket at
+// x 54-256 and its base on the bottom edge, so the bucket stays put as it fills.
+const BUCKET_ART_W = 306, BUCKET_ART_BODY_L = 54, BUCKET_ART_BODY_W = 202, BUCKET_ART_MID = 155;
+const BUCKET_FILL_PER_STAGE = 18; // points per fill stage: full and spilling at 144+ (Gold Reel is 150)
+function bucketStage(score) { return Math.max(0, Math.min(POPCORN_STAGES.length - 1, Math.floor(score / BUCKET_FILL_PER_STAGE))); }
+function PopcornBox({x = null, charged = false, score = 0}) {
+  const k = (BUCKET_W + 6) / BUCKET_ART_BODY_W;   // scale so the bucket body is the catch width
+  const w = BUCKET_ART_W * k;
+  const left = x === null ? "50%" : x;
   return (
-    <svg aria-label="Popcorn box" role="img" viewBox="0 0 140 100" width={BUCKET_W + 6} height={BUCKET_H}
-      style={{position:"absolute",left:x === null ? "50%" : x,bottom:-2,transform:"translateX(-50%)",overflow:"visible",filter:"drop-shadow(0 -2px 0 rgba(0,0,0,0.15))",pointerEvents:"none"}}>
-      <defs>
-        <clipPath id="popcorn-box-shape">
-          <path d={`${scallop} L${r1} ${bottom} L${l1} ${bottom} Z`}/>
-        </clipPath>
-      </defs>
-      <g clipPath="url(#popcorn-box-shape)">
-        <rect x="0" y="0" width="140" height="100" fill="#F7F4EE"/>
-        {Array.from({length: stripes}).map((_, i) => {
-          const t0 = (2 * i + 0.5) / (2 * stripes), t1 = (2 * i + 1.5) / (2 * stripes);
-          return <path key={i} d={`M${lerp(l0, r0, t0)} 0 L${lerp(l0, r0, t1)} 0 L${lerp(l1, r1, t1)} ${bottom} L${lerp(l1, r1, t0)} ${bottom} Z`} fill="#D8262F"/>;
-        })}
-      </g>
-      <path d={`${scallop} L${r1} ${bottom} L${l1} ${bottom} Z`} fill="none" stroke="#1C1D21" strokeWidth="2.2" strokeLinejoin="round"/>
-      <path d={scallop} fill="none" stroke="#FFFFFF" strokeWidth="1.2" opacity="0.8" transform="translate(0 3)"/>
-      {/* The laser emitter on the front: glows while there's a shot ready. */}
-      <g>
-        <rect x="56" y="44" width="28" height="22" rx="6" fill="#2A2D35" stroke="#1C1D21" strokeWidth="2"/>
-        <circle cx="70" cy="55" r="6.5" fill={charged ? "#FF2E63" : "#5B5F6A"} stroke="#1C1D21" strokeWidth="1.5"
-          style={charged ? {animation:"laserReady 1.1s ease-in-out infinite",transformBox:"fill-box",transformOrigin:"50% 50%"} : undefined}/>
-        <circle cx="68" cy="53" r="2" fill="#fff" opacity={charged ? 0.9 : 0.3}/>
-      </g>
-    </svg>
+    <div role="img" aria-label="Popcorn box"
+      style={{position:"absolute",left,bottom:2,width:w,height:BUCKET_H,transform:`translateX(${-BUCKET_ART_MID * k}px)`,pointerEvents:"none"}}>
+      <img src={POPCORN_STAGES[bucketStage(score)]} alt="" aria-hidden="true" draggable="false"
+        style={{position:"absolute",left:0,bottom:0,width:w,height:"auto",userSelect:"none",filter:"drop-shadow(0 3px 0 rgba(0,0,0,0.35))"}}/>
+      <span aria-hidden="true" style={{position:"absolute",left:BUCKET_ART_MID * k - 8,bottom:BUCKET_H * 0.34,width:16,height:16,borderRadius:"50%",
+        background:charged ? "radial-gradient(circle at 35% 35%, #FFD1DC 0 18%, #FF2E63 40%, #B0103A 100%)" : "radial-gradient(circle at 35% 35%, #BFC3CC 0 18%, #5B5F6A 45%, #2A2D35 100%)",
+        border:"2px solid #1C1D21",boxSizing:"border-box",animation:charged ? "laserReady 1.1s ease-in-out infinite" : "none"}}/>
+    </div>
   );
 }
 
@@ -5256,7 +5243,7 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
               </div>
             );
           })()}
-          {bucketX !== null && <PopcornBox x={bucketX} charged={laser > 0}/>}
+          {bucketX !== null && <PopcornBox x={bucketX} charged={laser > 0} score={score}/>}
           {bucketX !== null && showSlideHint && (
             <div aria-hidden="true" style={{position:"absolute",left:bucketX,bottom:BUCKET_H + 14,transform:"translateX(-50%)",...WHITE_STICKER_TEXT,fontSize:13,whiteSpace:"nowrap",pointerEvents:"none",animation:reducedMotion?"none":"pulse 1.2s ease-in-out infinite"}}>
               ← slide · tap to zap →
