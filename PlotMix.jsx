@@ -2361,8 +2361,6 @@ const SUNBURST_BG = RESULT_RAYS_BG;
 
 const WIN_RESULT_BG = RESULT_RAYS_BG;
 
-const RESULT_BODY_TEXT = { fontFamily:"'Outfit',sans-serif", color:"#FFFFFF", lineHeight:1.35 };
-
 const RESULT_FOOTER_BG = {
   backgroundColor: "#9381FE",
   backgroundImage: "none",
@@ -3459,6 +3457,21 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
   });
 
   if (won) {
+    const topChip = movieChipLayout(card.movies[0]);
+    const bottomChip = movieChipLayout(card.movies[1]);
+    const movieStackCenterX = 201;
+    const chipGap = 5.5;
+    const titleGap = 30;
+    const plusHeight = 26;
+    const plusWidth = 30;
+    const preferredTitleY = 296;
+    const minTopChipY = 118;
+    const chipStackHeight = topChip.height + chipGap + plusHeight + chipGap + bottomChip.height;
+    const topChipY = Math.max(minTopChipY, preferredTitleY - titleGap - chipStackHeight);
+    const plusY = topChipY + topChip.height + chipGap;
+    const bottomChipY = plusY + plusHeight + chipGap;
+    const idealTitleY = bottomChipY + bottomChip.height + titleGap;
+    const titleY = Math.min(Math.max(248, idealTitleY), 296);
     return (
       <div style={{position:"fixed",inset:0,zIndex:300,display:"flex",justifyContent:"center",alignItems:"flex-end",overflowY:"auto",overflowX:"hidden",background:"rgba(0,0,0,0.35)",backdropFilter:reducedMotion?"none":"blur(5px)",animation:reducedMotion?"none":transitionFamily.popupBackdropIn}}
         onClick={e => e.target === e.currentTarget && !showConnection && onNext()}>
@@ -3511,67 +3524,67 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
               />
             </div>
           )}
-          <div style={{padding:"30px 24px 0",textAlign:"center",position:"relative",zIndex:3}}>
-            <div style={{...POPUP_YELLOW_TEXT,fontSize:17,textTransform:"uppercase",lineHeight:1.1,...stagedRise(20, 8)}}>{msg.headline}</div>
+          <div style={{aspectRatio:"402 / 484",textAlign:"center",position:"relative"}}>
+            <div style={{...POPUP_YELLOW_TEXT,fontSize:"clamp(13px, 4vw, 16px)",textTransform:"uppercase",lineHeight:1.06,letterSpacing:"0",position:"absolute",left:rx(26),right:rx(26),top:ry(29),...stagedRise(20, 8)}}>{msg.headline}</div>
+            <div style={{...POPUP_PLAIN_WHITE_TEXT,fontSize:"clamp(10.5px, 3.2vw, 12.8px)",lineHeight:1.23,textTransform:"none",letterSpacing:"0.01em",position:"absolute",left:rx(30),right:rx(30),top:ry(72),...stagedRise(70, 8)}}>{msg.sub}</div>
 
-            <div style={{margin:"22px 0 0",background:"#2A2280",border:"2px solid #1C1D21",borderRadius:14,boxShadow:"0 4px 0 #1C1D21",padding:"22px 16px",minHeight:96,boxSizing:"border-box",display:"flex",alignItems:"center",justifyContent:"center",...titleSlam}}>
+            <div style={{...movieChipStyle(topChip),position:"absolute",left:rx(movieStackCenterX),top:ry(topChipY),transform:"translateX(-50%)",...smashIn(120, -280)}}>{topChip.lines.join(" ")}</div>
+            <div style={{position:"absolute",left:rx(movieStackCenterX),top:ry(plusY),transform:"translateX(-50%)",width:rx(plusWidth),height:ry(plusHeight),borderRadius:9,background:"#F6A507",border:"2px solid #1C1D21",boxShadow:"0 1px 0 #1C1D21",boxSizing:"border-box",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:FONT_FIGMA_STICKER,fontSize:"clamp(12px, 3.7vw, 16px)",lineHeight:1,color:"#1C1D21",...stagedRise(170, 10, "translateX(-50%)")}}>+</div>
+            <div style={{...movieChipStyle(bottomChip),position:"absolute",left:rx(movieStackCenterX),top:ry(bottomChipY),transform:"translateX(-50%)",...smashIn(240, 280)}}>{bottomChip.lines.join(" ")}</div>
+
+            <div style={{position:"absolute",left:rx(25),top:ry(titleY),width:rx(352),height:ry(78),background:"#342698",border:"2px solid #F6A507",borderRadius:11,boxShadow:"0 4px 0 #1C1D21",padding:"10px 12px",boxSizing:"border-box",display:"flex",alignItems:"center",justifyContent:"center",...titleSlam}}>
               <div style={popupTitleStyle}>{title}</div>
             </div>
 
-            <div aria-label="The two films" style={{...RESULT_BODY_TEXT,fontSize:15,marginTop:14,...stagedRise(200, 8)}}>
-              {card.movies[0]} <span style={{color:"#FFD84D",margin:"0 4px"}}>+</span> {card.movies[1]}
+            <div style={{position:"absolute",left:rx(24),top:ry(401),width:rx(131),height:ry(40),background:"#D3CAFE",border:"2px solid #1C1D21",borderRadius:9,boxShadow:"0 4px 0 #1C1D21",padding:"0 10px",display:"inline-flex",alignItems:"center",gap:8,justifyContent:"center",boxSizing:"border-box",...stagedRise(320, 8)}}>
+              <span aria-hidden="true" style={{fontSize:16,lineHeight:1}}>💰</span>
+              <span aria-label="Box office" style={{...POPUP_SCORE_TEXT,display:"inline-block",animation:reducedMotion?"none":"scorePulse 0.28s ease"}}>+{money(scoreDisplay)}</span>
             </div>
 
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,margin:"26px 0 0",...stagedRise(320, 8)}}>
-              <div style={{textAlign:"left"}}>
-                <div aria-label="Box office" style={{...POPUP_SCORE_TEXT,fontSize:20,color:"#FFD84D",animation:reducedMotion?"none":"scorePulse 0.28s ease"}}>+{money(scoreDisplay)}</div>
-                <div style={{...RESULT_BODY_TEXT,fontSize:12,opacity:0.75,marginTop:4}}>Box office</div>
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(5, 18px)",gap:"8px 8px"}}>
-                {Array.from({length:dotCount}).map((_,i)=>{
-                  const g=glyphFor(i);
-                  const bg = g==="check" ? "#FFD84D" : g==="x" ? "rgba(255,255,255,0.28)" : "transparent";
-                  return (
-                    <div key={i} style={{width:18,height:18,borderRadius:"50%",background:bg,border:g?"none":"1.5px solid rgba(255,255,255,0.4)",boxSizing:"border-box",display:"flex",alignItems:"center",justifyContent:"center",opacity:i<dotRevealCount?1:0.2,transform:i<dotRevealCount?"scale(1)":"scale(0.8)",transition:"opacity 0.22s ease, transform 0.22s ease"}}>
-                      {i<dotRevealCount && (g==="x" ? <IconXMark size={8} color="#FFFFFF"/> : g==="check" ? <IconCheck size={9} color="#1C1D21"/> : null)}
-                    </div>
-                  );
-                })}
-              </div>
+            <div style={{position:"absolute",left:rx(212),top:ry(388),display:"grid",gridTemplateColumns:"repeat(5, 26px)",gridTemplateRows:"repeat(2, 26px)",gap:"14px 9px",justifyContent:"center",...stagedRise(360, 8)}}>
+              {Array.from({length:dotCount}).map((_,i)=>{
+                const bg = dotFor(i);
+                const glyph = glyphFor(i);
+                return (
+                  <div key={i} style={{width:26,height:26,borderRadius:"50%",background:bg,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 0 #1C1D21",opacity:i<dotRevealCount?1:0.2,transform:i<dotRevealCount?"scale(1)":"scale(0.8)",transition:"opacity 0.22s ease, transform 0.22s ease"}}>
+                    {i<dotRevealCount && (glyph==="x" ? <IconXMark size={10} color="#F08D87"/> : glyph==="check" ? <IconCheck size={10} color="#6AE89D"/> : null)}
+                  </div>
+                );
+              })}
             </div>
           </div>
 
           {bonus && (
-            <div role="group" aria-label="Which came first?" style={{margin:"22px 24px 0",paddingTop:18,borderTop:"1px solid rgba(255,255,255,0.18)",textAlign:"center",position:"relative",zIndex:3}}>
-              <div style={{...RESULT_BODY_TEXT,fontSize:14,marginBottom:10}}>Bonus: which came out first?</div>
-              <div style={{display:"flex",gap:10}}>
+            <div role="group" aria-label="Which came first?" style={{padding:"10px 16px 12px",borderTop:`1px solid ${T.border}`,background:"rgba(14,10,44,0.6)",textAlign:"center",position:"relative",zIndex:3}}>
+              <div style={{...POPUP_YELLOW_TEXT,fontSize:12,textTransform:"uppercase",marginBottom:8}}>🎞️ Bonus +1: which came out first?</div>
+              <div style={{display:"flex",gap:8}}>
                 {bonus.films.map((f,i)=>{
-                  const a=bonus.answer, older=bonus.years[i]<bonus.years[1-i];
+                  const a=bonus.answer, picked=a?.pick===i, older=bonus.years[i]<bonus.years[1-i];
                   return (
                     <button key={i} onClick={(e)=>{ e.stopPropagation(); onBonus?.(i); }} disabled={!!a} aria-label={`${f} came first`}
-                      style={{flex:1,background:"#2A2280",border:`1.5px solid ${a&&older?"#FFD84D":"rgba(255,255,255,0.35)"}`,borderRadius:12,padding:"10px 8px",cursor:a?"default":"pointer",opacity:a&&!older?0.55:1,transition:"opacity 0.2s ease, border-color 0.2s ease"}}>
-                      <span style={{...RESULT_BODY_TEXT,fontSize:14,fontWeight:600,display:"block",lineHeight:1.25}}>{a&&older?"✓ ":""}{f}</span>
-                      {a && <span style={{...RESULT_BODY_TEXT,fontSize:12,opacity:0.75,display:"block",marginTop:2}}>{bonus.years[i]}</span>}
+                      style={{flex:1,...BTN.cyan,padding:"8px 6px",cursor:a?"default":"pointer",
+                        ...(a ? {background: older ? "#16A34A" : picked ? "#DC2626" : "#4B4F78"} : {})}}>
+                      <span style={{...WHITE_STICKER_TEXT,fontSize:10.5,textTransform:"uppercase",lineHeight:1.25}}>{f}{a ? ` · ${bonus.years[i]}` : ""}</span>
                     </button>
                   );
                 })}
               </div>
               {bonus.answer && (
-                <div role="status" aria-label="Bonus result" style={{...RESULT_BODY_TEXT,fontSize:13,marginTop:10,color:bonus.answer.correct?"#FFD84D":"rgba(255,255,255,0.8)"}}>
+                <div role="status" aria-label="Bonus result" style={{...WHITE_STICKER_TEXT,fontSize:11.5,marginTop:8}}>
                   {bonus.answer.correct ? "✓ Film buff! +$1M to the budget" : "✗ Nope, the other one. No bonus."}
                 </div>
               )}
             </div>
           )}
 
-          <div style={{padding:"24px 24px 28px",display:"flex",flexDirection:"column",alignItems:"center",gap:14,position:"relative",zIndex:3}}>
-            <button onClick={onNext} aria-label={isLast ? "Finish" : "Next"}
-              style={{width:"100%",height:56,...BTN.primary,padding:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
-              <span style={POPUP_BUTTON_TEXT}>{isLast ? "Finish" : "Next"}</span>
-            </button>
+          <div style={{aspectRatio:"402 / 94",marginTop:0,...RESULT_FOOTER_BG,borderTop:`1px solid ${T.border}`,position:"relative"}}>
             <button onClick={()=>setShowConnection(true)} aria-label="The Connection"
-              style={{background:"none",border:"none",padding:4,cursor:"pointer",...RESULT_BODY_TEXT,fontSize:14,textDecoration:"underline",textUnderlineOffset:4,opacity:0.9}}>
-              <span style={{...RESULT_BODY_TEXT,fontSize:14}}>How are these connected?</span>
+              style={{position:"absolute",left:rx(24),top:rfy(17),width:rx(207),height:rfy(57),...BTN.cyan,padding:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <span style={POPUP_BUTTON_TEXT}>The Connection</span>
+            </button>
+            <button onClick={onNext} aria-label={isLast ? "Finish" : "Next"}
+              style={{position:"absolute",right:rx(24),top:rfy(17),width:rx(105),height:rfy(57),...BTN.primary,padding:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <span style={POPUP_BUTTON_TEXT}>{isLast ? "Finish" : "Next"}</span>
             </button>
           </div>
         </div>
@@ -4207,11 +4220,11 @@ function NextDailyCountdown() {
 
 function BadgeToast({badges}) {
   return (
-    <div role="status" style={{position:"fixed",top:16,left:"50%",transform:"translateX(-50%)",zIndex:520,pointerEvents:"none",display:"flex",flexDirection:"column",gap:6,alignItems:"center",animation:"badgeToast 3.2s ease both"}}>
+    <div role="status" style={{position:"fixed",top:74,left:"50%",transform:"translateX(-50%)",zIndex:520,pointerEvents:"none",display:"flex",flexDirection:"column",gap:6,alignItems:"center",animation:"badgeIn 0.4s ease both"}}>
       {badges.map(b=>(
-        <div key={b.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 14px",background:"#1C1D21",border:"1.5px solid #FFD84D",borderRadius:999,boxShadow:"0 6px 18px rgba(0,0,0,0.35)",whiteSpace:"nowrap"}}>
-          <span style={{fontSize:16,lineHeight:1}}>{b.emoji}</span>
-          <span style={{fontFamily:"'Outfit',sans-serif",fontSize:13,fontWeight:600,color:"#FFFFFF"}}>{b.title || `Badge unlocked: ${b.name}`}</span>
+        <div key={b.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 14px",background:"#FFD84D",border:"2px solid #1C1D21",borderRadius:12,boxShadow:"0 3px 0 #1C1D21",whiteSpace:"nowrap"}}>
+          <span style={{fontSize:18,lineHeight:1}}>{b.emoji}</span>
+          <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:11,color:"#1C1D21",textTransform:"uppercase"}}>{b.title || `Badge unlocked: ${b.name}`}</span>
         </div>
       ))}
     </div>
