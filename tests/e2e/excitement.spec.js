@@ -537,7 +537,7 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
 
 
   // Owner picks 2026-11-06, drawn by the owner.
-  test('butter: the next 10 catches score double, and butter drips over the bucket', async ({ page }) => {
+  test('butter: the next 10 catches score double, and the bucket turns buttery', async ({ page }) => {
     await fixRandomOnLoad(page, 0.005) // only butter falls
     await startGame(page)
     await holdBoxUnderFirst(page, 'Butter drop')
