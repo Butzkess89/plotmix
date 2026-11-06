@@ -4497,6 +4497,26 @@ const CINEMA_KEYFRAMES = `
   @keyframes clapperIn { 0%{opacity:0; transform:translateX(-50%) translateY(10px) scale(0.9)} 12%{opacity:1; transform:translateX(-50%) translateY(0) scale(1)} 82%{opacity:1; transform:translateX(-50%) translateY(0) scale(1)} 100%{opacity:0; transform:translateX(-50%) translateY(-8px) scale(0.98)} }
   @keyframes clapSnap { 0%{transform:rotate(-30deg)} 55%{transform:rotate(0deg)} 70%{transform:rotate(-5deg)} 100%{transform:rotate(0deg)} }
   @keyframes popcornSpill { 0%{opacity:1; transform:translate(0,0) rotate(0) scale(0.6)} 55%{opacity:1; transform:translate(var(--dx),var(--dy)) rotate(var(--rot)) scale(1)} 100%{opacity:0; transform:translate(calc(var(--dx) * 1.5),calc(var(--dy) * -0.6)) rotate(var(--rot)) scale(0.9)} }
+  @keyframes bossHit { 0%{transform:scale(1.18,0.86) rotate(-6deg)} 40%{transform:scale(0.92,1.1) rotate(5deg)} 100%{transform:scale(1) rotate(0)} }
+  @keyframes bossSway { 0%,100%{transform:rotate(-5deg)} 50%{transform:rotate(5deg)} }
+  @keyframes trexPeek { 0%{transform:translateX(-105%)} 55%{transform:translateX(-14%)} 70%{transform:translateX(-22%)} 85%{transform:translateX(-16%) rotate(-2deg)} 100%{transform:translateX(-18%)} }
+  @keyframes trexRoar { 0%{transform:translateX(-30%) scale(0.92)} 18%{transform:translateX(0) scale(1.06) rotate(-3deg)} 30%{transform:translateX(-2%) scale(1.02) rotate(2deg)} 45%{transform:translateX(1%) rotate(-2deg)} 60%{transform:translateX(-1%) rotate(1deg)} 100%{transform:translateX(0) scale(1)} }
+  @keyframes trexLeave { 0%{transform:translateX(0)} 100%{transform:translateX(-110%)} }
+  @keyframes soundWave { 0%{opacity:0.95; transform:translate(-50%,-50%) scale(0.15)} 80%{opacity:0.5} 100%{opacity:0; transform:translate(-50%,-50%) scale(1)} }
+  @keyframes trailerBars { 0%{transform:scaleY(0)} 100%{transform:scaleY(1)} }
+  @keyframes comingLine { 0%{opacity:0; transform:scale(1.25); letter-spacing:0.3em; filter:blur(4px)} 100%{opacity:1; transform:scale(1); letter-spacing:0.06em; filter:blur(0)} }
+  @keyframes trailerOut { 0%,82%{opacity:1} 100%{opacity:0} }
+  @keyframes burnLife { 0%{transform:translate(-50%,-50%) scale(0) rotate(0)} 12%{transform:translate(-50%,-50%) scale(1) rotate(10deg)} 88%{transform:translate(-50%,-50%) scale(1.04) rotate(40deg)} 100%{transform:translate(-50%,-50%) scale(0) rotate(50deg)} }
+  @keyframes burnFlicker { 0%,100%{opacity:1} 50%{opacity:0.82} }
+  @keyframes chipDrop { 0%{transform:translate(var(--cx),-70px) rotate(var(--cr)); opacity:0} 60%{opacity:1; transform:translate(var(--cx),3px) rotate(var(--cr))} 100%{transform:translate(var(--cx),0) rotate(var(--cr))} }
+  @keyframes chipWobble { 0%,100%{transform:rotate(-2.5deg)} 50%{transform:rotate(2.5deg)} }
+  @keyframes chipFly { 0%{opacity:1; transform:translate(0,0) rotate(0)} 100%{opacity:0; transform:translate(var(--dx),var(--dy)) rotate(var(--rot))} }
+  @keyframes reelStop { 0%{transform:translateY(0)} 100%{transform:translateY(var(--end))} }
+  @keyframes jackpotIn { 0%{transform:translateX(-50%) scale(0.3); opacity:0} 60%{transform:translateX(-50%) scale(1.08); opacity:1} 100%{transform:translateX(-50%) scale(1)} }
+  @keyframes jackpotWin { 0%,100%{box-shadow:0 0 0 3px #1C1D21, 0 0 18px 6px rgba(255,216,77,0.6)} 50%{box-shadow:0 0 0 3px #1C1D21, 0 0 34px 14px rgba(255,236,140,1)} }
+  @keyframes janitorWalk { 0%{transform:translateX(0)} 100%{transform:translateX(calc(100vw + 170px))} }
+  @keyframes janitorBob { 0%,100%{transform:translateY(0) rotate(-1.5deg)} 50%{transform:translateY(-4px) rotate(1.5deg)} }
+  @keyframes butterShine { 0%,100%{filter:drop-shadow(0 2px 0 rgba(0,0,0,0.25)) brightness(1)} 50%{filter:drop-shadow(0 2px 0 rgba(0,0,0,0.25)) brightness(1.18)} }
   @keyframes twinPop { 0%{transform:scale(0.55,0.75); transform-origin:50% 100%} 100%{transform:scale(1); transform-origin:50% 100%} }
   @keyframes armReach { 0%{opacity:0; transform:scaleX(0.05) scaleY(0.6)} 20%{opacity:1} 100%{opacity:1; transform:none} }
   @keyframes armHide { to{opacity:0} }
@@ -4816,7 +4836,11 @@ const BOOST_MS = 5000;
 // Good pieces score (points × combo), bad ones cost a life if caught, and the rest are boosts.
 // Cinema extras are generic objects (no film's characters, logos or designs).
 const ARCADE_ITEMS = [
-  { kind: "popcorn",  weight: 42.5, label: "Popcorn",       good: 1 },
+  // Concession-stand specials (owner art 2026-11-06).
+  { kind: "butter",   weight: 1.4, label: "Butter drop",      good: 2 },
+  { kind: "nacho",    weight: 1.4, label: "Nacho cheese",     good: 2 },
+  { kind: "canister", weight: 0.8, label: "Golden film canister", good: 3 },
+  { kind: "popcorn",  weight: 38.9, label: "Popcorn",       good: 1 },
   { kind: "ticket",   weight: 4,  label: "Golden ticket",    good: 5 },
   { kind: "reel",     weight: 6,  label: "Film reel",       good: 3 },
   { kind: "burnt",    weight: 18, label: "Burnt popcorn",   bad: true },
@@ -4833,7 +4857,32 @@ const ARCADE_ITEMS = [
   { kind: "licorice", weight: 1.5, label: "Licorice whip" },
   { kind: "jaw",      weight: 1.5, label: "Jawbreaker" },
 ];
-const ARCADE_KIND = Object.fromEntries(ARCADE_ITEMS.map((it) => [it.kind, it]));
+// Pieces that only arrive through events, never from the random spawn table.
+const ARCADE_SPECIALS = [
+  { kind: "corndog", label: "Corn dog", good: 2 },
+  { kind: "boss",    label: "Kernel boss", bad: true },
+];
+const ARCADE_KIND = Object.fromEntries([...ARCADE_ITEMS, ...ARCADE_SPECIALS].map((it) => [it.kind, it]));
+const ARCADE_ART = "/stickers/arcade/";
+const ARCADE_ART_FILES = ["butter-drop", "butter-drip", "nacho-cup", "nacho-chip", "film-canister", "corn-dog",
+  "kernel-boss-0", "kernel-boss-1", "kernel-boss-2", "trex-peek", "trex-roar", "trex-janitor"];
+// Owner picks 2026-11-06 (art by the owner):
+const BUTTER_CATCHES = 10;              // butter: the next 10 catches score double, on a slippery bucket
+const NACHO_MS = 8000, NACHO_MAX = 8, NACHO_PTS = 3; // nacho tower: chips stack, cash in at the end
+const BOSS_AT_MS = 30000, BOSS_HP = 3, BOSS_SIZE = 116, BOSS_FALL_MS = 10000;
+const TREX_PEEK_MS = 1100, TREX_ROAR_MS = 1300;
+const TRAILER_CARD_MS = 2200, TRAILER_RAIN_MS = 5000, TRAILER_SPAWN_MS = 230;
+const BURN_MS = 4200, BURN_R = 74;
+// Each play gets the T-rex, a trailer and a film burn, in a random order, then the boss.
+const ARCADE_EVENT_SLOTS = [9000, 17000, 24000];
+const TRAILER_LINES = [
+  ["In a world…", "…where it rains corn dogs"],
+  ["This summer…", "…one snack will rise"],
+  ["From the makers of nachos…", "…comes a hero on a stick"],
+  ["They came from the concession stand…", "…and they are delicious"],
+];
+// Box office jackpot reels: three of a kind wins big.
+const JACKPOT_SYMBOLS = ["popcorn", "ticket", "reel", "rocket"];
 const CANDY_COLORS = ["#20B46A"]; // green (owner request 2026-11-05)
 
 // Higher levels bring more bad pieces (capped at level 7).
@@ -4842,7 +4891,7 @@ function pickArcadeItem(level = 1) {
   const weights = ARCADE_ITEMS.map((it) => it.kind === "popcorn" ? it.weight - 2 * extra : it.bad ? it.weight + extra : it.weight);
   let r = Math.random() * weights.reduce((a, b) => a + b, 0);
   for (let i = 0; i < ARCADE_ITEMS.length; i++) { if ((r -= weights[i]) < 0) return ARCADE_ITEMS[i]; }
-  return ARCADE_ITEMS[0];
+  return ARCADE_KIND.popcorn;
 }
 
 // Drawn in code, modelled on photos of real popcorn (owner request 2026-10-25): puffy cream
@@ -4914,7 +4963,12 @@ function PopcornLobe({l, i, burntId}) {
     </g>
   );
 }
+const ARCADE_IMG_KINDS = { butter: "butter-drop", nacho: "nacho-cup", canister: "film-canister", corndog: "corn-dog" };
 function ArcadeItemArt({kind, color, variant=0}) {
+  if (ARCADE_IMG_KINDS[kind] || kind === "boss") {
+    const file = kind === "boss" ? `kernel-boss-${Math.min(2, variant)}` : ARCADE_IMG_KINDS[kind];
+    return <img src={`${ARCADE_ART}${file}.webp`} alt="" aria-hidden="true" draggable="false" style={{width:"100%",height:"100%",objectFit:"contain",display:"block",userSelect:"none"}}/>;
+  }
   if (kind === "popcorn" || kind === "burnt") {
     const burnt = kind === "burnt";
     const shapes = burnt ? BURNT_SHAPES : POPCORN_SHAPES;
@@ -5131,7 +5185,7 @@ const BUCKET_ART_W = 306, BUCKET_ART_BODY_L = 54, BUCKET_ART_BODY_W = 202, BUCKE
 // and from then on every catch sends popcorn flying over the rim.
 function bucketStage(catches) { return Math.max(0, Math.min(POPCORN_STAGES.length - 1, catches)); }
 const SPILL_KERNELS = [[-44,-30,-120],[-24,-52,-60],[0,-62,40],[22,-50,90],[42,-28,160]];
-function PopcornBox({x = null, charged = false, catches = 0, reducedMotion = false, wide = false, launch = null, jaw = false}) {
+function PopcornBox({x = null, charged = false, catches = 0, reducedMotion = false, wide = false, launch = null, jaw = false, buttered = false, chips = 0}) {
   const k = (BUCKET_W + 6) / BUCKET_ART_BODY_W;   // scale so the bucket body is the catch width
   const w = BUCKET_ART_W * k;
   const mid = BUCKET_ART_MID * k;
@@ -5141,6 +5195,8 @@ function PopcornBox({x = null, charged = false, catches = 0, reducedMotion = fal
   const half = (BUCKET_W + 6) / 2;
   const twins = wide ? [-half, half] : [0];
   const stage = POPCORN_STAGES[bucketStage(catches)];
+  const imgH = w * 283 / 306;                   // the bucket art's drawn height
+  const dripW = (BUCKET_W + 6) * 1.16, dripH = dripW * 228 / 520;
   return (
     <div role="img" aria-label="Popcorn box"
       style={{position:"absolute",left,bottom:2,width:w,height:BUCKET_H,transform:`translateX(${-mid}px)`,pointerEvents:"none"}}>
@@ -5150,6 +5206,10 @@ function PopcornBox({x = null, charged = false, catches = 0, reducedMotion = fal
           animation:wide && !reducedMotion ? `twinPop 0.3s cubic-bezier(.3,1.6,.5,1) both` : "none"}}>
           <img src={stage} alt="" aria-hidden="true" draggable="false"
             style={{position:"absolute",left:0,bottom:0,width:w,height:"auto",userSelect:"none",filter:"drop-shadow(0 3px 0 rgba(0,0,0,0.35))"}}/>
+          {/* Butter (owner art 2026-11-06): melted butter drips over the rim while it lasts. */}
+          {buttered && <img src={`${ARCADE_ART}butter-drip.webp`} alt="" aria-hidden="true" draggable="false" data-butter=""
+            style={{position:"absolute",left:mid - dripW / 2,bottom:imgH * 0.66 - dripH,width:dripW,height:dripH,pointerEvents:"none",
+              animation:reducedMotion ? "none" : "twinPop 0.3s cubic-bezier(.3,1.6,.5,1) both, butterShine 1.2s ease-in-out 0.3s infinite"}}/>}
           {charged && <span aria-hidden="true" style={{position:"absolute",left:mid - 62,bottom:BUCKET_H * 0.32 + 13 - 62,width:124,height:124,borderRadius:"50%",
             background:"radial-gradient(circle, #FFFFFF 0 14%, rgba(255,250,170,1) 24%, rgba(255,226,80,0.85) 38%, rgba(255,190,60,0.45) 54%, rgba(255,170,60,0) 70%)",
             animation:"laserHalo 1.4s ease-in-out infinite"}}/>}
@@ -5164,6 +5224,18 @@ function PopcornBox({x = null, charged = false, catches = 0, reducedMotion = fal
           ))}
         </div>
       ))}
+      {/* Nacho tower (owner pick 2026-11-06): every catch stacks a cheesy chip on the bucket. */}
+      {chips > 0 && (
+        <div aria-label={`Nacho tower: ${chips}`} style={{position:"absolute",left:mid - 24,bottom:imgH * 0.86,width:48,height:chips * 12 + 40,pointerEvents:"none",
+          transformOrigin:"50% 100%",animation:reducedMotion || chips < 3 ? "none" : `chipWobble ${Math.max(0.5, 1.4 - chips * 0.1)}s ease-in-out infinite`}}>
+          {Array.from({length:chips}).map((_, i) => (
+            <img key={i} src={`${ARCADE_ART}nacho-chip.webp`} alt="" aria-hidden="true" draggable="false"
+              style={{position:"absolute",left:0,bottom:i * 12,width:48,height:45,"--cx":`${[0, 9, -8, 6, -10, 8, -4, 10][i % 8]}px`,"--cr":`${180 + [0, 22, -20, 14, -24, 18, -10, 26][i % 8]}deg`,
+                transform:`translate(var(--cx),0) rotate(var(--cr))`,filter:"drop-shadow(0 2px 0 rgba(0,0,0,0.3))",
+                animation:reducedMotion ? "none" : "chipDrop 0.32s cubic-bezier(.3,1.4,.5,1) both"}}/>
+          ))}
+        </div>
+      )}
       {jaw && <span aria-label="Jawbreaker ready" style={{position:"absolute",left:mid - 13,bottom:BUCKET_H - 10,width:26,height:26,
         animation:reducedMotion ? "none" : "pulse 1s ease-in-out infinite"}}><ArcadeItemArt kind="jaw"/></span>}
     </div>
@@ -5210,7 +5282,8 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
   // Fetch every bucket stage and the rocket art while the lobby is up, so the bucket is
   // on screen the moment play starts and never blinks out when it fills (owner 2026-11-05).
   useEffect(() => {
-    const urls = [...POPCORN_STAGES, ...["arm-hold", "arm-empty", "rocket", "exhaust", "explosion"].map((n) => `/stickers/rocket/${n}.webp`)];
+    const urls = [...POPCORN_STAGES, ...["arm-hold", "arm-empty", "rocket", "exhaust", "explosion"].map((n) => `/stickers/rocket/${n}.webp`),
+      ...ARCADE_ART_FILES.map((n) => `${ARCADE_ART}${n}.webp`)];
     const imgs = urls.map((u) => { const im = new Image(); im.decoding = "async"; im.src = u; return im; });
     return () => { imgs.length = 0; };
   }, []);
@@ -5261,6 +5334,21 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
   const [jaw, setJaw] = useState(0);
   const [lassos, setLassos] = useState([]);           // licorice pulls on screen: {id, x1, y1, x2, y2}
   const [levelUp, setLevelUp] = useState(null); // {key, lv}: "LEVEL 3" banner
+  // Owner picks 2026-11-06, with the owner's art.
+  const butterRef = useRef(0);                        // buttered catches left
+  const [butter, setButter] = useState(0);
+  const slideRef = useRef({ v: 0, t: 0, x: null });   // bucket momentum while buttered
+  const nachoRef = useRef({ until: 0, chips: 0 });
+  const [nacho, setNacho] = useState(null);           // {chips, until}
+  const [toppled, setToppled] = useState(null);       // {key, x, chips}: a knocked-over tower
+  const [jackpot, setJackpot] = useState(null);       // {key, reels, win, done}
+  const [trex, setTrex] = useState(null);             // {key, side, stage: peek|roar|leave}
+  const [trailer, setTrailer] = useState(null);       // {key, lines}
+  const trailerRef = useRef({ from: 0, until: 0 });   // corn dog rain window
+  const [burn, setBurn] = useState(null);             // {key, x, y}
+  const burnRef = useRef(null);                       // {x, y, start, until}
+  const [shake, setShake] = useState(null);           // {key}: the arena shakes
+  const [postCredits, setPostCredits] = useState(false);
   useEffect(() => {
     if (!levelUp) return;
     const t = setTimeout(() => setLevelUp(null), 1400);
@@ -5276,6 +5364,10 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
     catchesRef.current = 0; setCatches(0); rocketsRef.current = 0; setRockets(0); setRocketShots([]); setZapLearned(false);
     setLaunch(null); freezeUntilRef.current = 0; setFrozen(false); gummyUntilRef.current = 0; setWide(false);
     jawRef.current = 0; setJaw(0); setLassos([]);
+    butterRef.current = 0; setButter(0); slideRef.current = { v: 0, t: 0, x: null };
+    nachoRef.current = { until: 0, chips: 0 }; setNacho(null); setToppled(null); setJackpot(null);
+    setTrex(null); setTrailer(null); trailerRef.current = { from: 0, until: 0 }; burnRef.current = null; setBurn(null);
+    setShake(null); setPostCredits(false);
     setLaser(LASER_MAX); setBeams([]); setBooms([]); setTimeLeft(Math.ceil(ARCADE_GAME_MS / 1000));
     setScore(0); setLives(ARCADE_LIVES); setLevel(1); setCombo(0); setFrenzy(false);
     setBoost(null); setFlash(null); setItems([]); setResult(null);
@@ -5301,6 +5393,11 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
     const startedAt = Date.now();
     let done = false, raf = null, last = performance.now(), nextSpawnAt = Date.now() + 400, shownLevel = 1;
     itemsRef.current = [];
+    // The T-rex, a trailer and a film burn, in a random order, then the kernel boss.
+    const order = ["trex", "trailer", "burn"].map((t) => [Math.random(), t]).sort((a, b) => a[0] - b[0]).map((x) => x[1]);
+    const events = order.map((type, i) => ({ type, at: ARCADE_EVENT_SLOTS[i] + Math.round((Math.random() * 2 - 1) * 1000) }));
+    events.push({ type: "boss", at: BOSS_AT_MS });
+    if (typeof window !== "undefined" && window.__noArcadeEvents) events.length = 0; // tests that need a quiet play
     const levelNow = () => 1 + Math.floor((Math.min(Date.now(), startedAt + ARCADE_GAME_MS) - startedAt) / ARCADE_LEVEL_MS);
     aliveRef.current = true;
     const finish = (reason = "lives") => {
@@ -5315,6 +5412,7 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
       writeJSON(LS_PRIZES, { ...p, best: Math.max(p.best || 0, final), won: prize && isNew ? [...p.won, prize.id] : p.won });
       if (prize) addPowerups(prize.powerups);
       if (prize || isRecord) SFX.complete();
+      setPostCredits(Math.random() < 0.5);   // sometimes there's a scene after the credits
       setResult({ score: final, prize, isNew, isRecord, level: levelNow(), reason,
         seconds: Math.min(ARCADE_GAME_MS / 1000, Math.round((Date.now() - startedAt) / 1000)) });
       itemsRef.current = [];
@@ -5339,6 +5437,25 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
         setLevelUp({ key: now, lv });
         SFX.leaderBeep?.(); buzz([10, 40, 10]);
       }
+      for (const ev of events) if (!ev.done && now - startedAt >= ev.at) { ev.done = true; runEvent(ev.type, W, H); }
+      // Butter makes the bucket slippery: it keeps sliding a little after the finger stops.
+      if (butterRef.current > 0) {
+        const S = slideRef.current;
+        if (now - S.t > 60 && Math.abs(S.v) > 0.02 && bucketXRef.current !== null) {
+          const hw = (now < gummyUntilRef.current ? 2 : 1) * BUCKET_W / 2 + 6;
+          const nx = Math.max(hw, Math.min(W - hw, bucketXRef.current + S.v * dt));
+          if (nx === hw || nx === W - hw) S.v = 0; else S.v *= Math.pow(0.985, dt);
+          bucketXRef.current = nx; setBucketX(nx);
+        }
+      }
+      // The nacho tower cashes in when its time is up.
+      if (nachoRef.current.until && now >= nachoRef.current.until) {
+        const n = nachoRef.current.chips;
+        const dbl = boostRef.current?.type === "double" && now <= boostRef.current.until ? 2 : 1;
+        nachoRef.current = { until: 0, chips: 0 }; setNacho(null);
+        if (n > 0) { scoreRef.current += n * NACHO_PTS * dbl; setScore(scoreRef.current); showFlash(`🧀 Nacho tower: ${n} chip${n === 1 ? "" : "s"} cashed in! +${n * NACHO_PTS * dbl}`); SFX.complete(); }
+        else showFlash("🧀 No chips stacked… nacho day");
+      }
       const inFrenzy = now < frenzyUntilRef.current;
       const slow = boostRef.current?.type === "slow" && now <= boostRef.current.until;
       const moveDt = slow ? dt * 0.5 : dt;
@@ -5351,7 +5468,8 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
       // drift sideways, and bats always swoop from side to side.
       if (now >= nextSpawnAt) {
         const vip = boostRef.current?.type === "vip" && now <= boostRef.current.until;
-        const it = inFrenzy || vip ? ARCADE_ITEMS[0] : pickArcadeItem(lv);
+        const raining = now >= trailerRef.current.from && now < trailerRef.current.until;
+        const it = raining ? ARCADE_KIND.corndog : inFrenzy || vip ? ARCADE_KIND.popcorn : pickArcadeItem(lv);
         const fall = Math.max(ARCADE_MIN_FALL, ARCADE_BASE_FALL * Math.pow(0.9, lv - 1));
         const drift = lv >= 3 ? (Math.random() * 2 - 1) * 0.012 * (lv - 2) : 0;
         const x = ARCADE_ITEM / 2 + Math.random() * (W - ARCADE_ITEM);
@@ -5360,7 +5478,7 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
           color: CANDY_COLORS[Math.floor(Math.random() * CANDY_COLORS.length)],
           variant: Math.floor(Math.random() * 12), angle: it.kind === "bat" ? 0 : Math.floor(Math.random() * 360),
           spin: it.kind === "bat" ? 0 : (Math.random() * 2 - 1) * 0.25 });
-        nextSpawnAt = now + (inFrenzy ? FRENZY_SPAWN_MS : Math.max(ARCADE_MIN_SPAWN, ARCADE_BASE_SPAWN * Math.pow(0.86, lv - 1)));
+        nextSpawnAt = now + (raining ? TRAILER_SPAWN_MS : inFrenzy ? FRENZY_SPAWN_MS : Math.max(ARCADE_MIN_SPAWN, ARCADE_BASE_SPAWN * Math.pow(0.86, lv - 1)));
       }
       // Move, catch, or drop.
       const catchY = H - BUCKET_H + 18;
@@ -5383,7 +5501,26 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
         // Brain freeze: bad pieces hang in mid-air.
         if (freezing && ARCADE_KIND[it.kind]?.bad) { it.frozen = true; keep.push(it); continue; }
         it.frozen = false;
+        // The kernel boss lumbers down, swaying; reaching the bottom costs a life.
+        if (it.boss) {
+          it.y += it.vy * moveDt;
+          it.x = Math.max(BOSS_SIZE / 2, Math.min(W - BOSS_SIZE / 2, it.baseX + Math.sin((now - it.born) / 800) * 46));
+          if (it.y + BOSS_SIZE * 0.3 >= catchY) { bossLands(); continue; }
+          keep.push(it); continue;
+        }
+        // A film burn: anything that falls into the hole is gone.
+        const B = burnRef.current;
+        if (B && now < B.until) {
+          const r = BURN_R * Math.min(1, (now - B.start) / 500, (B.until - now) / 500);
+          if (Math.hypot(it.x - B.x, it.y - B.y) < r * 0.85) continue;
+        }
         it.y += it.vy * moveDt;
+        // The T-rex's roar shoves everything away from him.
+        if (it.push) {
+          it.x += it.push * moveDt; it.baseX += it.push * moveDt;
+          it.push *= Math.pow(0.996, moveDt); if (Math.abs(it.push) < 0.01) it.push = 0;
+          if (it.x < half || it.x > W - half) { it.push = -it.push * 0.6; it.x = Math.max(half, Math.min(W - half, it.x)); it.baseX = it.x; }
+        }
         it.angle += it.spin * moveDt;
         if (it.kind === "bat") {
           // Keep room for the full swoop, so a bat near the edge isn't pinned against the wall.
@@ -5403,6 +5540,7 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
       if (boostRef.current && now > boostRef.current.until) { boostRef.current = null; setBoost(null); }
       setFrozen(now < freezeUntilRef.current);
       setWide(now < gummyUntilRef.current);
+      if (burnRef.current && now >= burnRef.current.until) { burnRef.current = null; setBurn(null); }
       if (frenzyUntilRef.current && now > frenzyUntilRef.current) { frenzyUntilRef.current = 0; setFrenzy(false); }
       raf = requestAnimationFrame(step);
     };
@@ -5416,6 +5554,9 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
     const r = arena.getBoundingClientRect();
     const half = (Date.now() < gummyUntilRef.current ? 2 : 1) * BUCKET_W / 2 + 6;
     const x = Math.max(half, Math.min(r.width - half, clientX - r.left));
+    const S = slideRef.current, t = Date.now();
+    if (S.x !== null && t > S.t) S.v = Math.max(-1.2, Math.min(1.2, 0.6 * S.v + 0.4 * (x - S.x) / (t - S.t)));
+    S.x = x; S.t = t;
     bucketXRef.current = x; setBucketX(x);
     if (showSlideHint) setShowSlideHint(false);
   };
@@ -5433,9 +5574,10 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
     setTimeout(() => setBeams((b) => b.filter((x) => x.id !== shotId)), 220);
     SFX.laser(); buzz(10);
     // It hits the lowest piece in its path that is still above the box.
-    const target = itemsRef.current.filter((it) => Math.abs(it.x - bx) <= LASER_HALF_W && it.y < H - BUCKET_H + 18)
+    const target = itemsRef.current.filter((it) => Math.abs(it.x - bx) <= LASER_HALF_W + (it.boss ? BOSS_SIZE * 0.32 : 0) && it.y < H - BUCKET_H + 18)
       .sort((a, b) => b.y - a.y)[0];
     if (!target) return;
+    if (target.boss) { if (!zapLearned) setZapLearned(true); hitBoss(target, 1); return; }
     itemsRef.current = itemsRef.current.filter((it) => it !== target);
     explode(target.x, target.y);
     if (ARCADE_KIND[target.kind]?.bad) {
@@ -5463,7 +5605,7 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
       const bx = bucketXRef.current ?? W / 2;
       const hx = bx + side * ROCKET_ART.handDx, hy = H - 2 - ROCKET_ART.handUp;
       const live = itemsRef.current.filter((it) => !it.bounced && it.y > 0 && it.y < hy);
-      const target = live.filter((it) => ARCADE_KIND[it.kind]?.bad).sort((p, q) => q.y - p.y)[0]
+      const target = live.find((it) => it.boss) || live.filter((it) => ARCADE_KIND[it.kind]?.bad).sort((p, q) => q.y - p.y)[0]
         || live.sort((p, q) => q.y - p.y)[0];
       const lead = (it) => (it.frozen ? 0 : it.vy * ROCKET_FLIGHT_MS);
       const tx = target ? target.x : hx, ty = target ? Math.max(30, target.y + lead(target)) : 60;
@@ -5474,8 +5616,10 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
       setTimeout(() => {
         setRocketShots((rs) => rs.filter((x) => x.id !== shotId));
         if (!aliveRef.current) return;
-        const hit = itemsRef.current.filter((it) => Math.hypot(it.x - tx, it.y - ty) <= ROCKET_RADIUS);
+        const hit = itemsRef.current.filter((it) => !it.boss && Math.hypot(it.x - tx, it.y - ty) <= ROCKET_RADIUS);
         itemsRef.current = itemsRef.current.filter((it) => !hit.includes(it));
+        // A rocket counts as two hits on the kernel boss.
+        itemsRef.current.filter((it) => it.boss && Math.hypot(it.x - tx, it.y - ty) <= ROCKET_RADIUS + BOSS_SIZE * 0.4).forEach((b) => hitBoss(b, 2, true));
         const bad = hit.filter((it) => ARCADE_KIND[it.kind]?.bad).length;
         const dbl = boostRef.current?.type === "double" && Date.now() <= boostRef.current.until ? 2 : 1;
         const pts = 2 * bad * dbl;
@@ -5513,6 +5657,131 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
 
   const showFlash = (text, bad=false) => setFlash({ key: Date.now(), text, bad });
 
+  // A bad catch knocks the nacho tower over: the chips fly off and are lost.
+  const toppleNachos = () => {
+    const n = nachoRef.current.chips;
+    nachoRef.current = { until: 0, chips: 0 }; setNacho(null);
+    if (n > 0) setToppled({ key: ++idRef.current, x: bucketXRef.current ?? 0, chips: n });
+    return n > 0;
+  };
+  const shakeArena = () => setShake({ key: ++idRef.current });
+  // Timed surprises (owner picks 2026-11-06).
+  const runEvent = (type, W, H) => {
+    const now = Date.now();
+    if (type === "trex") {
+      // The T-rex peeks in from one side, then roars: the sound wave shoves everything away.
+      const side = Math.random() < 0.5 ? "left" : "right";
+      const key = ++idRef.current;
+      setTrex({ key, side, stage: "peek" });
+      showFlash("🦖 Uh oh… something's peeking in");
+      setTimeout(() => {
+        if (!aliveRef.current) return;
+        setTrex({ key, side, stage: "roar" });
+        const dir = side === "left" ? 1 : -1;
+        for (const it of itemsRef.current) if (!it.boss && !it.bounced) it.push = dir * (0.55 + Math.random() * 0.25);
+        shakeArena(); SFX.boom(); buzz([80, 40, 80]);
+        showFlash("🦖 ROOOAAAR! Everything got blown away!");
+        setTimeout(() => {
+          setTrex((t) => (t && t.key === key ? { ...t, stage: "leave" } : t));
+          setTimeout(() => setTrex((t) => (t && t.key === key ? null : t)), 450);
+        }, TREX_ROAR_MS);
+      }, TREX_PEEK_MS);
+    } else if (type === "trailer") {
+      // Coming attractions: a trailer card, then a corn dog rain worth double points.
+      const key = ++idRef.current;
+      setTrailer({ key, lines: TRAILER_LINES[Math.floor(Math.random() * TRAILER_LINES.length)] });
+      trailerRef.current = { from: now + TRAILER_CARD_MS, until: now + TRAILER_CARD_MS + TRAILER_RAIN_MS };
+      SFX.projector?.();
+      setTimeout(() => {
+        setTrailer((t) => (t && t.key === key ? null : t));
+        if (aliveRef.current) showFlash("🌭 Now showing: corn dogs! +2 each");
+      }, TRAILER_CARD_MS);
+    } else if (type === "burn") {
+      // The film catches fire: a hole burns open, and pieces fall through it.
+      const x = 70 + Math.random() * Math.max(10, W - 140), y = H * (0.22 + Math.random() * 0.25);
+      burnRef.current = { x, y, start: now, until: now + BURN_MS };
+      setBurn({ key: ++idRef.current, x, y });
+      showFlash("🔥 Film burn! Pieces fall through the hole"); buzz(30);
+    } else if (type === "boss") {
+      const x = W / 2;
+      itemsRef.current.push({ id: ++idRef.current, kind: "boss", label: "Kernel boss", boss: true, hp: BOSS_HP, variant: 0,
+        x, baseX: x, y: -BOSS_SIZE / 2, vy: (H + BOSS_SIZE) / BOSS_FALL_MS, vx: 0, born: now, angle: 0, spin: 0, hitAt: 0 });
+      shakeArena(); SFX.wrong(); buzz([60, 30, 60]);
+      showFlash("👊 KERNEL BOSS! Zap it 3 times before it lands!", true);
+    }
+  };
+  const hitBoss = (b, dmg, byRocket = false) => {
+    b.hp -= dmg; b.hitAt = Date.now(); b.variant = Math.min(2, BOSS_HP - Math.max(0, b.hp));
+    const dbl = boostRef.current?.type === "double" && Date.now() <= boostRef.current.until ? 2 : 1;
+    if (b.hp > 0) {
+      if (!byRocket) explode(b.x, b.y);
+      scoreRef.current += 2 * dbl; setScore(scoreRef.current);
+      showFlash(`💥 Crack! ${b.hp} more hit${b.hp === 1 ? "" : "s"}! +${2 * dbl}`);
+      return;
+    }
+    // Defeated: it bursts into a shower of popcorn to catch.
+    itemsRef.current = itemsRef.current.filter((it) => it !== b);
+    if (!byRocket) explode(b.x, b.y, true);
+    shakeArena();
+    const H = arenaRef.current?.clientHeight || 500;
+    for (let i = 0; i < 12; i++) {
+      itemsRef.current.push({ id: ++idRef.current, kind: "popcorn", label: "Popcorn", x: b.x + (Math.random() * 2 - 1) * 40, baseX: b.x,
+        y: b.y + (Math.random() * 2 - 1) * 30, vy: (H / 3200) * (0.7 + Math.random() * 0.6), vx: (Math.random() * 2 - 1) * 0.12, born: Date.now(),
+        variant: Math.floor(Math.random() * 12), angle: Math.floor(Math.random() * 360), spin: (Math.random() * 2 - 1) * 0.3 });
+    }
+    scoreRef.current += 10 * dbl; setScore(scoreRef.current);
+    showFlash(`🍿 KERNEL BOSS POPPED! +${10 * dbl}`); SFX.complete(); buzz([30, 30, 30, 30, 60]);
+  };
+  const bossLands = () => {
+    itemsRef.current = itemsRef.current.filter((it) => !it.boss);
+    shakeArena();
+    comboRef.current = 0; setCombo(0); frenzyRunRef.current = 0;
+    if (boostRef.current?.type === "shield" && Date.now() <= boostRef.current.until) { showFlash("🛡️ Shield blocked the kernel boss!"); SFX.hint(); return; }
+    const fell = toppleNachos();
+    livesRef.current -= 1; setLives(livesRef.current);
+    showFlash("👊 The kernel boss smashed through! −1 life" + (fell ? " · Nacho tower toppled!" : ""), true);
+    SFX.wrong(); buzz([120, 60, 120]);
+    if (livesRef.current <= 0) finishRef.current?.();
+  };
+  // Box office jackpot: three reels spin; three of a kind wins big.
+  const spinJackpot = () => {
+    const pick = () => JACKPOT_SYMBOLS[Math.floor(Math.random() * JACKPOT_SYMBOLS.length)];
+    const a = pick(), b = Math.random() < 0.5 ? a : pick(), c = Math.random() < 0.5 ? a : pick();
+    const reels = [a, b, c];
+    const same = a === b && b === c ? 3 : a === b || b === c || a === c ? 2 : 1;
+    const key = ++idRef.current;
+    setJackpot({ key, reels, win: same, done: false });
+    showFlash("🎰 Box office jackpot! Spinning…");
+    setTimeout(() => {
+      if (!aliveRef.current) return;
+      const now = Date.now();
+      const dbl = boostRef.current?.type === "double" && now <= boostRef.current.until ? 2 : 1;
+      let pts = same === 3 ? 25 : same === 2 ? 8 : 3, extra = "";
+      if (same === 3) {
+        if (a === "popcorn") { frenzyUntilRef.current = now + FRENZY_MS; setFrenzy(true); extra = " + Popcorn Frenzy"; }
+        if (a === "ticket") { boostRef.current = { type: "vip", until: now + VIP_MS }; setBoost(boostRef.current);
+          for (const p of itemsRef.current) if (ARCADE_KIND[p.kind]?.bad && !p.boss) { p.kind = "popcorn"; p.label = "Popcorn"; p.vip = true; } extra = " + VIP"; }
+        if (a === "reel") { if (livesRef.current < ARCADE_LIVES) { livesRef.current += 1; setLives(livesRef.current); extra = " + 1 life"; } }
+        if (a === "rocket") { rocketsRef.current = Math.min(ROCKET_MAX, rocketsRef.current + 1); setRockets(rocketsRef.current); extra = " + a rocket"; }
+        SFX.complete(); buzz([20, 30, 20, 30, 60]);
+      } else SFX.badge();
+      scoreRef.current += pts * dbl; setScore(scoreRef.current);
+      showFlash(same === 3 ? `🎰 JACKPOT! Blockbuster! +${pts * dbl}${extra}` : same === 2 ? `🎬 Two of a kind: a hit! +${pts * dbl}` : `🎬 Box office flop… +${pts * dbl}`);
+      setJackpot((j) => (j && j.key === key ? { ...j, done: true } : j));
+      setTimeout(() => setJackpot((j) => (j && j.key === key ? null : j)), 1400);
+    }, 1700);
+  };
+  useEffect(() => {
+    if (!shake) return;
+    const t = setTimeout(() => setShake(null), 500);
+    return () => clearTimeout(t);
+  }, [shake]);
+  useEffect(() => {
+    if (!toppled) return;
+    const t = setTimeout(() => setToppled(null), 800);
+    return () => clearTimeout(t);
+  }, [toppled]);
+
   const catchItem = (it) => {
     const active = boostRef.current && Date.now() <= boostRef.current.until ? boostRef.current.type : null;
     const info = ARCADE_KIND[it.kind] || {};
@@ -5521,7 +5790,13 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
       const c = comboRef.current + 1;
       comboRef.current = c;
       setCombo(c);
-      const mult = comboMultiplier(c) * (active === "double" ? 2 : 1);
+      // Buttered catches score double (owner pick 2026-11-06).
+      const buttered = butterRef.current > 0 && it.kind !== "butter";
+      if (buttered) { butterRef.current -= 1; setButter(butterRef.current); }
+      const mult = comboMultiplier(c) * (active === "double" ? 2 : 1) * (buttered ? 2 : 1);
+      if (nachoRef.current.until > now && it.kind !== "nacho" && nachoRef.current.chips < NACHO_MAX) {
+        nachoRef.current.chips += 1; setNacho({ ...nachoRef.current });
+      }
       scoreRef.current += info.good * mult;
       setScore(scoreRef.current);
       SFX.comboNote(Math.min(c - 1, 14)); buzz(12);
@@ -5529,9 +5804,18 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
       if (it.kind === "ticket") {
         // VIP screening: everything on screen, and everything that falls for 5 s, is popcorn.
         boostRef.current = { type: "vip", until: now + VIP_MS }; setBoost(boostRef.current);
-        for (const p of itemsRef.current) if (ARCADE_KIND[p.kind]?.bad) { p.kind = "popcorn"; p.label = "Popcorn"; p.vip = true; }
+        for (const p of itemsRef.current) if (ARCADE_KIND[p.kind]?.bad && !p.boss) { p.kind = "popcorn"; p.label = "Popcorn"; p.vip = true; }
         showFlash(`🎟️ Golden ticket! +${info.good * mult} · VIP: it's all popcorn!`);
       }
+      if (it.kind === "butter") {
+        butterRef.current = BUTTER_CATCHES; setButter(BUTTER_CATCHES); slideRef.current.v = 0;
+        showFlash(`🧈 Buttered! The next ${BUTTER_CATCHES} catches score double… slippery!`); SFX.badge(); buzz([15, 30, 15]);
+      }
+      if (it.kind === "nacho") {
+        nachoRef.current = { until: now + NACHO_MS, chips: 0 }; setNacho({ ...nachoRef.current });
+        showFlash("🧀 Nacho tower! Stack chips, but don't let a bad bit knock it over"); SFX.badge(); buzz([15, 30, 15]);
+      }
+      if (it.kind === "canister") spinJackpot();
       if (it.kind === "reel") {
         if (livesRef.current < ARCADE_LIVES) {
           livesRef.current += 1; setLives(livesRef.current);
@@ -5616,9 +5900,10 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
     // A bad piece: the combo breaks, and a life is lost unless shielded.
     comboRef.current = 0; setCombo(0); frenzyRunRef.current = 0;
     if (active === "shield") { showFlash("🛡️ Blocked!"); SFX.hint(); return; }
+    const fell = toppleNachos();
     livesRef.current -= 1;
     setLives(livesRef.current);
-    showFlash({ burnt: "Burnt! −1 life", unpopped: "Unpopped! −1 life", phone: "📵 Phones off in the theatre! −1 life", bat: "🦇 Bitten! −1 life" }[it.kind] || "Ouch! −1 life", true);
+    showFlash(({ burnt: "Burnt! −1 life", unpopped: "Unpopped! −1 life", phone: "📵 Phones off in the theatre! −1 life", bat: "🦇 Bitten! −1 life" }[it.kind] || "Ouch! −1 life") + (fell ? " · Nacho tower toppled!" : ""), true);
     // Negative haptic: a long, harsh double buzz (Android; iPhones don't allow web vibration).
     SFX.wrong(); buzz([120, 60, 120]);
     if (livesRef.current <= 0) finishRef.current?.();
@@ -5676,6 +5961,8 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
             {boost && <span aria-label="Active boost" style={{...YELLOW_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>{boost.type === "shield" ? "🛡️ Shield" : boost.type === "slow" ? "🕶️ Slow-mo" : boost.type === "vip" ? "🎟️ VIP" : "⚡ Double"}</span>}
             {frozen && <span aria-label="Brain freeze" style={{...YELLOW_STICKER_TEXT,fontSize:12,textTransform:"uppercase",color:"#9FE0FF"}}>🥶 Freeze</span>}
             {wide && <span aria-label="Mega bucket" style={{...YELLOW_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>🪱 Mega</span>}
+            {butter > 0 && <span aria-label={`Buttered catches: ${butter}`} style={{...YELLOW_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>🧈 ×2 for {butter}</span>}
+            {nacho && <span aria-label={`Nacho chips: ${nacho.chips}`} style={{...YELLOW_STICKER_TEXT,fontSize:12,textTransform:"uppercase",color:"#FFB23E"}}>🧀 {nacho.chips} chip{nacho.chips === 1 ? "" : "s"}</span>}
           </div>
         )}
         {phase === "playing" && flash && (
@@ -5715,19 +6002,36 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
           </div>
         )}
       </div>
+      {/* Post-credits scene (owner pick 2026-11-06): sometimes the T-rex sweeps up after the show. */}
+      {phase === "done" && postCredits && (
+        <div role="img" aria-label="Post-credits scene" style={{position:"absolute",left:-150,bottom:6,width:130,height:122,pointerEvents:"none",zIndex:1,
+          animation:reducedMotion ? "none" : "janitorWalk 9s linear 1.2s both"}}>
+          <div style={{position:"absolute",left:"50%",top:-16,transform:"translateX(-50%)",whiteSpace:"nowrap",...WHITE_STICKER_TEXT,fontSize:9,letterSpacing:"0.15em",opacity:0.85}}>POST-CREDITS SCENE</div>
+          <img src={`${ARCADE_ART}trex-janitor.webp`} alt="" draggable="false" style={{width:"100%",height:"100%",objectFit:"contain",
+            animation:reducedMotion ? "none" : "janitorBob 0.5s ease-in-out infinite"}}/>
+        </div>
+      )}
       {phase === "playing" && (
         <div ref={arenaRef} aria-label="Popcorn arena"
           onPointerDown={onArenaDown} onPointerMove={(e) => moveBucket(e.clientX)} onPointerUp={onArenaUp}
-          style={{position:"absolute",left:0,right:0,top:210,bottom:0,touchAction:"none",overflow:"hidden",cursor:"grab"}}>
-          {items.map((it) => (
-            <div key={it.id} role="img" aria-label={it.label}
-              style={{position:"absolute",left:it.x - (it.kind === "unpopped" ? 18 : 23),top:it.y - (it.kind === "unpopped" ? 18 : 23),
-                width:it.kind === "unpopped" ? 36 : 46,height:it.kind === "unpopped" ? 36 : 46,pointerEvents:"none",
-                transform:`rotate(${it.angle}deg)`,filter:it.frozen ? "drop-shadow(0 0 6px #9FE0FF) saturate(0.4) brightness(1.15) hue-rotate(170deg)" : "drop-shadow(0 3px 0 rgba(28,29,33,0.6))"}}>
-              <ArcadeItemArt kind={it.kind} color={it.color} variant={it.variant}/>
+          style={{position:"absolute",left:0,right:0,top:210,bottom:0,touchAction:"none",overflow:"hidden",cursor:"grab",
+            animation:shake && !reducedMotion ? `${shake.key % 2 ? "arcadeShakeA" : "arcadeShakeB"} 0.45s ease` : "none"}}>
+          {items.map((it) => {
+            const size = it.boss ? BOSS_SIZE : it.kind === "unpopped" ? 36 : ARCADE_IMG_KINDS[it.kind] ? 56 : 46;
+            return (
+            <div key={it.id} role="img" aria-label={it.label} data-boss-hp={it.boss ? it.hp : undefined}
+              style={{position:"absolute",left:it.x - size / 2,top:it.y - size / 2,
+                width:size,height:size,pointerEvents:"none",zIndex:it.boss ? 3 : undefined,
+                transform:it.boss ? "none" : `rotate(${ARCADE_IMG_KINDS[it.kind] ? Math.sin(it.angle / 40) * 18 : it.angle}deg)`,filter:it.frozen ? "drop-shadow(0 0 6px #9FE0FF) saturate(0.4) brightness(1.15) hue-rotate(170deg)" : "drop-shadow(0 3px 0 rgba(28,29,33,0.6))"}}>
+              {it.boss ? (
+                <div key={`${it.variant}-${it.hitAt}`} style={{width:"100%",height:"100%",animation:reducedMotion ? "none" : it.hitAt ? "bossHit 0.35s ease-out both" : "bossSway 1.6s ease-in-out infinite"}}>
+                  <ArcadeItemArt kind="boss" variant={it.variant}/>
+                </div>
+              ) : <ArcadeItemArt kind={it.kind} color={it.color} variant={it.variant}/>}
               {it.frozen && <span aria-hidden="true" style={{position:"absolute",inset:-4,borderRadius:12,background:"rgba(170,230,255,0.35)",border:"2px solid rgba(220,245,255,0.9)"}}/>}
             </div>
-          ))}
+            );
+          })}
           {beams.map((b) => (
             <div key={b.id} data-laser="" aria-hidden="true" style={{position:"absolute",left:b.x - 4,top:0,bottom:BUCKET_H - 8,width:8,borderRadius:4,
               background:"linear-gradient(90deg, rgba(255,40,80,0.2), #FF2E63 30%, #FFF 50%, #FF2E63 70%, rgba(255,40,80,0.2))",
@@ -5812,7 +6116,87 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
           <div aria-hidden="true" style={{position:"absolute",width:1,height:1,overflow:"hidden",opacity:0,pointerEvents:"none"}}>
             {["arm-hold", "arm-empty", "rocket", "exhaust", "explosion"].map((n) => <img key={n} src={`/stickers/rocket/${n}.webp`} alt="" width="1" height="1"/>)}
           </div>
-          {bucketX !== null && <PopcornBox x={bucketX} charged={laser > 0} catches={catches} reducedMotion={reducedMotion} wide={wide} launch={launch} jaw={jaw > 0}/>}
+          {burn && (
+            <div key={burn.key} data-film-burn="" aria-label="Film burn" role="img" style={{position:"absolute",left:burn.x,top:burn.y,width:0,height:0,pointerEvents:"none",zIndex:2}}>
+              <svg viewBox="-100 -100 200 200" width={BURN_R * 2.7} height={BURN_R * 2.7}
+                style={{position:"absolute",left:0,top:0,overflow:"visible",animation:reducedMotion ? "none" : `burnLife ${BURN_MS}ms ease-in-out both`,transform:"translate(-50%,-50%)"}}>
+                <defs>
+                  <filter id={`burn-edge-${burn.key}`} x="-30%" y="-30%" width="160%" height="160%">
+                    <feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="3" seed={burn.key % 97}/>
+                    <feDisplacementMap in="SourceGraphic" scale="34" xChannelSelector="R" yChannelSelector="G"/>
+                  </filter>
+                  <radialGradient id={`burn-glow-${burn.key}`}>
+                    <stop offset="0" stopColor="#FFFFFF"/><stop offset="0.42" stopColor="#FFF7DA"/><stop offset="0.56" stopColor="#FFD45C"/>
+                    <stop offset="0.66" stopColor="#FF8A1F"/><stop offset="0.74" stopColor="#C2380E"/><stop offset="0.8" stopColor="#3B1606"/>
+                    <stop offset="0.9" stopColor="#1C0C04" stopOpacity="0.85"/><stop offset="1" stopColor="#1C0C04" stopOpacity="0"/>
+                  </radialGradient>
+                </defs>
+                <g filter={`url(#burn-edge-${burn.key})`} style={{animation:reducedMotion ? "none" : "burnFlicker 0.18s steps(2) infinite"}}>
+                  <circle r="78" fill={`url(#burn-glow-${burn.key})`}/>
+                </g>
+              </svg>
+            </div>
+          )}
+          {trailer && (
+            <div key={trailer.key} role="status" aria-label="Coming attractions" style={{position:"absolute",left:0,right:0,top:0,height:"46%",zIndex:6,pointerEvents:"none",
+              animation:reducedMotion ? "none" : `trailerOut ${TRAILER_CARD_MS}ms ease both`}}>
+              <div style={{position:"absolute",inset:0,background:"#07070B",transformOrigin:"50% 0",animation:reducedMotion ? "none" : "trailerBars 0.28s cubic-bezier(.2,.9,.3,1) both",
+                boxShadow:"0 10px 0 #000, 0 14px 24px rgba(0,0,0,0.5)",backgroundImage:"repeating-linear-gradient(0deg, rgba(255,255,255,0.025) 0 2px, transparent 2px 4px)"}}/>
+              <div style={{position:"relative",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12,padding:"0 18px",textAlign:"center"}}>
+                <div style={{...YELLOW_STICKER_TEXT,fontSize:11,letterSpacing:"0.3em",textTransform:"uppercase",opacity:0.9}}>Coming attractions</div>
+                <div style={{...WHITE_STICKER_TEXT,fontSize:22,textTransform:"uppercase",animation:reducedMotion ? "none" : "comingLine 0.6s ease-out 0.25s both"}}>{trailer.lines[0]}</div>
+                <div style={{...WHITE_STICKER_TEXT,fontSize:17,textTransform:"uppercase",color:"#FFD84D",animation:reducedMotion ? "none" : "comingLine 0.6s ease-out 1.05s both"}}>{trailer.lines[1]}</div>
+              </div>
+            </div>
+          )}
+          {trex && (() => {
+            const roar = trex.stage !== "peek";
+            const h = roar ? 200 : 196, w = roar ? h * 520 / 408 : h * 482 / 520;
+            return (
+              <div key={trex.key} role="img" aria-label={roar ? "T-rex roaring" : "T-rex peeking"} data-trex={trex.stage}
+                style={{position:"absolute",top:"20%",[trex.side]:0,width:w,height:h,zIndex:5,pointerEvents:"none",transform:trex.side === "right" ? "scaleX(-1)" : "none"}}>
+                {roar && !reducedMotion && trex.stage === "roar" && [0, 1, 2, 3, 4].map((i) => (
+                  <span key={i} aria-hidden="true" style={{position:"absolute",left:w * 0.72,top:h * 0.4,width:640,height:640,borderRadius:"50%",
+                    border:"14px solid #FFFFFF",boxShadow:"0 0 0 5px #FFD84D, inset 0 0 0 5px #FFD84D, 0 0 30px 8px rgba(255,255,255,0.6)",
+                    clipPath:"polygon(50% 50%, 100% 8%, 100% 92%)",animation:`soundWave 0.85s cubic-bezier(.2,.7,.4,1) ${i * 0.16}s both`}}/>
+                ))}
+                <img src={`${ARCADE_ART}${roar ? "trex-roar" : "trex-peek"}.webp`} alt="" draggable="false"
+                  style={{position:"absolute",left:0,top:0,width:w,height:h,filter:"drop-shadow(0 4px 0 rgba(28,29,33,0.5))",
+                    animation:reducedMotion ? "none" : trex.stage === "peek" ? `trexPeek ${TREX_PEEK_MS}ms cubic-bezier(.3,1.2,.5,1) both`
+                      : trex.stage === "roar" ? "trexRoar 0.6s ease-out both" : "trexLeave 0.45s ease-in both"}}/>
+              </div>
+            );
+          })()}
+          {jackpot && (
+            <div key={jackpot.key} role="status" aria-label={jackpot.done ? `Jackpot: ${jackpot.reels.join(", ")}` : "Jackpot spinning"}
+              style={{position:"absolute",left:"50%",top:14,zIndex:6,pointerEvents:"none",padding:"8px 10px 10px",borderRadius:16,
+                background:"linear-gradient(180deg,#FFE27A,#E7A51C)",border:"3px solid #1C1D21",
+                animation:reducedMotion ? "none" : `jackpotIn 0.35s cubic-bezier(.3,1.5,.5,1) both${jackpot.done && jackpot.win === 3 ? ", jackpotWin 0.5s ease-in-out infinite" : ""}`,
+                transform:"translateX(-50%)"}}>
+              <img src={`${ARCADE_ART}film-canister.webp`} alt="" draggable="false" style={{position:"absolute",left:-30,top:-26,width:58,height:54,transform:"rotate(-14deg)"}}/>
+              <div style={{display:"flex",gap:6}}>
+                {jackpot.reels.map((sym, i) => {
+                  const strip = [...Array.from({length:7}, (_, k) => JACKPOT_SYMBOLS[(k + i * 2 + jackpot.key) % JACKPOT_SYMBOLS.length]), sym];
+                  return (
+                    <div key={i} style={{width:52,height:52,overflow:"hidden",borderRadius:9,background:"#FFF8E6",border:"2.5px solid #1C1D21",boxShadow:"inset 0 6px 8px rgba(0,0,0,0.25)"}}>
+                      <div style={{"--end":`${-(strip.length - 1) * 52}px`,transform:`translateY(${-(strip.length - 1) * 52}px)`,
+                        animation:reducedMotion ? "none" : `reelStop ${0.9 + i * 0.35}s cubic-bezier(.15,.6,.25,1.06) both`}}>
+                        {strip.map((k, j) => <div key={j} style={{width:52,height:52,padding:7,boxSizing:"border-box"}}><ArcadeItemArt kind={k} variant={j}/></div>)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {toppled && !reducedMotion && Array.from({length:toppled.chips}).map((_, i) => (
+            <img key={`${toppled.key}-${i}`} src={`${ARCADE_ART}nacho-chip.webp`} alt="" aria-hidden="true" draggable="false"
+              style={{position:"absolute",left:toppled.x - 24,bottom:BUCKET_H + i * 12,width:48,height:45,pointerEvents:"none",zIndex:4,
+                "--dx":`${(i % 2 ? 1 : -1) * (60 + i * 18)}px`,"--dy":`${-40 + i * 25}px`,"--rot":`${(i % 2 ? 1 : -1) * (200 + i * 40)}deg`,
+                animation:"chipFly 0.75s cubic-bezier(.2,.7,.4,1) both"}}/>
+          ))}
+          {bucketX !== null && <PopcornBox x={bucketX} charged={laser > 0} catches={catches} reducedMotion={reducedMotion} wide={wide} launch={launch} jaw={jaw > 0}
+            buttered={butter > 0} chips={nacho ? nacho.chips : 0}/>}
           {bucketX !== null && showSlideHint && (
             <div aria-hidden="true" style={{position:"absolute",left:bucketX,bottom:BUCKET_H + 14,transform:"translateX(-50%)",...WHITE_STICKER_TEXT,fontSize:13,whiteSpace:"nowrap",pointerEvents:"none",animation:reducedMotion?"none":"pulse 1.2s ease-in-out infinite"}}>
               ← slide · tap to zap →

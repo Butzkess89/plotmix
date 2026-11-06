@@ -392,7 +392,11 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
   // Fix Math.random so every piece is the same kind and falls in the same spot
   // (0.1 = popcorn, 0.7 = unpopped kernel, 0.887 = chocolate candy; others below).
   const fixRandom = (page, v) => page.evaluate((x) => { Math.random = () => x }, v)
-  const fixRandomOnLoad = (page, v) => page.addInitScript((x) => { Math.random = () => x }, v)
+  // Fixed "random" numbers make a play repeatable; the timed surprises (T-rex, trailer, film
+  // burn, kernel boss) are switched off so they can't knock pieces about mid-test.
+  const fixRandomOnLoad = (page, v) => page.addInitScript((x) => { Math.random = () => x; window.__noArcadeEvents = true }, v)
+  // Jump the game clock forward, to reach a timed surprise without waiting for it.
+  const skewClock = (page) => page.addInitScript(() => { const real = Date.now; window.__skew = 0; Date.now = () => real() + window.__skew })
   async function holdBoxUnderFirst(page, name) {
     const p = typeof name === 'string' ? piece(page, name) : page.getByRole('img', { name }).first()
     await expect(p).toBeAttached({ timeout: 10_000 })
@@ -531,6 +535,56 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
     await expect.poll(() => page.evaluate(() => window.__events.join(' | ')), { timeout: 10_000 }).toMatch(/KABOOM! \d+ blasted/)
   })
 
+
+  // Owner picks 2026-11-06, drawn by the owner.
+  test('butter: the next 10 catches score double, and butter drips over the bucket', async ({ page }) => {
+    await fixRandomOnLoad(page, 0.005) // only butter falls
+    await startGame(page)
+    await holdBoxUnderFirst(page, 'Butter drop')
+    await expect(page.getByLabel('Arcade event')).toContainText('Buttered!', { timeout: 15_000 })
+    await expect(page.getByLabel(/^Buttered catches: \d+$/)).toBeVisible()
+    await expect(page.locator('[data-butter]').first()).toBeVisible()
+  })
+
+  test('nacho cheese starts a chip tower on the bucket', async ({ page }) => {
+    await fixRandomOnLoad(page, 0.02) // only nacho cheese falls
+    await startGame(page)
+    await holdBoxUnderFirst(page, 'Nacho cheese')
+    await expect(page.getByLabel('Arcade event')).toContainText('Nacho tower!', { timeout: 15_000 })
+    await expect(page.getByLabel(/^Nacho chips: \d+$/)).toBeVisible()
+  })
+
+  test('the golden film canister spins the jackpot reels', async ({ page }) => {
+    await fixRandomOnLoad(page, 0.03) // only canisters fall, and every reel stops on the same symbol
+    await startGame(page)
+    await holdBoxUnderFirst(page, 'Golden film canister')
+    await expect(page.getByLabel('Jackpot spinning')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByLabel('Arcade event')).toContainText('JACKPOT!', { timeout: 5_000 })
+  })
+
+  test('the T-rex peeks in, then roars', async ({ page }) => {
+    await skewClock(page)
+    await startGame(page)
+    await expect(page.getByLabel('Popcorn arena')).toBeVisible()
+    await page.evaluate(() => { window.__skew = 8_000 })
+    // The T-rex comes in one of the first three surprise slots.
+    for (const jump of [0, 8_000, 7_000]) {
+      await page.evaluate((j) => { window.__skew += j }, jump)
+      if (await page.getByLabel('T-rex peeking').isVisible({ timeout: 3_000 }).catch(() => false)) break
+    }
+    await expect(page.getByLabel('T-rex roaring')).toBeVisible({ timeout: 3_000 })
+  })
+
+  test('with 15 seconds left the kernel boss drops in, needing 3 hits', async ({ page }) => {
+    await skewClock(page)
+    await page.addInitScript(() => { window.__noArcadeEvents = false })
+    await startGame(page)
+    await expect(page.getByLabel('Popcorn arena')).toBeVisible()
+    await page.evaluate(() => { window.__skew = 29_500 })
+    const boss = page.getByRole('img', { name: 'Kernel boss' })
+    await expect(boss).toBeVisible({ timeout: 5_000 })
+    await expect(boss).toHaveAttribute('data-boss-hp', '3')
+  })
 
   test('the bucket fills one step with every popcorn caught', async ({ page }) => {
     await fixRandomOnLoad(page, 0.1)
