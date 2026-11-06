@@ -566,12 +566,14 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
     await skewClock(page)
     await startGame(page)
     await expect(page.getByLabel('Popcorn arena')).toBeVisible()
-    await page.evaluate(() => { window.__skew = 8_000 })
-    // The T-rex comes in one of the first three surprise slots.
-    for (const jump of [0, 8_000, 7_000]) {
-      await page.evaluate((j) => { window.__skew += j }, jump)
-      if (await page.getByLabel('T-rex peeking').isVisible({ timeout: 3_000 }).catch(() => false)) break
-    }
+    // The T-rex comes in one of the first three surprise slots (about 9s, 17s or 24s in).
+    // Walk the game clock forward a second at a time until he shows up, so no slot is skipped.
+    await page.evaluate(() => { window.__skew = 7_000 })
+    await expect.poll(async () => {
+      if (await page.locator('[data-trex]').count()) return true
+      await page.evaluate(() => { window.__skew += 1_000 })
+      return false
+    }, { timeout: 30_000, intervals: [250] }).toBe(true)
     await expect(page.getByLabel('T-rex roaring')).toBeVisible({ timeout: 3_000 })
   })
 
