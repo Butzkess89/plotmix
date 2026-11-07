@@ -3077,12 +3077,14 @@ function ModeSelect({onSelect, onArcade}) {
   const [sessions,setSessions]=useState(()=>loadAllSessionsList());
   const passes=arcadePasses();
   const dailyDone=hasDoneDaily();
-  const mostRecentSession = sessions[0];
+  // Owner 2026-11-06: no big Resume button. A small RESUME tab hangs off the card of the
+  // game you left (Daily or Standard). Speed Run is one sitting, so it never offers one.
+  const resumable = Object.fromEntries(sessions.filter(s=>s.modeId!=="speedrun").map(s=>[s.modeId,s]));
   const byId = Object.fromEntries(GAME_MODES.map(m=>[m.id,m]));
 
   return (
     <div style={{minHeight:"100dvh",...CHECKER_BG,display:"flex",justifyContent:"center",alignItems:"flex-start"}}>
-      <div style={{position:"relative",width:"min(402px, calc(100dvh * 402 / 874))",height:"min(874px, 100dvh)"}}>
+      <div style={{position:"relative",width:"min(402px, calc(100dvh * 402 / 874))",height:"min(874px, 100dvh)",containerType:"inline-size"}}>
         <div style={{position:"absolute",inset:0}}
           dangerouslySetInnerHTML={{__html:
             `<svg viewBox="0 0 402 874" width="100%" height="100%" fill="none" preserveAspectRatio="xMidYMin meet" xmlns="http://www.w3.org/2000/svg" style="display:block">${MODESELECT_ART}</svg>`}}/>
@@ -3106,12 +3108,32 @@ function ModeSelect({onSelect, onArcade}) {
           );
         })}
 
+        {MODE_CARD_HITS.map((hit,i)=>{
+          const saved = resumable[MODE_CARD_ORDER[i]];
+          if(!saved) return null;
+          const u = n => `${n/402*100}cqw`;
+          return (
+            <button key={`resume-${saved.modeId}`} onClick={()=>onSelect(null,saved.modeId)} aria-label="Resume Game"
+              title={`Resume at film ${saved.cardIdx+1} of ${saved.deckLen}`}
+              style={{position:"absolute",zIndex:4,
+                right:`${(402-hit.left-hit.w+14)/402*100}%`, top:`calc(${(hit.top+hit.h)/874*100}% - ${u(13)})`,
+                height:u(26),padding:`0 ${u(10)} 0 ${u(8)}`,display:"flex",alignItems:"center",gap:u(5),
+                background:T.blue,border:"2px solid #1C1D21",borderRadius:u(13),boxShadow:"0 3px 0 #1C1D21",cursor:"pointer",
+                transform:"rotate(-3deg)"}}>
+              <span aria-hidden="true" style={{fontSize:u(12),lineHeight:1}}>🔥</span>
+              <span style={{...WHITE_STICKER_TEXT,fontFamily:FONT_FIGMA_STICKER,fontSize:u(11),lineHeight:1,letterSpacing:"0.02em"}}>RESUME</span>
+              <span style={{fontFamily:"'Outfit',sans-serif",fontWeight:800,fontSize:u(10.5),lineHeight:1,color:"#1C1D21",
+                background:"#FFF8E6",border:"1.5px solid #1C1D21",borderRadius:u(8),padding:`${u(1.5)} ${u(5)}`}}>{saved.cardIdx+1}/{saved.deckLen}</span>
+            </button>
+          );
+        })}
+
         {/* Popcorn Panic sits under Speed Run (owner request 2026-10-25): plays are won by
             solving 5 mashups in a row in Standard or Speed Run. */}
         {/* Owner 2026-11-05: the T-rex and an overflowing POPCORN PANIC bucket sit side by side
-            (T-rex left, bucket right) in the gap between Speed Run and Resume Game, both as big as
+            (T-rex left, bucket right) in the gap between Speed Run and the corner buttons, both as big as
             that gap allows, so neither covers a button on shorter phones. */}
-        <div style={{position:"absolute",left:16,right:16,top:`${566/874*100}%`,bottom:mostRecentSession?"calc(1.7% + 90px)":"calc(2% + 58px)",
+        <div style={{position:"absolute",left:16,right:16,top:`${566/874*100}%`,bottom:"calc(2% + 58px)",
           display:"flex",alignItems:"center",justifyContent:"space-evenly",gap:8,zIndex:3,pointerEvents:"none",containerType:"size"}}>
           <img
             src="/stickers/Happy.webp"
@@ -3142,13 +3164,6 @@ function ModeSelect({onSelect, onArcade}) {
           </button>
         </div>
 
-        {mostRecentSession&&(
-          <button onClick={()=>onSelect(null,mostRecentSession.modeId)} aria-label="Resume Game"
-            style={{position:"absolute",bottom:"1.7%",left:"50%",transform:"translateX(-50%)",width:242,height:82,...BTN.cyan,padding:0,display:"flex",alignItems:"center",justifyContent:"center",gap:12,cursor:"pointer"}}>
-            <span aria-hidden="true" style={{fontSize:30,lineHeight:1,filter:"drop-shadow(0 2px 0 #1C1D21)"}}>🔥</span>
-            <span style={{...WHITE_STICKER_TEXT,fontFamily:FONT_FIGMA_STICKER,fontSize:15.5,letterSpacing:"0.01em",textTransform:"uppercase",lineHeight:1}}>Resume Game</span>
-          </button>
-        )}
       </div>
     </div>
   );
