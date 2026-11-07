@@ -145,18 +145,26 @@ test.describe('Menu layout', () => {
       await resumeStandardWithCards(page, [77])
       await submitGuess(page, 'zzqxwrong')
       await waitForSave(page, 'standard', (st) => st.guesses.length === 1)
-      await openMenu(page) // reload: the saved game puts Resume Game on the menu
-      await expect(page.getByRole('button', { name: 'Resume Game' })).toBeVisible()
+      await openMenu(page) // reload: the saved game puts a small RESUME tab on Standard Mode
+      const resumeBtn = page.getByRole('button', { name: 'Resume Game' })
+      await expect(resumeBtn).toHaveCount(1)
+      await expect(resumeBtn).toContainText('1/')
       const rex = await page.locator('img[src="/stickers/Happy.webp"]').boundingBox()
       const pop = await page.getByRole('button', { name: 'Popcorn Panic', exact: true }).boundingBox()
-      const resume = await page.getByRole('button', { name: 'Resume Game' }).boundingBox()
-      // Side by side (owner 2026-11-05): T-rex on the left, Popcorn Panic bucket on the right.
+      const resume = await resumeBtn.boundingBox()
+      const standard = await page.getByRole('button', { name: 'Standard Mode' }).boundingBox()
       const speed = await page.getByRole('button', { name: 'Speed Run' }).boundingBox()
+      const sound = await page.getByRole('button', { name: /sound/i }).boundingBox()
+      // The tab hangs off Standard Mode's bottom edge and stays clear of Speed Run.
+      expect(resume.y).toBeLessThan(standard.y + standard.height)
+      expect(resume.y + resume.height).toBeLessThanOrEqual(speed.y + 2)
+      expect(resume.x + resume.width).toBeLessThanOrEqual(standard.x + standard.width)
+      // Side by side (owner 2026-11-05): T-rex on the left, Popcorn Panic bucket on the right.
       expect(rex.height).toBeGreaterThan(60)
       expect(rex.x + rex.width).toBeLessThanOrEqual(pop.x + 1)
       for (const b of [rex, pop]) {
         expect(b.y).toBeGreaterThanOrEqual(speed.y + speed.height - 8) // the T-rex floats a few px
-        expect(b.y + b.height).toBeLessThanOrEqual(resume.y)
+        expect(b.y + b.height).toBeLessThanOrEqual(sound.y)
       }
     })
   }
