@@ -357,7 +357,8 @@ test.describe('Arcade side-quest: Popcorn Panic', () => {
     await expect(offer).toBeVisible()
     await page.waitForTimeout(4000)
     await expect(offer).toBeVisible()
-    await expect(offer).toContainText("You've solved 5 PlotMixes in a row!")
+    await expect(offer.getByRole('heading', { name: "You've solved 5 PlotMixes in a row!" })).toBeVisible()
+    await expect(offer).toContainText('You\'ve earned a round of Popcorn Panic!')
     await expect(offer).toContainText('Badge unlocked: Box Office Smash')
     await expect(page.getByRole('button', { name: /Play Popcorn Panic to win hidden prizes/ })).toBeVisible()
     // Continuing goes straight on to the next PlotMix.

@@ -7363,32 +7363,72 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
     <div style={{minHeight:"100dvh",position:"relative",paddingLeft:20,paddingRight:20,paddingBottom:24,overflowX:"clip",...CHECKER_BG,color:T.textOnDark}}>
 
 
-      {arcadeOffer?.stage==="ask" && (
-        <div role="dialog" aria-label="Popcorn Panic offer" style={{position:"fixed",inset:0,zIndex:600,background:"rgba(0,0,0,0.55)",display:"flex",alignItems:"center",justifyContent:"center",padding:18}}>
-          <div style={{width:"100%",maxWidth:340,background:T.bgDeep,border:`2px solid ${T.border}`,borderRadius:16,boxShadow:T.shadowLg,padding:"22px 20px",textAlign:"center",animation:reducedMotion?"none":"titlePop 0.4s ease both"}}>
-            <div style={{width:84,height:84,margin:"0 auto 8px"}}><ArcadeItemArt kind="popcorn" variant={2}/></div>
-            <div style={{...YELLOW_STICKER_TEXT,fontSize:18,textTransform:"uppercase",lineHeight:1.3}}>You've solved {runStreak} PlotMixes in a row!</div>
-            <p style={{fontFamily:"'Outfit',sans-serif",fontSize:15,margin:"8px 0 14px"}}>You've earned a round of Popcorn Panic.</p>
+      {arcadeOffer?.stage==="ask" && (() => {
+        // Owner 2026-11-07: the plain streak popup was "lame". Now a red cinema marquee with
+        // chasing bulbs, spotlight rays, a slammed-in streak number and a popcorn burst.
+        const bulbs = [];
+        for (let i = 0; i < 11; i++) { bulbs.push({ left:`${(i + 0.5) / 11 * 100}%`, top:0 }); bulbs.push({ left:`${(i + 0.5) / 11 * 100}%`, top:"100%" }); }
+        for (let i = 0; i < 16; i++) { bulbs.push({ left:0, top:`${(i + 0.5) / 16 * 100}%` }); bulbs.push({ left:"100%", top:`${(i + 0.5) / 16 * 100}%` }); }
+        const kernels = Array.from({length:14}, (_, i) => {
+          const ang = (-90 + (i - 6.5) * 13) * Math.PI / 180, dist = 120 + (i % 3) * 40;
+          return { i, dx:Math.round(Math.cos(ang) * dist), dy:Math.round(Math.sin(ang) * dist), rot:(i % 2 ? 1 : -1) * (120 + i * 25), delay:0.55 + (i % 4) * 0.05 };
+        });
+        return (
+        <div role="dialog" aria-label="Popcorn Panic offer" style={{position:"fixed",inset:0,zIndex:600,background:"rgba(8,5,20,0.78)",display:"flex",alignItems:"center",justifyContent:"center",padding:18,overflow:"hidden"}}>
+          {!reducedMotion && <div aria-hidden="true" style={{position:"absolute",left:"50%",top:"50%",width:"190vmax",height:"190vmax",marginLeft:"-95vmax",marginTop:"-95vmax",pointerEvents:"none",
+            background:"repeating-conic-gradient(from 0deg, rgba(255,216,77,0.16) 0deg 10deg, rgba(255,216,77,0) 10deg 24deg)",
+            WebkitMaskImage:"radial-gradient(circle, #000 0%, rgba(0,0,0,0.6) 30%, transparent 62%)",maskImage:"radial-gradient(circle, #000 0%, rgba(0,0,0,0.6) 30%, transparent 62%)",
+            animation:"offerRays 18s linear infinite, fadeIn 0.6s ease both"}}/>}
+          <div style={{position:"relative",width:"100%",maxWidth:340,animation:reducedMotion?"none":"offerDrop 0.6s cubic-bezier(.25,1.5,.5,1) both"}}>
+            <div style={{position:"relative",background:"linear-gradient(180deg,#C8173A 0%,#8E0C25 100%)",border:"4px solid #1C1D21",borderRadius:18,
+              boxShadow:"inset 0 0 0 6px #E9B23A, inset 0 0 0 9px #1C1D21, 0 10px 0 #1C1D21, 0 22px 50px rgba(0,0,0,0.6)",padding:"26px 22px 20px",textAlign:"center"}}>
+              {bulbs.map((b, i) => (
+                <span key={i} aria-hidden="true" style={{position:"absolute",left:b.left,top:b.top,width:11,height:11,margin:"-5.5px 0 0 -5.5px",borderRadius:"50%",border:"1.5px solid #1C1D21",
+                  background:"#FFF6C2",animation:reducedMotion?"none":`${i % 2 ? "offerBulbA" : "offerBulbB"} 0.4s steps(1) infinite`}}/>
+              ))}
+              <div style={{position:"relative",height:118,margin:"-62px auto 2px",display:"flex",justifyContent:"center"}}>
+                {!reducedMotion && kernels.map((k) => (
+                  <span key={k.i} aria-hidden="true" style={{position:"absolute",left:"50%",top:"45%",width:30,height:30,marginLeft:-15,marginTop:-15,pointerEvents:"none",
+                    "--dx":`${k.dx}px`,"--dy":`${k.dy}px`,"--rot":`${k.rot}deg`,animation:`offerKernel 1.3s cubic-bezier(.2,.8,.4,1) ${k.delay}s both`}}>
+                    <ArcadeItemArt kind="popcorn" variant={k.i % 12}/>
+                  </span>
+                ))}
+                <div style={{animation:reducedMotion?"none":"offerBucket 0.7s cubic-bezier(.3,1.6,.5,1) 0.25s both, offerWobble 2.2s ease-in-out 1.2s infinite",transformOrigin:"50% 90%"}}>
+                  <PopcornPanicLogo height={118}/>
+                </div>
+              </div>
+              <div style={{...YELLOW_STICKER_TEXT,fontSize:11,letterSpacing:"0.14em",textTransform:"uppercase",whiteSpace:"nowrap",opacity:0.95}}>★ Now showing ★</div>
+              <div role="heading" aria-level={2} aria-label={`You've solved ${runStreak} PlotMixes in a row!`} style={{display:"flex",alignItems:"baseline",justifyContent:"center",gap:8,margin:"2px 0 0"}}>
+                <span style={{...YELLOW_STICKER_TEXT,fontSize:64,lineHeight:1,WebkitTextStroke:"2.5px #1C1D21",
+                  textShadow:"0 6px 0 #1C1D21, 3px 3px 0 #1C1D21, -3px -3px 0 #1C1D21, 3px -3px 0 #1C1D21, -3px 3px 0 #1C1D21",
+                  animation:reducedMotion?"none":"offerSlam 0.55s cubic-bezier(.3,1.7,.5,1) 0.5s both"}}>{runStreak}</span>
+                <span style={{...WHITE_STICKER_TEXT,fontSize:26,lineHeight:1,WebkitTextStroke:"1.5px #1C1D21",textShadow:"0 4px 0 #1C1D21",textTransform:"uppercase",
+                  animation:reducedMotion?"none":"offerRise 0.45s cubic-bezier(.3,1.5,.5,1) 0.75s both"}}>in a row!</span>
+              </div>
+              <div style={{...WHITE_STICKER_TEXT,fontSize:13,textTransform:"uppercase",lineHeight:1.35,margin:"10px 0 14px",animation:reducedMotion?"none":"offerRise 0.45s ease 0.85s both"}}>You've earned a round of Popcorn Panic!</div>
             {arcadeOffer.badges?.length>0 && (
               <div style={{display:"flex",flexDirection:"column",gap:6,margin:"0 0 16px"}}>
                 {arcadeOffer.badges.map((b)=>(
-                  <div key={b.id} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"7px 10px",background:"#FFD84D",border:"2px solid #1C1D21",borderRadius:10}}>
+                  <div key={b.id} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"7px 10px",position:"relative",overflow:"hidden",background:"#FFD84D",border:"2px solid #1C1D21",borderRadius:10,boxShadow:"0 3px 0 #1C1D21",animation:reducedMotion?"none":"offerRise 0.45s cubic-bezier(.3,1.5,.5,1) 1.05s both"}}>
+                    {!reducedMotion && <span aria-hidden="true" style={{position:"absolute",top:0,bottom:0,left:0,width:"40%",background:"linear-gradient(100deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.85) 50%, rgba(255,255,255,0) 100%)",animation:"offerShine 2.4s ease-in-out 1.5s infinite"}}/>}
                     <span style={{fontSize:16}}>{b.emoji}</span>
                     <span style={{fontFamily:FONT_FIGMA_STICKER,fontSize:10.5,color:"#1C1D21",textTransform:"uppercase"}}>Badge unlocked: {b.name}</span>
                   </div>
                 ))}
               </div>
             )}
-            <button onClick={()=>setArcadeOffer({stage:"playing"})} style={{...BTN.primary,width:"100%",padding:"13px 0",marginBottom:10}}>
+            <button onClick={()=>setArcadeOffer({stage:"playing"})} style={{...BTN.primary,width:"100%",padding:"13px 0",marginBottom:10,animation:reducedMotion?"none":"offerRise 0.45s cubic-bezier(.3,1.5,.5,1) 1.2s both, offerGlow 1.4s ease-in-out 1.7s infinite"}}>
               <span style={{...WHITE_STICKER_TEXT,fontSize:13,textTransform:"uppercase",lineHeight:1.35}}>🍿 Play Popcorn Panic<br/><span style={{fontSize:10.5}}>to win hidden prizes</span></span>
             </button>
-            <button onClick={()=>{ setArcadeOffer(null); handleResultNext(); }} style={{...BTN.cyan,width:"100%",padding:"12px 0"}}>
+            <button onClick={()=>{ setArcadeOffer(null); handleResultNext(); }} style={{...BTN.cyan,width:"100%",padding:"12px 0",animation:reducedMotion?"none":"offerRise 0.45s cubic-bezier(.3,1.5,.5,1) 1.3s both"}}>
               <span style={{...WHITE_STICKER_TEXT,fontSize:12,textTransform:"uppercase"}}>Continue to the next PlotMix</span>
             </button>
-            <div style={{fontFamily:"'Outfit',sans-serif",fontSize:12,opacity:0.8,marginTop:10}}>Not now? Your round is saved: find Popcorn Panic under Speed Run on the menu.</div>
+              <div style={{fontFamily:"'Outfit',sans-serif",fontSize:12,color:"#FFE9A8",opacity:0.9,marginTop:10}}>Not now? Your round is saved: find Popcorn Panic under Speed Run on the menu.</div>
+            </div>
           </div>
         </div>
-      )}
+        );
+      })()}
       {arcadeOffer?.stage==="playing" && (
         <div style={{position:"fixed",inset:0,zIndex:650,overflowY:"auto"}}>
           <ArcadeScreen embedded reducedMotion={reducedMotion} onBack={()=>{ setArcadeOffer(null); handleResultNext(); }}/>
@@ -8110,6 +8150,17 @@ function PlotMixApp() {
         @keyframes slideUp { from{opacity:0;transform:translateY(20px)}  to{opacity:1;transform:translateY(0)} }
         @keyframes pulse   { 0%,100%{opacity:1} 50%{opacity:0.4} }
         @keyframes cancelStamp{ 0%{opacity:0;transform:translate(-50%,-50%) rotate(-12deg) scale(2.4)} 70%{opacity:1;transform:translate(-50%,-50%) rotate(-12deg) scale(0.94)} 100%{opacity:1;transform:translate(-50%,-50%) rotate(-12deg) scale(1)} }
+        @keyframes offerRays { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+        @keyframes offerDrop { 0%{opacity:0;transform:translateY(-60px) scale(0.7) rotate(-4deg)} 60%{opacity:1;transform:translateY(8px) scale(1.04) rotate(1deg)} 100%{transform:translateY(0) scale(1) rotate(0)} }
+        @keyframes offerBulbA { 0%,49%{background:#FFF6C2; box-shadow:0 0 9px 3px rgba(255,226,120,0.95)} 50%,100%{background:#B9862A; box-shadow:none} }
+        @keyframes offerBulbB { 0%,49%{background:#B9862A; box-shadow:none} 50%,100%{background:#FFF6C2; box-shadow:0 0 9px 3px rgba(255,226,120,0.95)} }
+        @keyframes offerBucket { 0%{opacity:0;transform:translateY(40px) scale(0.3)} 60%{opacity:1;transform:translateY(-8px) scale(1.12)} 100%{transform:translateY(0) scale(1)} }
+        @keyframes offerWobble { 0%,100%{transform:rotate(0)} 25%{transform:rotate(-4deg)} 75%{transform:rotate(4deg)} }
+        @keyframes offerKernel { 0%{opacity:0;transform:translate(0,0) scale(0.3) rotate(0)} 15%{opacity:1} 55%{opacity:1;transform:translate(var(--dx),var(--dy)) scale(1) rotate(var(--rot))} 100%{opacity:0;transform:translate(calc(var(--dx) * 1.2),calc(var(--dy) * -0.2 + 160px)) scale(0.8) rotate(var(--rot))} }
+        @keyframes offerSlam { 0%{opacity:0;transform:scale(3.2) rotate(-14deg)} 60%{opacity:1;transform:scale(0.88) rotate(4deg)} 100%{transform:scale(1) rotate(-3deg)} }
+        @keyframes offerRise { 0%{opacity:0;transform:translateY(14px) scale(0.92)} 100%{opacity:1;transform:translateY(0) scale(1)} }
+        @keyframes offerShine { 0%{transform:translateX(-120%)} 60%,100%{transform:translateX(320%)} }
+        @keyframes offerGlow { 0%,100%{box-shadow:0 4px 0 #1C1D21, 0 0 0 0 rgba(255,216,77,0)} 50%{box-shadow:0 4px 0 #1C1D21, 0 0 18px 6px rgba(255,216,77,0.75)} }
         @keyframes titlePop{ 0%{opacity:0;transform:scale(0.75)} 60%{transform:scale(1.06)} 100%{opacity:1;transform:scale(1)} }
         @keyframes impactShake { 0%{transform:translateX(0)} 25%{transform:translateX(-6px)} 50%{transform:translateX(5px)} 75%{transform:translateX(-3px)} 100%{transform:translateX(0)} }
         @keyframes impactFlash { 0%{opacity:0} 30%{opacity:1} 100%{opacity:0} }
