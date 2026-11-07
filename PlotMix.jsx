@@ -4510,6 +4510,8 @@ const CINEMA_KEYFRAMES = `
   @keyframes comingLine { 0%{opacity:0; transform:scale(1.25); letter-spacing:0.3em; filter:blur(4px)} 100%{opacity:1; transform:scale(1); letter-spacing:0.06em; filter:blur(0)} }
   @keyframes trailerOut { 0%,92%{opacity:1} 100%{opacity:0} }
   @keyframes smearFade { 0%{opacity:0.95; transform:rotate(var(--tilt)) scale(0.7)} 12%{opacity:0.95; transform:rotate(var(--tilt)) scale(1.05)} 60%{opacity:0.8; transform:rotate(var(--tilt)) scale(1)} 100%{opacity:0; transform:rotate(var(--tilt)) scale(0.85,0.6)} }
+  @keyframes calloutPop { 0%{transform:scale(0.2) rotate(-6deg); opacity:0} 60%{transform:scale(1.15) rotate(2deg); opacity:1} 100%{transform:scale(1) rotate(0)} }
+  @keyframes calloutLife { 0%,80%{opacity:1; transform:translateY(0)} 100%{opacity:0; transform:translateY(-18px)} }
   @keyframes bannerIn { 0%{transform:translateX(-50%) translateY(-24px) scale(0.6); opacity:0} 60%{transform:translateX(-50%) translateY(3px) scale(1.04); opacity:1} 100%{transform:translateX(-50%) translateY(0) scale(1)} }
   @keyframes burnLife { 0%{transform:translate(-50%,-50%) scale(0) rotate(0)} 12%{transform:translate(-50%,-50%) scale(1) rotate(10deg)} 88%{transform:translate(-50%,-50%) scale(1.04) rotate(40deg)} 100%{transform:translate(-50%,-50%) scale(0) rotate(50deg)} }
   @keyframes burnFlicker { 0%,100%{opacity:1} 50%{opacity:0.82} }
@@ -4880,6 +4882,7 @@ const TREX_PEEK_MS = 1100, TREX_ROAR_MS = 1300;
 // (owner feedback 2026-11-07: pausing the game was annoying, and the card went by too fast to read).
 const TRAILER_RAIN_MS = 3500, TRAILER_SPAWN_MS = 230;
 const BURN_MS = 4200, BURN_R = 74;
+const CALLOUT_MS = 1700; // how long a power-up's big name stays on screen
 // Each play gets the T-rex, a trailer and a film burn, in a random order, then the boss.
 const ARCADE_EVENT_SLOTS = [9000, 17000, 24000];
 const TRAILER_LINES = [
@@ -5300,6 +5303,7 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
   const [items, setItems] = useState([]);
   const [boost, setBoost] = useState(null);   // {type: "shield"|"double", until}
   const [flash, setFlash] = useState(null);   // {key, text, bad}
+  const [callout, setCallout] = useState(null); // big power-up name in mid-screen {key, big, small, color}
   const [result, setResult] = useState(null);
   const scoreRef = useRef(0);
   const livesRef = useRef(ARCADE_LIVES);
@@ -5686,6 +5690,12 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
   }, [phase]);
 
   const showFlash = (text, bad=false) => setFlash({ key: Date.now(), text, bad });
+  // Owner request 2026-11-07: every power-up says what it does, big, in the middle of the screen.
+  const shout = (big, small = "", color = "#FFD84D") => {
+    const key = ++idRef.current;
+    setCallout({ key, big, small, color });
+    setTimeout(() => setCallout((c) => (c && c.key === key ? null : c)), CALLOUT_MS);
+  };
 
   // A bad catch knocks the nacho tower over: the chips fly off and are lost.
   const toppleNachos = () => {
@@ -5833,20 +5843,24 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
         boostRef.current = { type: "vip", until: now + VIP_MS }; setBoost(boostRef.current);
         for (const p of itemsRef.current) if (ARCADE_KIND[p.kind]?.bad && !p.boss) { p.kind = "popcorn"; p.label = "Popcorn"; p.vip = true; }
         showFlash(`🎟️ Golden ticket! +${info.good * mult} · VIP: it's all popcorn!`);
+        shout("VIP!", "Everything turns to popcorn");
       }
       if (it.kind === "butter") {
         butterRef.current = BUTTER_CATCHES; setButter(BUTTER_CATCHES); slideRef.current.v = 0;
-        showFlash(`🧈 Buttered! The next ${BUTTER_CATCHES} catches score double… slippery!`); SFX.badge(); buzz([15, 30, 15]);
+        showFlash(`🧈 Buttered! The next ${BUTTER_CATCHES} catches score double… slippery!`);
+        shout("2× POINTS!", `${BUTTER_CATCHES} catches · slippery!`); SFX.badge(); buzz([15, 30, 15]);
       }
       if (it.kind === "nacho") {
         nachoRef.current = { until: now + NACHO_MS, chips: 0 }; setNacho({ ...nachoRef.current });
-        showFlash("🧀 Nacho tower! Stack chips, but don't let a bad bit knock it over"); SFX.badge(); buzz([15, 30, 15]);
+        showFlash("🧀 Nacho tower! Stack chips, but don't let a bad bit knock it over");
+        shout("NACHO TOWER!", "Stack chips · dodge bad bits", "#FFB23E"); SFX.badge(); buzz([15, 30, 15]);
       }
       if (it.kind === "canister") spinJackpot();
       if (it.kind === "reel") {
         if (livesRef.current < ARCADE_LIVES) {
           livesRef.current += 1; setLives(livesRef.current);
           showFlash(`🎞️ Film reel! +${info.good * mult} · Rewind: +1 life`);
+          shout("+1 LIFE!", "Film reel rewind", "#FF8FA3");
         } else showFlash(`🎞️ Film reel! +${info.good * mult}`);
       }
       if (!it.frenzy && now >= frenzyUntilRef.current) frenzyRunRef.current += 1;
@@ -5855,6 +5869,7 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
         frenzyUntilRef.current = now + FRENZY_MS;
         setFrenzy(true);
         showFlash("🍿 POPCORN FRENZY!");
+        shout("POPCORN FRENZY!", "It's raining popcorn");
         SFX.complete(); buzz([20, 30, 20, 30, 20]);
       }
       return;
@@ -5862,11 +5877,12 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
     if (it.kind === "candy") {
       const options = livesRef.current < ARCADE_LIVES ? ["life", "shield", "double"] : ["shield", "double"];
       const pick = options[Math.floor(Math.random() * options.length)];
-      if (pick === "life") { livesRef.current += 1; setLives(livesRef.current); showFlash("🍫 Extra life!"); }
+      if (pick === "life") { livesRef.current += 1; setLives(livesRef.current); showFlash("🍫 Extra life!"); shout("+1 LIFE!", "", "#FF8FA3"); }
       else {
         boostRef.current = { type: pick, until: Date.now() + BOOST_MS };
         setBoost(boostRef.current);
         showFlash(pick === "shield" ? "🍫 Shield: bad bits can't hurt you!" : "🍫 Sugar rush: double points!");
+        if (pick === "shield") shout("SHIELD!", "Bad bits can't hurt you", "#9FE0FF"); else shout("2× POINTS!", "Sugar rush");
       }
       SFX.badge(); buzz([15, 30, 15]);
       return;
@@ -5874,17 +5890,20 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
     if (it.kind === "glasses") {
       boostRef.current = { type: "slow", until: Date.now() + SLOWMO_MS };
       setBoost(boostRef.current);
-      showFlash("🕶️ 3D glasses: slow motion!"); SFX.badge(); buzz([15, 30, 15]);
+      showFlash("🕶️ 3D glasses: slow motion!");
+      shout("SLOW-MO!", "3D glasses on", "#C9A7FF"); SFX.badge(); buzz([15, 30, 15]);
       return;
     }
     if (it.kind === "slushie") {
       freezeUntilRef.current = Date.now() + FREEZE_MS; setFrozen(true);
-      showFlash("🥶 Brain freeze! Bad bits frozen solid"); SFX.badge(); buzz([15, 30, 15]);
+      showFlash("🥶 Brain freeze! Bad bits frozen solid");
+      shout("BRAIN FREEZE!", "Bad bits frozen solid", "#9FE0FF"); SFX.badge(); buzz([15, 30, 15]);
       return;
     }
     if (it.kind === "gummy") {
       gummyUntilRef.current = Date.now() + GUMMY_MS; setWide(true);
-      showFlash("🪱 Sour power! Mega bucket"); SFX.badge(); buzz([15, 30, 15]);
+      showFlash("🪱 Sour power! Mega bucket");
+      shout("DOUBLE BUCKET!", "Twice the catch", "#8CF07A"); SFX.badge(); buzz([15, 30, 15]);
       return;
     }
     if (it.kind === "licorice") {
@@ -5898,23 +5917,27 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
       setLassos((ls) => [...ls, { id: lid, from: { x: bx, y: by }, to: goods.map((p) => ({ x: p.x, y: p.y })) }]);
       setTimeout(() => setLassos((ls) => ls.filter((l) => l.id !== lid)), 600);
       showFlash(goods.length ? `🍬 Yee-haw! Licorice lasso` : "🍬 Licorice lasso… nothing to rope");
+      shout("YEE-HAW!", goods.length ? "Licorice lasso" : "Nothing to rope…", "#FF6B6B");
       SFX.badge(); buzz([15, 30, 15]);
       goods.forEach((p) => catchItem(p));
       return;
     }
     if (it.kind === "jaw") {
       jawRef.current = 1; setJaw(1);
-      showFlash("🍭 Jawbreaker! The next bad bit bounces off"); SFX.badge(); buzz([15, 30, 15]);
+      showFlash("🍭 Jawbreaker! The next bad bit bounces off");
+      shout("BOUNCE!", "Next bad bit bounces off", "#FF9BE0"); SFX.badge(); buzz([15, 30, 15]);
       return;
     }
     if (it.kind === "rocket") {
       rocketsRef.current = Math.min(ROCKET_MAX, rocketsRef.current + 1); setRockets(rocketsRef.current);
-      showFlash("🚀 Rocket loaded! Tap to launch"); SFX.badge(); buzz([15, 30, 15]);
+      showFlash("🚀 Rocket loaded! Tap to launch");
+      shout("ROCKET!", "Tap to launch"); SFX.badge(); buzz([15, 30, 15]);
       return;
     }
     if (it.kind === "clapper") {
       laserRef.current = { charges: LASER_MAX, nextAt: 0 }; setLaser(LASER_MAX);
-      showFlash("🎬 Action! Laser fully charged"); SFX.clap?.(); buzz([15, 30, 15]);
+      showFlash("🎬 Action! Laser fully charged");
+      shout("ACTION!", "Laser fully charged"); SFX.clap?.(); buzz([15, 30, 15]);
       return;
     }
     // A jawbreaker in the bucket: this bad piece bounces off and nothing is lost.
@@ -6238,6 +6261,15 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
                 "--dx":`${(i % 2 ? 1 : -1) * (60 + i * 18)}px`,"--dy":`${-40 + i * 25}px`,"--rot":`${(i % 2 ? 1 : -1) * (200 + i * 40)}deg`,
                 animation:"chipFly 0.75s cubic-bezier(.2,.7,.4,1) both"}}/>
           ))}
+          {callout && (
+            <div key={callout.key} role="status" aria-label={`Power-up: ${callout.big}`} style={{position:"absolute",left:0,right:0,top:"34%",zIndex:8,pointerEvents:"none",
+              display:"flex",flexDirection:"column",alignItems:"center",gap:4,textAlign:"center",
+              animation:reducedMotion ? "none" : `calloutLife ${CALLOUT_MS}ms ease both`}}>
+              <div style={{...WHITE_STICKER_TEXT,fontSize:callout.big.length > 12 ? 30 : 40,lineHeight:1,color:callout.color,letterSpacing:"0.02em",whiteSpace:"nowrap",
+                WebkitTextStroke:"2px #1C1D21",textShadow:"0 5px 0 #1C1D21, 2px 2px 0 #1C1D21, -2px -2px 0 #1C1D21, 2px -2px 0 #1C1D21, -2px 2px 0 #1C1D21",animation:reducedMotion ? "none" : "calloutPop 0.45s cubic-bezier(.3,1.6,.5,1) both"}}>{callout.big}</div>
+              {callout.small && <div style={{...WHITE_STICKER_TEXT,fontSize:15,textTransform:"uppercase",animation:reducedMotion ? "none" : "comingLine 0.4s ease-out 0.15s both"}}>{callout.small}</div>}
+            </div>
+          )}
           {/* The butter trail: overlapping blobs share one outline, so they read as a single smear. */}
           {smears.length > 0 && (
             <div aria-hidden="true" style={{position:"absolute",left:0,right:0,bottom:0,height:40,zIndex:3,pointerEvents:"none",
