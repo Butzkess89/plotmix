@@ -4503,15 +4503,13 @@ const CINEMA_KEYFRAMES = `
   @keyframes trexRoar { 0%{transform:translateX(-30%) scale(0.92)} 18%{transform:translateX(0) scale(1.06) rotate(-3deg)} 30%{transform:translateX(-2%) scale(1.02) rotate(2deg)} 45%{transform:translateX(1%) rotate(-2deg)} 60%{transform:translateX(-1%) rotate(1deg)} 100%{transform:translateX(0) scale(1)} }
   @keyframes trexLeave { 0%{transform:translateX(0)} 100%{transform:translateX(-110%)} }
   @keyframes soundWave { 0%{opacity:0.95; transform:translate(-50%,-50%) scale(0.15)} 80%{opacity:0.5} 100%{opacity:0; transform:translate(-50%,-50%) scale(1)} }
-  @keyframes trailerBars { 0%{transform:scaleY(0)} 100%{transform:scaleY(1)} }
-  @keyframes trailerDim { 0%{opacity:0} 100%{opacity:1} }
-  @keyframes marqueeIn { 0%{transform:translate(-50%,-50%) scale(0.2) rotate(-8deg); opacity:0} 60%{transform:translate(-50%,-50%) scale(1.06) rotate(1.5deg); opacity:1} 100%{transform:translate(-50%,-50%) scale(1) rotate(0)} }
   @keyframes bulbA { 0%,49%{background:#FFF6C2; box-shadow:0 0 8px 3px rgba(255,226,120,0.95)} 50%,100%{background:#B9862A; box-shadow:none} }
   @keyframes bulbB { 0%,49%{background:#B9862A; box-shadow:none} 50%,100%{background:#FFF6C2; box-shadow:0 0 8px 3px rgba(255,226,120,0.95)} }
   @keyframes cornDogIn { 0%{transform:translateY(60px) rotate(-30deg) scale(0.4); opacity:0} 55%{transform:translateY(-8px) rotate(10deg) scale(1.1); opacity:1} 75%{transform:translateY(2px) rotate(-4deg) scale(0.97)} 100%{transform:translateY(0) rotate(0) scale(1)} }
   @keyframes cornDogDance { 0%,100%{transform:rotate(-6deg)} 50%{transform:rotate(6deg)} }
   @keyframes comingLine { 0%{opacity:0; transform:scale(1.25); letter-spacing:0.3em; filter:blur(4px)} 100%{opacity:1; transform:scale(1); letter-spacing:0.06em; filter:blur(0)} }
-  @keyframes trailerOut { 0%,82%{opacity:1} 100%{opacity:0} }
+  @keyframes trailerOut { 0%,92%{opacity:1} 100%{opacity:0} }
+  @keyframes bannerIn { 0%{transform:translateX(-50%) translateY(-24px) scale(0.6); opacity:0} 60%{transform:translateX(-50%) translateY(3px) scale(1.04); opacity:1} 100%{transform:translateX(-50%) translateY(0) scale(1)} }
   @keyframes burnLife { 0%{transform:translate(-50%,-50%) scale(0) rotate(0)} 12%{transform:translate(-50%,-50%) scale(1) rotate(10deg)} 88%{transform:translate(-50%,-50%) scale(1.04) rotate(40deg)} 100%{transform:translate(-50%,-50%) scale(0) rotate(50deg)} }
   @keyframes burnFlicker { 0%,100%{opacity:1} 50%{opacity:0.82} }
   @keyframes chipDrop { 0%{transform:translate(var(--cx),-70px) rotate(var(--cr)); opacity:0} 60%{opacity:1; transform:translate(var(--cx),3px) rotate(var(--cr))} 100%{transform:translate(var(--cx),0) rotate(var(--cr))} }
@@ -4877,7 +4875,9 @@ const BUTTER_CATCHES = 10;              // butter: the next 10 catches score dou
 const NACHO_MS = 8000, NACHO_MAX = 8, NACHO_PTS = 3; // nacho tower: chips stack, cash in at the end
 const BOSS_AT_MS = 30000, BOSS_HP = 3, BOSS_SIZE = 116, BOSS_FALL_MS = 10000;
 const TREX_PEEK_MS = 1100, TREX_ROAR_MS = 1300;
-const TRAILER_CARD_MS = 2600, TRAILER_RAIN_MS = 5000, TRAILER_SPAWN_MS = 230;
+// The trailer is a banner over the top of the arena that stays up for the whole corn dog rain
+// (owner feedback 2026-11-07: pausing the game was annoying, and the card went by too fast to read).
+const TRAILER_RAIN_MS = 5500, TRAILER_SPAWN_MS = 230;
 const BURN_MS = 4200, BURN_R = 74;
 // Each play gets the T-rex, a trailer and a film burn, in a random order, then the boss.
 const ARCADE_EVENT_SLOTS = [9000, 17000, 24000];
@@ -5347,7 +5347,7 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
   const [jackpot, setJackpot] = useState(null);       // {key, reels, win, done}
   const [trex, setTrex] = useState(null);             // {key, side, stage: peek|roar|leave}
   const [trailer, setTrailer] = useState(null);       // {key, lines}
-  const trailerRef = useRef({ card: 0, from: 0, until: 0 }); // trailer card, then the corn dog rain
+  const trailerRef = useRef({ from: 0, until: 0 }); // the corn dog rain under the trailer banner
   const [burn, setBurn] = useState(null);             // {key, x, y}
   const burnRef = useRef(null);                       // {x, y, start, until}
   const [shake, setShake] = useState(null);           // {key}: the arena shakes
@@ -5369,7 +5369,7 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
     jawRef.current = 0; setJaw(0); setLassos([]);
     butterRef.current = 0; setButter(0); slideRef.current = { v: 0, t: 0, x: null };
     nachoRef.current = { until: 0, chips: 0 }; setNacho(null); setToppled(null); setJackpot(null);
-    setTrex(null); setTrailer(null); trailerRef.current = { card: 0, from: 0, until: 0 }; burnRef.current = null; setBurn(null);
+    setTrex(null); setTrailer(null); trailerRef.current = { from: 0, until: 0 }; burnRef.current = null; setBurn(null);
     setShake(null); setPostCredits(false);
     setLaser(LASER_MAX); setBeams([]); setBooms([]); setTimeLeft(Math.ceil(ARCADE_GAME_MS / 1000));
     setScore(0); setLives(ARCADE_LIVES); setLevel(1); setCombo(0); setFrenzy(false);
@@ -5444,7 +5444,7 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
       // One surprise at a time: a due one waits until the last has cleared.
       for (const ev of events) if (!ev.done && now - startedAt >= ev.at && (now >= eventBusyUntil || ev.type === "boss")) {
         ev.done = true; runEvent(ev.type, W, H);
-        eventBusyUntil = now + ({ trex: TREX_PEEK_MS + TREX_ROAR_MS + 600, trailer: TRAILER_CARD_MS + 400, burn: BURN_MS }[ev.type] || 0);
+        eventBusyUntil = now + ({ trex: TREX_PEEK_MS + TREX_ROAR_MS + 600, trailer: TRAILER_RAIN_MS + 400, burn: BURN_MS }[ev.type] || 0);
       }
       // Butter makes the bucket slippery: it keeps sliding a little after the finger stops.
       if (butterRef.current > 0) {
@@ -5474,10 +5474,7 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
       }
       // Spawn: faster each level; a Popcorn Frenzy rains popcorn only. From level 3 pieces
       // drift sideways, and bats always swoop from side to side.
-      // The trailer card pauses the show: nothing falls or moves until it's over.
-      const carding = now >= trailerRef.current.card && now < trailerRef.current.from;
-      if (carding) nextSpawnAt = Math.max(nextSpawnAt, trailerRef.current.from);
-      if (!carding && now >= nextSpawnAt) {
+      if (now >= nextSpawnAt) {
         const vip = boostRef.current?.type === "vip" && now <= boostRef.current.until;
         const raining = now >= trailerRef.current.from && now < trailerRef.current.until;
         const it = raining ? ARCADE_KIND.corndog : inFrenzy || vip ? ARCADE_KIND.popcorn : pickArcadeItem(lv);
@@ -5502,7 +5499,6 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
       const half = ARCADE_ITEM / 2;
       const freezing = now < freezeUntilRef.current;
       for (const it of itemsRef.current) {
-        if (carding) { keep.push(it); continue; }
         const prevY = it.y;
         // A jawbreaker bounce: the piece flies back up and away under gravity, harmless.
         if (it.bounced) {
@@ -5702,12 +5698,9 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
       // Coming attractions: a trailer card, then a corn dog rain worth double points.
       const key = ++idRef.current;
       setTrailer({ key, lines: TRAILER_LINES[Math.floor(Math.random() * TRAILER_LINES.length)] });
-      trailerRef.current = { card: now, from: now + TRAILER_CARD_MS, until: now + TRAILER_CARD_MS + TRAILER_RAIN_MS };
+      trailerRef.current = { from: now, until: now + TRAILER_RAIN_MS };
       SFX.projector?.();
-      setTimeout(() => {
-        setTrailer((t) => (t && t.key === key ? null : t));
-        if (aliveRef.current) showFlash("🌭 Now showing: corn dogs! +2 each");
-      }, TRAILER_CARD_MS);
+      setTimeout(() => setTrailer((t) => (t && t.key === key ? null : t)), TRAILER_RAIN_MS);
     } else if (type === "burn") {
       // The film catches fire: a hole burns open, and pieces fall through it.
       const x = 70 + Math.random() * Math.max(10, W - 140), y = H * (0.22 + Math.random() * 0.25);
@@ -6148,38 +6141,31 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
               </svg>
             </div>
           )}
-          {/* Coming attractions (owner feedback 2026-11-06: a plain black box looked bad): the show
-              pauses, cinema bars close in, the lights dim, and a marquee card presents the corn dog. */}
+          {/* Coming attractions: a marquee banner across the top while corn dogs rain. The game keeps
+              running underneath (owner feedback 2026-11-07), and the banner stays up the whole rain. */}
           {trailer && (() => {
-            const CW = 300, CH = 236, bulbs = [];
-            const per = 2 * (CW + CH), n = 30;
+            const BW = 330, BH = 92, bulbs = [];
+            const per = 2 * (BW + BH), n = 32;
             for (let i = 0; i < n; i++) {
               let d = (i / n) * per, x, y;
-              if (d < CW) { x = d; y = 0; } else if ((d -= CW) < CH) { x = CW; y = d; } else if ((d -= CH) < CW) { x = CW - d; y = CH; } else { d -= CW; x = 0; y = CH - d; }
+              if (d < BW) { x = d; y = 0; } else if ((d -= BW) < BH) { x = BW; y = d; } else if ((d -= BH) < BW) { x = BW - d; y = BH; } else { d -= BW; x = 0; y = BH - d; }
               bulbs.push([x, y]);
             }
             return (
-              <div key={trailer.key} role="status" aria-label="Coming attractions" style={{position:"absolute",inset:0,zIndex:6,pointerEvents:"none",
-                animation:reducedMotion ? "none" : `trailerOut ${TRAILER_CARD_MS}ms ease both`}}>
-                <div style={{position:"absolute",inset:0,background:"radial-gradient(ellipse 70% 55% at 50% 46%, rgba(20,12,40,0.25) 0%, rgba(10,6,22,0.82) 70%, rgba(6,4,14,0.92) 100%)",
-                  animation:reducedMotion ? "none" : "trailerDim 0.35s ease both"}}/>
-                <div style={{position:"absolute",left:0,right:0,top:0,height:"11%",background:"#050507",transformOrigin:"50% 0",animation:reducedMotion ? "none" : "trailerBars 0.3s cubic-bezier(.2,.9,.3,1) both"}}/>
-                <div style={{position:"absolute",left:0,right:0,bottom:0,height:"11%",background:"#050507",transformOrigin:"50% 100%",animation:reducedMotion ? "none" : "trailerBars 0.3s cubic-bezier(.2,.9,.3,1) both"}}/>
-                <div style={{position:"absolute",left:"50%",top:"44%",width:CW,height:CH,transform:"translate(-50%,-50%)",
-                  animation:reducedMotion ? "none" : "marqueeIn 0.5s cubic-bezier(.3,1.4,.5,1) 0.15s both"}}>
-                  <div style={{position:"absolute",inset:0,borderRadius:18,background:"linear-gradient(180deg,#C8173A 0%,#8E0C25 100%)",
-                    border:"4px solid #1C1D21",boxShadow:"inset 0 0 0 6px #E9B23A, inset 0 0 0 9px #1C1D21, 0 10px 0 #1C1D21, 0 18px 40px rgba(0,0,0,0.6)"}}/>
-                  {bulbs.map(([x, y], i) => (
-                    <span key={i} aria-hidden="true" style={{position:"absolute",left:x - 5,top:y - 5,width:10,height:10,borderRadius:"50%",border:"1.5px solid #1C1D21",
-                      background:"#FFF6C2",animation:reducedMotion ? "none" : `${i % 2 ? "bulbA" : "bulbB"} 0.36s steps(1) infinite`}}/>
-                  ))}
-                  <div style={{position:"absolute",inset:"18px 16px 16px",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"space-between",textAlign:"center"}}>
-                    <div style={{...YELLOW_STICKER_TEXT,fontSize:11,letterSpacing:"0.12em",textTransform:"uppercase",whiteSpace:"nowrap"}}>★ Coming attractions ★</div>
-                    <div style={{...WHITE_STICKER_TEXT,fontSize:18,lineHeight:1.15,textTransform:"uppercase",animation:reducedMotion ? "none" : "comingLine 0.55s ease-out 0.4s both"}}>{trailer.lines[0]}</div>
-                    <img src={`${ARCADE_ART}corn-dog.webp`} alt="" draggable="false" style={{width:84,height:84,objectFit:"contain",filter:"drop-shadow(0 4px 0 rgba(0,0,0,0.45))",
-                      animation:reducedMotion ? "none" : "cornDogIn 0.55s cubic-bezier(.3,1.4,.5,1) 0.85s both, cornDogDance 0.5s ease-in-out 1.4s infinite"}}/>
-                    <div style={{...YELLOW_STICKER_TEXT,fontSize:15,lineHeight:1.15,textTransform:"uppercase",animation:reducedMotion ? "none" : "comingLine 0.55s ease-out 1.15s both"}}>{trailer.lines[1]}</div>
-                  </div>
+              <div key={trailer.key} role="status" aria-label="Coming attractions" style={{position:"absolute",left:"50%",top:12,width:BW,height:BH,zIndex:6,pointerEvents:"none",
+                transform:"translateX(-50%)",animation:reducedMotion ? "none" : `bannerIn 0.5s cubic-bezier(.3,1.4,.5,1) both, trailerOut ${TRAILER_RAIN_MS}ms ease both`}}>
+                <div style={{position:"absolute",inset:0,borderRadius:16,background:"linear-gradient(180deg,#C8173A 0%,#8E0C25 100%)",
+                  border:"4px solid #1C1D21",boxShadow:"inset 0 0 0 5px #E9B23A, inset 0 0 0 8px #1C1D21, 0 6px 0 #1C1D21, 0 12px 26px rgba(0,0,0,0.45)"}}/>
+                {bulbs.map(([x, y], i) => (
+                  <span key={i} aria-hidden="true" style={{position:"absolute",left:x - 4.5,top:y - 4.5,width:9,height:9,borderRadius:"50%",border:"1.5px solid #1C1D21",
+                    background:"#FFF6C2",animation:reducedMotion ? "none" : `${i % 2 ? "bulbA" : "bulbB"} 0.36s steps(1) infinite`}}/>
+                ))}
+                <img src={`${ARCADE_ART}corn-dog.webp`} alt="" draggable="false" style={{position:"absolute",left:12,top:8,width:76,height:76,objectFit:"contain",
+                  filter:"drop-shadow(0 3px 0 rgba(0,0,0,0.45))",animation:reducedMotion ? "none" : "cornDogIn 0.55s cubic-bezier(.3,1.4,.5,1) 0.2s both, cornDogDance 0.5s ease-in-out 0.75s infinite"}}/>
+                <div style={{position:"absolute",left:92,right:16,top:12,bottom:12,display:"flex",flexDirection:"column",justifyContent:"center",gap:3,textAlign:"left"}}>
+                  <div style={{...YELLOW_STICKER_TEXT,fontSize:10,letterSpacing:"0.12em",textTransform:"uppercase",whiteSpace:"nowrap"}}>★ Coming attractions ★</div>
+                  <div style={{...WHITE_STICKER_TEXT,fontSize:15,lineHeight:1.1,textTransform:"uppercase",animation:reducedMotion ? "none" : "comingLine 0.5s ease-out 0.25s both"}}>{trailer.lines[0]}</div>
+                  <div style={{...YELLOW_STICKER_TEXT,fontSize:13,lineHeight:1.1,textTransform:"uppercase",animation:reducedMotion ? "none" : "comingLine 0.5s ease-out 0.9s both"}}>{trailer.lines[1]}</div>
                 </div>
               </div>
             );
