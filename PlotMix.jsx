@@ -4509,6 +4509,7 @@ const CINEMA_KEYFRAMES = `
   @keyframes cornDogDance { 0%,100%{transform:rotate(-6deg)} 50%{transform:rotate(6deg)} }
   @keyframes comingLine { 0%{opacity:0; transform:scale(1.25); letter-spacing:0.3em; filter:blur(4px)} 100%{opacity:1; transform:scale(1); letter-spacing:0.06em; filter:blur(0)} }
   @keyframes trailerOut { 0%,92%{opacity:1} 100%{opacity:0} }
+  @keyframes smearFade { 0%{opacity:0.95; transform:rotate(var(--tilt)) scale(0.7)} 12%{opacity:0.95; transform:rotate(var(--tilt)) scale(1.05)} 60%{opacity:0.8; transform:rotate(var(--tilt)) scale(1)} 100%{opacity:0; transform:rotate(var(--tilt)) scale(0.85,0.6)} }
   @keyframes bannerIn { 0%{transform:translateX(-50%) translateY(-24px) scale(0.6); opacity:0} 60%{transform:translateX(-50%) translateY(3px) scale(1.04); opacity:1} 100%{transform:translateX(-50%) translateY(0) scale(1)} }
   @keyframes burnLife { 0%{transform:translate(-50%,-50%) scale(0) rotate(0)} 12%{transform:translate(-50%,-50%) scale(1) rotate(10deg)} 88%{transform:translate(-50%,-50%) scale(1.04) rotate(40deg)} 100%{transform:translate(-50%,-50%) scale(0) rotate(50deg)} }
   @keyframes burnFlicker { 0%,100%{opacity:1} 50%{opacity:0.82} }
@@ -4877,7 +4878,7 @@ const BOSS_AT_MS = 30000, BOSS_HP = 3, BOSS_SIZE = 116, BOSS_FALL_MS = 10000;
 const TREX_PEEK_MS = 1100, TREX_ROAR_MS = 1300;
 // The trailer is a banner over the top of the arena that stays up for the whole corn dog rain
 // (owner feedback 2026-11-07: pausing the game was annoying, and the card went by too fast to read).
-const TRAILER_RAIN_MS = 5500, TRAILER_SPAWN_MS = 230;
+const TRAILER_RAIN_MS = 3500, TRAILER_SPAWN_MS = 230;
 const BURN_MS = 4200, BURN_R = 74;
 // Each play gets the T-rex, a trailer and a film burn, in a random order, then the boss.
 const ARCADE_EVENT_SLOTS = [9000, 17000, 24000];
@@ -5341,6 +5342,8 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
   const butterRef = useRef(0);                        // buttered catches left
   const [butter, setButter] = useState(0);
   const slideRef = useRef({ v: 0, t: 0, x: null });   // bucket momentum while buttered
+  const smearRef = useRef({ x: null, list: [] });       // the butter trail the bucket leaves behind
+  const [smears, setSmears] = useState([]);
   const nachoRef = useRef({ until: 0, chips: 0 });
   const [nacho, setNacho] = useState(null);           // {chips, until}
   const [toppled, setToppled] = useState(null);       // {key, x, chips}: a knocked-over tower
@@ -5367,7 +5370,7 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
     catchesRef.current = 0; setCatches(0); rocketsRef.current = 0; setRockets(0); setRocketShots([]); setZapLearned(false);
     setLaunch(null); freezeUntilRef.current = 0; setFrozen(false); gummyUntilRef.current = 0; setWide(false);
     jawRef.current = 0; setJaw(0); setLassos([]);
-    butterRef.current = 0; setButter(0); slideRef.current = { v: 0, t: 0, x: null };
+    butterRef.current = 0; setButter(0); slideRef.current = { v: 0, t: 0, x: null }; smearRef.current = { x: null, list: [] }; setSmears([]);
     nachoRef.current = { until: 0, chips: 0 }; setNacho(null); setToppled(null); setJackpot(null);
     setTrex(null); setTrailer(null); trailerRef.current = { from: 0, until: 0 }; burnRef.current = null; setBurn(null);
     setShake(null); setPostCredits(false);
@@ -5455,6 +5458,25 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
           if (nx === hw || nx === W - hw) S.v = 0; else S.v *= Math.pow(0.985, dt);
           bucketXRef.current = nx; setBucketX(nx);
         }
+      }
+      // A buttered bucket leaves a yellow butter trail behind it as it slides (owner request 2026-11-07).
+      {
+        const M = smearRef.current, bxNow = bucketXRef.current;
+        let changed = false;
+        if (butterRef.current > 0 && bxNow !== null) {
+          if (M.x === null) M.x = bxNow;
+          const step = bxNow - M.x;
+          if (Math.abs(step) >= 12) {
+            const n = Math.min(6, Math.floor(Math.abs(step) / 12));
+            const offs = now < gummyUntilRef.current ? [-BUCKET_W / 2, BUCKET_W / 2] : [0];
+            for (let k = 1; k <= n; k++) for (const o of offs)
+              M.list.push({ id: ++idRef.current, x: M.x + (step * k) / n + o, born: now, w: 30 + Math.random() * 16, tilt: Math.round((Math.random() * 2 - 1) * 12) });
+            M.x = bxNow; changed = true;
+          }
+        } else M.x = null;
+        const before = M.list.length;
+        M.list = M.list.filter((m) => now - m.born < 1500).slice(-60);
+        if (changed || M.list.length !== before) setSmears(M.list.slice());
       }
       // The nacho tower cashes in when its time is up.
       if (nachoRef.current.until && now >= nachoRef.current.until) {
@@ -6216,6 +6238,17 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
                 "--dx":`${(i % 2 ? 1 : -1) * (60 + i * 18)}px`,"--dy":`${-40 + i * 25}px`,"--rot":`${(i % 2 ? 1 : -1) * (200 + i * 40)}deg`,
                 animation:"chipFly 0.75s cubic-bezier(.2,.7,.4,1) both"}}/>
           ))}
+          {/* The butter trail: overlapping blobs share one outline, so they read as a single smear. */}
+          {smears.length > 0 && (
+            <div aria-hidden="true" style={{position:"absolute",left:0,right:0,bottom:0,height:40,zIndex:3,pointerEvents:"none",
+              filter:"drop-shadow(2px 0 0 #1C1D21) drop-shadow(-2px 0 0 #1C1D21) drop-shadow(0 2px 0 #1C1D21) drop-shadow(0 -2px 0 #1C1D21)"}}>
+              {smears.map((m) => (
+                <span key={m.id} data-smear="" style={{position:"absolute",left:m.x - m.w / 2,bottom:4,width:m.w,height:15,borderRadius:"50%",
+                  background:"radial-gradient(ellipse 26% 20% at 50% 30%, #FFFBD6 0%, rgba(255,251,214,0) 100%), linear-gradient(180deg, #FFEC6E 0%, #FFD033 60%, #F2AE17 100%)",
+                  "--tilt":`${m.tilt / 3}deg`,transform:`rotate(${m.tilt / 3}deg)`,animation:reducedMotion ? "none" : "smearFade 1.5s ease-in both"}}/>
+              ))}
+            </div>
+          )}
           {bucketX !== null && <PopcornBox x={bucketX} charged={laser > 0} catches={catches} reducedMotion={reducedMotion} wide={wide} launch={launch} jaw={jaw > 0}
             buttered={butter > 0} chips={nacho ? nacho.chips : 0}/>}
           {bucketX !== null && showSlideHint && (
