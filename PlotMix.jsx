@@ -4512,6 +4512,7 @@ const CINEMA_KEYFRAMES = `
   @keyframes smearFade { 0%{opacity:1; transform:scaleX(0.6)} 12%{opacity:1; transform:scaleX(1.05)} 65%{opacity:0.9; transform:scaleX(1)} 100%{opacity:0; transform:scaleX(0.9)} }
   @keyframes calloutPop { 0%{transform:scale(0.2) rotate(-6deg); opacity:0} 60%{transform:scale(1.15) rotate(2deg); opacity:1} 100%{transform:scale(1) rotate(0)} }
   @keyframes calloutLife { 0%,80%{opacity:1; transform:translateY(0)} 100%{opacity:0; transform:translateY(-18px)} }
+  @keyframes butterGlint { 0%{opacity:0; transform:scale(0.2) rotate(0)} 40%{opacity:1; transform:scale(1.2) rotate(45deg)} 100%{opacity:0; transform:scale(0.4) rotate(90deg)} }
   @keyframes bannerIn { 0%{transform:translateX(-50%) translateY(-24px) scale(0.6); opacity:0} 60%{transform:translateX(-50%) translateY(3px) scale(1.04); opacity:1} 100%{transform:translateX(-50%) translateY(0) scale(1)} }
   @keyframes burnLife { 0%{transform:translate(-50%,-50%) scale(0) rotate(0)} 12%{transform:translate(-50%,-50%) scale(1) rotate(10deg)} 88%{transform:translate(-50%,-50%) scale(1.04) rotate(40deg)} 100%{transform:translate(-50%,-50%) scale(0) rotate(50deg)} }
   @keyframes burnFlicker { 0%,100%{opacity:1} 50%{opacity:0.82} }
@@ -5480,7 +5481,8 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
                 M.list.push({ id: ++idRef.current, x: M.x + (step * k) / n + o + (Math.random() * 2 - 1) * 4, born: now,
                   w: 18 + Math.random() * 30, h: 4 + Math.random() * 6, lift: Math.random() * 3,
                   shape: `${r()}% ${r()}% ${r()}% ${r()}% / ${r()}% ${r()}% ${r()}% ${r()}%`,
-                  drop: Math.random() < 0.3 ? { dx: (Math.random() * 2 - 1) * 16, dy: 7 + Math.random() * 6, d: 3 + Math.random() * 3 } : null });
+                  drop: Math.random() < 0.3 ? { dx: (Math.random() * 2 - 1) * 16, dy: 7 + Math.random() * 6, d: 3 + Math.random() * 3 } : null,
+                  shine: { at: 0.15 + Math.random() * 0.4, len: 0.25 + Math.random() * 0.3 }, glint: Math.random() < 0.22 });
               }
             M.x = bxNow; changed = true;
           }
@@ -6284,13 +6286,21 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
               {smears.map((m) => (
                 <Fragment key={m.id}>
                   <span data-smear="" style={{position:"absolute",left:m.x - m.w / 2,bottom:2 + m.lift,width:m.w,height:m.h,borderRadius:m.shape,
-                    background:"#FFD43B",animation:reducedMotion ? "none" : "smearFade 1.5s ease-in both"}}/>
+                    background:"linear-gradient(180deg, #FFF09A 0%, #FFF09A 38%, #FFD43B 38%, #FFC72C 100%)",animation:reducedMotion ? "none" : "smearFade 1.5s ease-in both"}}>
+                    <span style={{position:"absolute",left:`${m.shine.at * 100}%`,top:1,width:`${m.shine.len * 100}%`,height:Math.max(1.5, m.h * 0.28),borderRadius:99,background:"#FFFFFF"}}/>
+                  </span>
                   {m.drop && <span style={{position:"absolute",left:m.x + m.drop.dx - m.drop.d / 2,bottom:2 + m.drop.dy,width:m.drop.d,height:m.drop.d * 0.7,borderRadius:"50%",
                     background:"#FFD43B",animation:reducedMotion ? "none" : "smearFade 1.5s ease-in both"}}/>}
                 </Fragment>
               ))}
             </div>
           )}
+          {/* Glints sit outside the outlined layer so they stay pure white sparkles. */}
+          {smears.filter((m) => m.glint).map((m) => (
+            <span key={`g${m.id}`} aria-hidden="true" style={{position:"absolute",left:m.x - 6,bottom:6 + m.lift + m.h,width:12,height:12,zIndex:3,pointerEvents:"none",
+              background:"#FFFFFF",filter:"drop-shadow(0 0 3px #FFE97A)",clipPath:"polygon(50% 0,60% 40%,100% 50%,60% 60%,50% 100%,40% 60%,0 50%,40% 40%)",
+              animation:reducedMotion ? "none" : "butterGlint 0.9s ease-in-out both"}}/>
+          ))}
           {bucketX !== null && <PopcornBox x={bucketX} charged={laser > 0} catches={catches} reducedMotion={reducedMotion} wide={wide} launch={launch} jaw={jaw > 0}
             buttered={butter > 0} chips={nacho ? nacho.chips : 0}/>}
           {bucketX !== null && showSlideHint && (
