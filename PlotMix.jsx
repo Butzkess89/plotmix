@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useLayoutEffect, useRef, useCallback, forwardRef, useImperativeHandle, useId } from "react";
+import { useState, useEffect, useMemo, useLayoutEffect, useRef, useCallback, forwardRef, useImperativeHandle, useId, Fragment } from "react";
 import lottie from "lottie-web";
 
 // 
@@ -4509,7 +4509,7 @@ const CINEMA_KEYFRAMES = `
   @keyframes cornDogDance { 0%,100%{transform:rotate(-6deg)} 50%{transform:rotate(6deg)} }
   @keyframes comingLine { 0%{opacity:0; transform:scale(1.25); letter-spacing:0.3em; filter:blur(4px)} 100%{opacity:1; transform:scale(1); letter-spacing:0.06em; filter:blur(0)} }
   @keyframes trailerOut { 0%,92%{opacity:1} 100%{opacity:0} }
-  @keyframes smearFade { 0%{opacity:0.95; transform:rotate(var(--tilt)) scale(0.7)} 12%{opacity:0.95; transform:rotate(var(--tilt)) scale(1.05)} 60%{opacity:0.8; transform:rotate(var(--tilt)) scale(1)} 100%{opacity:0; transform:rotate(var(--tilt)) scale(0.85,0.6)} }
+  @keyframes smearFade { 0%{opacity:1; transform:scaleX(0.6)} 12%{opacity:1; transform:scaleX(1.05)} 65%{opacity:0.9; transform:scaleX(1)} 100%{opacity:0; transform:scaleX(0.9)} }
   @keyframes calloutPop { 0%{transform:scale(0.2) rotate(-6deg); opacity:0} 60%{transform:scale(1.15) rotate(2deg); opacity:1} 100%{transform:scale(1) rotate(0)} }
   @keyframes calloutLife { 0%,80%{opacity:1; transform:translateY(0)} 100%{opacity:0; transform:translateY(-18px)} }
   @keyframes bannerIn { 0%{transform:translateX(-50%) translateY(-24px) scale(0.6); opacity:0} 60%{transform:translateX(-50%) translateY(3px) scale(1.04); opacity:1} 100%{transform:translateX(-50%) translateY(0) scale(1)} }
@@ -5474,7 +5474,14 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
             const n = Math.min(6, Math.floor(Math.abs(step) / 12));
             const offs = now < gummyUntilRef.current ? [-BUCKET_W / 2, BUCKET_W / 2] : [0];
             for (let k = 1; k <= n; k++) for (const o of offs)
-              M.list.push({ id: ++idRef.current, x: M.x + (step * k) / n + o, born: now, w: 30 + Math.random() * 16, tilt: Math.round((Math.random() * 2 - 1) * 12) });
+              {
+                // Flat, uneven smears: varied widths and thickness, odd corners, and the odd stray drop.
+                const r = () => 30 + Math.round(Math.random() * 60);
+                M.list.push({ id: ++idRef.current, x: M.x + (step * k) / n + o + (Math.random() * 2 - 1) * 4, born: now,
+                  w: 18 + Math.random() * 30, h: 4 + Math.random() * 6, lift: Math.random() * 3,
+                  shape: `${r()}% ${r()}% ${r()}% ${r()}% / ${r()}% ${r()}% ${r()}% ${r()}%`,
+                  drop: Math.random() < 0.3 ? { dx: (Math.random() * 2 - 1) * 16, dy: 7 + Math.random() * 6, d: 3 + Math.random() * 3 } : null });
+              }
             M.x = bxNow; changed = true;
           }
         } else M.x = null;
@@ -6273,11 +6280,14 @@ function ArcadeScreen({onBack, reducedMotion=false, embedded=false}) {
           {/* The butter trail: overlapping blobs share one outline, so they read as a single smear. */}
           {smears.length > 0 && (
             <div aria-hidden="true" style={{position:"absolute",left:0,right:0,bottom:0,height:40,zIndex:3,pointerEvents:"none",
-              filter:"drop-shadow(2px 0 0 #1C1D21) drop-shadow(-2px 0 0 #1C1D21) drop-shadow(0 2px 0 #1C1D21) drop-shadow(0 -2px 0 #1C1D21)"}}>
+              filter:"drop-shadow(1.5px 0 0 #1C1D21) drop-shadow(-1.5px 0 0 #1C1D21) drop-shadow(0 1.5px 0 #1C1D21) drop-shadow(0 -1.5px 0 #1C1D21)"}}>
               {smears.map((m) => (
-                <span key={m.id} data-smear="" style={{position:"absolute",left:m.x - m.w / 2,bottom:4,width:m.w,height:15,borderRadius:"50%",
-                  background:"radial-gradient(ellipse 26% 20% at 50% 30%, #FFFBD6 0%, rgba(255,251,214,0) 100%), linear-gradient(180deg, #FFEC6E 0%, #FFD033 60%, #F2AE17 100%)",
-                  "--tilt":`${m.tilt / 3}deg`,transform:`rotate(${m.tilt / 3}deg)`,animation:reducedMotion ? "none" : "smearFade 1.5s ease-in both"}}/>
+                <Fragment key={m.id}>
+                  <span data-smear="" style={{position:"absolute",left:m.x - m.w / 2,bottom:2 + m.lift,width:m.w,height:m.h,borderRadius:m.shape,
+                    background:"#FFD43B",animation:reducedMotion ? "none" : "smearFade 1.5s ease-in both"}}/>
+                  {m.drop && <span style={{position:"absolute",left:m.x + m.drop.dx - m.drop.d / 2,bottom:2 + m.drop.dy,width:m.drop.d,height:m.drop.d * 0.7,borderRadius:"50%",
+                    background:"#FFD43B",animation:reducedMotion ? "none" : "smearFade 1.5s ease-in both"}}/>}
+                </Fragment>
               ))}
             </div>
           )}
