@@ -3402,7 +3402,7 @@ function marqueeBulbs(w, h, gap = 22) {
 }
 const MARQUEE_BULBS = marqueeBulbs(352, 78, 24);
 
-function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, roundScore, bonus=null, onBonus, cardIdx, totalCards, results=[], isLast, onNext, onMenu, skipped=false, timedOut=false, outOfPoints=false, budgetLeft=0, showSticker=false, stickerSrc=null, stickerDurationMs=2200, onStickerEnded, reducedMotion=false, transitionFamily=TRANSITION_FAMILIES.punchy}) {
+function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, roundScore, bonus=null, onBonus, cardIdx, totalCards, results=[], isLast, onNext, onMenu, skipped=false, timedOut=false, outOfPoints=false, budgetLeft=0, isDaily=false, showSticker=false, stickerSrc=null, stickerDurationMs=2200, onStickerEnded, reducedMotion=false, transitionFamily=TRANSITION_FAMILIES.punchy}) {
   const both = found[0] && found[1];
   const won = both;
   const msgRef = useRef(null);
@@ -3465,6 +3465,10 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
     return null;
   };
   const dotCount=Math.max(totalCards,1);
+  // Daily Challenge is one card, so a lone progress dot (green check) says nothing: hide it
+  // and centre the money bag / T-rex instead (owner request 2026-11-08).
+  const showDots=!isDaily && dotCount>1;
+  const bagX=showDots ? 105 : 201;
   const [dotRevealCount, setDotRevealCount] = useState(reducedMotion ? dotCount : 0);
   const resultLottieSrc = won
     ? LOTTIE_ASSETS.roundWin
@@ -3709,7 +3713,7 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
               <FilmTicket chip={bottomTicket} frame={2} serial={String(312201 + (card.id||0) * 2).slice(-6)} tone={["#DAC7A2", "#D2BC94"]} tilt={TILT2} style={{width:"100%",height:"100%",...smashIn(240, 280, "")}}/>
             </div>
 
-            {roundScore > 0 && !trexLeaving && <div style={{position:"absolute",left:rx(105),top:my(356.5),width:76,transform:"translate(-50%,-50%)",...stagedRise(320, 8, "translate(-50%,-50%)")}}>
+            {roundScore > 0 && !trexLeaving && <div style={{position:"absolute",left:rx(bagX),top:my(356.5),width:76,transform:"translate(-50%,-50%)",...stagedRise(320, 8, "translate(-50%,-50%)")}}>
               {bagPop > 0 && !reducedMotion && <div key={`flare${bagPop}`} aria-hidden="true" style={{position:"absolute",left:"50%",top:"55%",width:170,height:170,margin:"-85px 0 0 -85px",borderRadius:"50%",pointerEvents:"none",zIndex:-1,
                 background:"repeating-conic-gradient(from 0deg, rgba(255,216,77,0.95) 0deg 9deg, rgba(255,216,77,0) 9deg 24deg)",
                 WebkitMask:"radial-gradient(circle, #000 18%, rgba(0,0,0,0.7) 40%, transparent 70%)",mask:"radial-gradient(circle, #000 18%, rgba(0,0,0,0.7) 40%, transparent 70%)",
@@ -3720,7 +3724,7 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
               </div>
               <div style={{...POPUP_YELLOW_TEXT,position:"absolute",left:"50%",top:"100%",marginTop:2,transform:"translateX(-50%)",fontSize:9.5,lineHeight:1,textTransform:"uppercase",whiteSpace:"nowrap"}}>Bonus budget</div>
             </div>}
-            {(roundScore === 0 || trexLeaving) && <img src="/stickers/Very-happy.webp" alt="" aria-hidden="true" width="136" height="136" style={{position:"absolute",left:rx(105),top:my(358),width:136,height:136,transform:"translate(-50%,-50%)",filter:"drop-shadow(0 3px 0 rgba(28,29,33,0.6))",
+            {(roundScore === 0 || trexLeaving) && <img src="/stickers/Very-happy.webp" alt="" aria-hidden="true" width="136" height="136" style={{position:"absolute",left:rx(bagX),top:my(358),width:136,height:136,transform:"translate(-50%,-50%)",filter:"drop-shadow(0 3px 0 rgba(28,29,33,0.6))",
               ...(trexLeaving && !reducedMotion ? {animation:"trexPop 0.42s cubic-bezier(.4,0,.8,.4) both"} : stagedRise(320, 8, "translate(-50%,-50%)"))}}/>}
             {!reducedMotion && WIN_FLASH_SPOTS.map(([x,y],i)=>(
               <div key={`f${i}`} aria-hidden="true" style={{position:"absolute",left:`${x}%`,top:`${y}%`,width:96,height:96,opacity:0,pointerEvents:"none",zIndex:4,
@@ -3728,7 +3732,7 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
                 animation:`flashPop 0.55s ease-out ${WIN_FLASH_TIMES[i]/1000 - 0.04}s 1 both`}}/>
             ))}
 
-            <div style={{position:"absolute",left:rx(290),top:my(356.5),transform:"translate(-50%,-50%)",display:"grid",gridTemplateColumns:"repeat(5, 26px)",gridTemplateRows:"repeat(2, 26px)",gap:"14px 9px",justifyContent:"center",...stagedRise(360, 8, "translate(-50%,-50%)")}}>
+            {showDots && <div aria-label="Card results" style={{position:"absolute",left:rx(290),top:my(356.5),transform:"translate(-50%,-50%)",display:"grid",gridTemplateColumns:"repeat(5, 26px)",gridTemplateRows:"repeat(2, 26px)",gap:"14px 9px",justifyContent:"center",...stagedRise(360, 8, "translate(-50%,-50%)")}}>
               {Array.from({length:dotCount}).map((_,i)=>{
                 const bg = dotFor(i);
                 const glyph = glyphFor(i);
@@ -3738,7 +3742,7 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
                   </div>
                 );
               })}
-            </div>
+            </div>}
           </div>
 
           {bonus && (<>
@@ -3757,7 +3761,7 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
               })}
               {bonus.answer && (
                 <div role="status" aria-label="Bonus result" style={{...POPUP_YELLOW_TEXT,color:"#F6A507",fontSize:11.5,textTransform:"uppercase",position:"absolute",left:rx(204),top:92,width:rx(370),transform:"translate(-50%,-50%)",lineHeight:1}}>
-                  {bonus.answer.correct ? (bonus.capped ? `✓ Film buff! Budget's already maxed at ${money(STARTING_BUDGET)}` : `✓ Film buff! +${money(1)} to the budget`) : "✗ Nope, the other one. No bonus."}
+                  {bonus.answer.correct ? (isDaily ? "✓ Film buff! Certified cinephile" : bonus.capped ? `✓ Film buff! Budget's already maxed at ${money(STARTING_BUDGET)}` : `✓ Film buff! +${money(1)} to the budget`) : "✗ Nope, the other one. No bonus."}
                 </div>
               )}
             </div>
@@ -3803,7 +3807,7 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"nowrap"}}>
               <div style={{marginLeft:SKIP_BAG_NUDGE_X}}><MoneyBag text={money(budgetLeft)} ariaLabel="Budget left" label="Budget left"/></div>
 
-              <div style={{display:"grid",gridTemplateColumns:"repeat(5, 26px)",gridTemplateRows:"repeat(2, 26px)",gap:"12px 9px",justifyContent:"center",marginRight:2}}>
+              <div style={{display:showDots?"grid":"none",gridTemplateColumns:"repeat(5, 26px)",gridTemplateRows:"repeat(2, 26px)",gap:"12px 9px",justifyContent:"center",marginRight:2}}>
                 {Array.from({length:dotCount}).map((_,i)=>{
                   const bg = dotFor(i);
                   const glyph = glyphFor(i);
@@ -3887,7 +3891,7 @@ function RoundResultPopup({card, found, guessCount, hintCount, maxGuesses, round
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"nowrap"}}>
               <div style={{marginLeft:SKIP_BAG_NUDGE_X}}><MoneyBag text={money(budgetLeft)} ariaLabel="Budget left" label="Budget left"/></div>
 
-              <div style={{display:"grid",gridTemplateColumns:"repeat(5, 26px)",gridTemplateRows:"repeat(2, 26px)",gap:"12px 9px",justifyContent:"center",marginRight:2}}>
+              <div style={{display:showDots?"grid":"none",gridTemplateColumns:"repeat(5, 26px)",gridTemplateRows:"repeat(2, 26px)",gap:"12px 9px",justifyContent:"center",marginRight:2}}>
                 {Array.from({length:dotCount}).map((_,i)=>{
                   const bg = dotFor(i);
                   const glyph = glyphFor(i);
@@ -7489,6 +7493,7 @@ function GameScreen({mode,deck,initialState,onQuit,onComplete,reducedMotion=fals
           maxGuesses={mode.maxGuesses}
           roundScore={Math.min(roundScore+bonusPts, budgetRoom)}
           budgetLeft={Math.max(0,currentReward)}
+          isDaily={mode.isDaily}
           bonus={bonusEligible ? {films:card.movies, years:filmYears, answer:whichFirst, capped:roundScore+bonusPts > budgetRoom} : null}
           onBonus={handleBonus}
           cardIdx={cardIdx}

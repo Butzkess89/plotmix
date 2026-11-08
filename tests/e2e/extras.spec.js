@@ -141,6 +141,20 @@ test.describe('7. Which came first? bonus', () => {
     expect(s.results[0]).toMatchObject({ pts: 1, bonus: 1 })
   })
 
+  // Daily Challenge is a single card (owner request 2026-11-08): no budget line, no lone check dot.
+  test('in the Daily Challenge, a right answer skips the budget talk', async ({ page }) => {
+    await pinDailyDate(page)
+    await openMenu(page)
+    await startMode(page, 'daily')
+    const card = await currentCard(page, 'daily')
+    const [a, b] = card.hintData.films
+    await submitGuess(page, card.mashedTitle)
+    const oldest = Number(a.year) < Number(b.year) ? card.movies[0] : card.movies[1]
+    await page.getByRole('group', { name: 'Which came first?' }).getByRole('button', { name: `${oldest} came first` }).click()
+    await expect(page.getByRole('status', { name: 'Bonus result' })).toHaveText('✓ Film buff! Certified cinephile')
+    await expect(page.getByLabel('Card results')).toHaveCount(0)
+  })
+
   test('a wrong answer scores nothing extra', async ({ page }) => {
     await resumeStandardWithCards(page, [77, 1])
     await submitGuess(page, card77().mashedTitle)
