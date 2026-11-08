@@ -141,6 +141,20 @@ test.describe('7. Which came first? bonus', () => {
     expect(s.results[0]).toMatchObject({ pts: 1, bonus: 1 })
   })
 
+  // Daily Challenge is a single card (owner request 2026-11-08): no budget line, no lone check dot.
+  test('in the Daily Challenge, a right answer skips the budget talk', async ({ page }) => {
+    await pinDailyDate(page)
+    await openMenu(page)
+    await startMode(page, 'daily')
+    const card = await currentCard(page, 'daily')
+    const [a, b] = card.hintData.films
+    await submitGuess(page, card.mashedTitle)
+    const oldest = Number(a.year) < Number(b.year) ? card.movies[0] : card.movies[1]
+    await page.getByRole('group', { name: 'Which came first?' }).getByRole('button', { name: `${oldest} came first` }).click()
+    await expect(page.getByRole('status', { name: 'Bonus result' })).toHaveText('✓ Film buff! Certified cinephile')
+    await expect(page.getByLabel('Card results')).toHaveCount(0)
+  })
+
   test('a wrong answer scores nothing extra', async ({ page }) => {
     await resumeStandardWithCards(page, [77, 1])
     await submitGuess(page, card77().mashedTitle)
@@ -204,7 +218,8 @@ test.describe('Holiday decorations', () => {
 
 test.describe('Popcorn Panic feedback', () => {
   test('each speed-up shows a VHS fast-forward key being pressed', async ({ page }) => {
-    await page.addInitScript(() => localStorage.setItem('plotmix_arcade_passes', '1'))
+    // Only popcorn falls, so random bad catches can't end the play before the first speed-up (5 s).
+    await page.addInitScript(() => { localStorage.setItem('plotmix_arcade_passes', '1'); Math.random = () => 0.1 })
     await openMenu(page)
     await page.getByRole('button', { name: 'Popcorn Panic', exact: true }).click()
     await page.getByRole('button', { name: 'Play Popcorn Panic' }).click()
@@ -309,7 +324,7 @@ test.describe('Owner fixes 2026-10-26', () => {
 
 // Owner question 2026-10-26: "how can the player even know they have a laser?"
 test.describe('Learning the laser', () => {
-  test('the first bad piece gets a "tap it to zap it" target until the first zap, then never again', async ({ page }) => {
+  test('each play, the first bad piece gets a "tap it to zap it" target until the first zap of that play', async ({ page }) => {
     await page.addInitScript(() => {
       if (!sessionStorage.getItem('seeded')) { localStorage.setItem('plotmix_arcade_passes', '2'); sessionStorage.setItem('seeded', '1') }
       let n = 0; Math.random = () => 0.6 + (n++ % 2) * 0.01 // only burnt popcorn, in one spot
@@ -324,13 +339,11 @@ test.describe('Learning the laser', () => {
     await page.mouse.click(box.x + box.width / 2, 800)
     await expect(page.getByLabel('Arcade event')).toHaveText(/Zapped!/)
     await expect(coach).toHaveCount(0)
-    expect(await page.evaluate(() => localStorage.getItem('plotmix_zap_learned'))).toBe('true')
-    // Next game: no coach.
+    // Next game: the coach is back (owner request 2026-11-05).
     await openMenu(page)
     await page.getByRole('button', { name: 'Popcorn Panic', exact: true }).click()
     await page.getByRole('button', { name: 'Play Popcorn Panic' }).click()
-    await expect(page.getByRole('img', { name: 'Burnt popcorn', exact: true }).first()).toBeAttached({ timeout: 10_000 })
-    await expect(coach).toHaveCount(0)
+    await expect(coach).toContainText('Tap it to zap it!', { timeout: 10_000 })
   })
 })
 
